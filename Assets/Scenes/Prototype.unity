@@ -387,10 +387,17 @@ MonoBehaviour:
   destructibleDensity: 0.55
   randomSeed: 0
   playerMoveSpeed: 6
+  playerAcceleration: 28
+  playerDeceleration: 36
+  playerTurnSpeed: 14
+  playerModelPrefab: {fileID: 0}
+  playerAnimatorController: {fileID: 9100000, guid: 11111111111111111111111111111111, type: 2}
   maxBombs: 1
   blastRange: 1
   bombFuseTime: 2
+  playerCanDieFromBomb: 0
   playerRestartDelay: 1
+  spawnEnemies: 0
   onealCount: 3
   dahlCount: 3
   enemyMoveSpeed: 3

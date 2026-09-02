@@ -22,12 +22,19 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     [Header("Player")]
     [SerializeField] private float playerMoveSpeed = 6f;
+    [SerializeField] private float playerAcceleration = 28f;
+    [SerializeField] private float playerDeceleration = 36f;
+    [SerializeField] private float playerTurnSpeed = 14f;
+    [SerializeField] private GameObject playerModelPrefab;
+    [SerializeField] private RuntimeAnimatorController playerAnimatorController;
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
     [SerializeField] private float bombFuseTime = 2f;
+    [SerializeField] private bool playerCanDieFromBomb = false;
     [SerializeField] private float playerRestartDelay = 1f;
 
     [Header("Enemies")]
+    [SerializeField] private bool spawnEnemies = false;
     [SerializeField] private int onealCount = 3;
     [SerializeField] private int dahlCount = 3;
     [SerializeField] private float enemyMoveSpeed = 3f;
@@ -67,7 +74,10 @@ public sealed class BombermanPrototype : MonoBehaviour
         ConfigureCamera();
         map.Generate();
         SpawnPlayer();
-        SpawnEnemies();
+        if (spawnEnemies)
+        {
+            SpawnEnemies();
+        }
         pauseMenu = PauseMenu.Create();
     }
 
@@ -154,14 +164,26 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void SpawnPlayer()
     {
-        player = PlayerController.Create("Bomberman", new Vector2Int(1, 1), map, materials.Player, materials.PlayerDead, 0.9f);
+        player = PlayerController.Create(
+            "Bomberman",
+            new Vector2Int(1, 1),
+            map,
+            materials.Player,
+            materials.PlayerDead,
+            0.9f,
+            playerModelPrefab,
+            playerAnimatorController);
         player.MoveSpeed = playerMoveSpeed;
+        player.FreeMoveAcceleration = playerAcceleration;
+        player.FreeMoveDeceleration = playerDeceleration;
+        player.FreeMoveTurnSpeed = playerTurnSpeed;
         player.Initialize(this);
         actors.Add(player);
     }
 
     private void SpawnEnemies()
     {
+        // Enemy spawn is disabled for now; turn on spawnEnemies later when enemy gameplay returns.
         SpawnEnemyGroup<OnealEnemy>("O'neal", onealCount, materials.Oneal, 0.85f);
         SpawnEnemyGroup<DahlEnemy>("Dahl", dahlCount, materials.Dahl, 0.75f);
     }
@@ -171,6 +193,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         for (int i = 0; i < count; i++)
         {
+            // Enemy spawn is centralized here so each enemy type can reuse the same placement rules.
             Vector2Int cell = FindEnemySpawnCell();
             TEnemy enemy = EnemyController.Create<TEnemy>($"{enemyName} {i + 1}", cell, map, material, materials.EnemyDead, scale);
             enemy.MoveSpeed = enemyMoveSpeed;
@@ -239,19 +262,25 @@ public sealed class BombermanPrototype : MonoBehaviour
             return;
         }
 
-        if (activeBombs >= maxBombs || bombs.ContainsKey(player.Cell))
+        Vector2Int bombCell = map.WorldToCell(player.transform.position);
+        if (activeBombs >= maxBombs || bombs.ContainsKey(bombCell))
+        {
+            return;
+        }
+
+        if (!map.IsWalkable(bombCell))
         {
             return;
         }
 
         GameObject bombObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        bombObject.name = $"Bomb {player.Cell.x},{player.Cell.y}";
-        bombObject.transform.position = map.CellToWorld(player.Cell) + new Vector3(0f, 0.35f, 0f);
+        bombObject.name = $"Bomb {bombCell.x},{bombCell.y}";
+        bombObject.transform.position = map.CellToWorld(bombCell) + new Vector3(0f, 0.35f, 0f);
         bombObject.transform.localScale = new Vector3(0.62f, 0.62f, 0.62f);
         bombObject.GetComponent<Renderer>().material = materials.Bomb;
 
         Bomb bomb = bombObject.AddComponent<Bomb>();
-        bomb.Cell = player.Cell;
+        bomb.Initialize(bombCell, player.transform, 0.72f);
         bombs[bomb.Cell] = bomb;
         activeBombs++;
         StartCoroutine(ExplodeAfterFuse(bomb));
@@ -307,13 +336,11 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private IEnumerator ShowExplosion(Vector2Int cell)
     {
-        GameObject flame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        flame.name = $"Explosion {cell.x},{cell.y}";
-        flame.transform.position = map.CellToWorld(cell) + new Vector3(0f, 0.18f, 0f);
-        flame.transform.localScale = new Vector3(0.82f, 0.28f, 0.82f);
-        flame.GetComponent<Renderer>().material = materials.Explosion;
-        yield return new WaitForSeconds(0.45f);
-        Destroy(flame);
+        GameObject particle = ExplosionParticleFactory.CreateCartoonFlame(
+            $"Explosion {cell.x},{cell.y}",
+            map.CellToWorld(cell));
+        yield return new WaitForSeconds(1.1f);
+        Destroy(particle);
     }
 
     private void DamageActorsAt(Vector2Int cell)
@@ -322,9 +349,15 @@ public sealed class BombermanPrototype : MonoBehaviour
         {
             if (actor != null && !actor.IsDead && actor.Cell == cell)
             {
+                if (actor.IsPlayer && !playerCanDieFromBomb)
+                {
+                    continue;
+                }
+
                 actor.Die();
                 if (actor.IsPlayer && !restarting)
                 {
+                    // Player death flow: bomb damage destroys the player model, then restarts the scene.
                     StartCoroutine(RestartAfterPlayerDeath());
                 }
             }

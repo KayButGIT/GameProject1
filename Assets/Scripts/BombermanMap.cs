@@ -85,6 +85,13 @@ public sealed class BombermanMap
         return new Vector3(cell.x - width / 2f, 0f, cell.y - height / 2f);
     }
 
+    public Vector2Int WorldToCell(Vector3 worldPosition)
+    {
+        int x = Mathf.RoundToInt(worldPosition.x + width / 2f);
+        int y = Mathf.RoundToInt(worldPosition.z + height / 2f);
+        return new Vector2Int(Mathf.Clamp(x, 0, width - 1), Mathf.Clamp(y, 0, height - 1));
+    }
+
     private CellKind GetInitialCellKind(Vector2Int cell)
     {
         bool border = cell.x == 0 || cell.y == 0 || cell.x == width - 1 || cell.y == height - 1;
@@ -119,6 +126,7 @@ public sealed class BombermanMap
         floor.transform.position = CellToWorld(cell) + new Vector3(0f, -0.06f, 0f);
         floor.transform.localScale = new Vector3(0.96f, 0.08f, 0.96f);
         floor.GetComponent<Renderer>().material = materials.Floor;
+        UnityEngine.Object.Destroy(floor.GetComponent<Collider>());
     }
 
     private GameObject CreateBlock(Vector2Int cell, string blockName, Material material, float heightScale, Transform parent)
