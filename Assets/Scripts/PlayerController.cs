@@ -55,7 +55,7 @@ public sealed class PlayerController : GridController
             return;
         }
 
-        MoveFreely(moveInput, map);
+        MoveFreely(moveInput, map, game.IsBombBlockingCell);
         animationBridge?.SetMovement(CurrentFreeMoveSpeed);
     }
 

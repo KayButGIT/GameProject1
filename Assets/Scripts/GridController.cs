@@ -22,6 +22,7 @@ public abstract class GridController : MonoBehaviour
     private float moveProgress;
     private Vector3 freeMoveVelocity;
     private float freeMoveWalkTime;
+    private float freeMoveRadius;
 
     protected static TActor CreateActor<TActor>(
         string actorName,
@@ -61,6 +62,8 @@ public abstract class GridController : MonoBehaviour
 
     protected void ConfigureFreeMovementPhysics(float radius, float height)
     {
+        freeMoveRadius = radius;
+
         CapsuleCollider collider = gameObject.AddComponent<CapsuleCollider>();
         collider.center = new Vector3(0f, height * 0.5f, 0f);
         collider.radius = radius;
@@ -71,15 +74,18 @@ public abstract class GridController : MonoBehaviour
         body.interpolation = RigidbodyInterpolation.Interpolate;
         body.constraints = RigidbodyConstraints.FreezePositionY
             | RigidbodyConstraints.FreezeRotationX
+            | RigidbodyConstraints.FreezeRotationY
             | RigidbodyConstraints.FreezeRotationZ;
     }
 
-    protected void MoveFreely(Vector2 input, BombermanMap map)
+    protected void MoveFreely(Vector2 input, BombermanMap map, System.Func<Vector2Int, bool> isCellBlocked = null)
     {
         if (body == null || IsDead)
         {
             return;
         }
+
+        ClearPhysicsDrift();
 
         Vector3 direction = new(input.x, 0f, input.y);
         if (direction.sqrMagnitude > 1f)
@@ -94,7 +100,29 @@ public abstract class GridController : MonoBehaviour
             targetVelocity,
             acceleration * Time.fixedDeltaTime);
 
-        body.MovePosition(body.position + freeMoveVelocity * Time.fixedDeltaTime);
+        Vector3 nextPosition = body.position;
+        Vector3 xPosition = nextPosition + new Vector3(freeMoveVelocity.x * Time.fixedDeltaTime, 0f, 0f);
+        if (IsFootprintWalkable(xPosition, map, isCellBlocked))
+        {
+            nextPosition = xPosition;
+        }
+        else
+        {
+            freeMoveVelocity.x = 0f;
+        }
+
+        Vector3 zPosition = nextPosition + new Vector3(0f, 0f, freeMoveVelocity.z * Time.fixedDeltaTime);
+        if (IsFootprintWalkable(zPosition, map, isCellBlocked))
+        {
+            nextPosition = zPosition;
+        }
+        else
+        {
+            freeMoveVelocity.z = 0f;
+        }
+
+        body.MovePosition(nextPosition);
+        ClearPhysicsDrift();
 
         if (freeMoveVelocity.sqrMagnitude > 0.001f)
         {
@@ -109,7 +137,82 @@ public abstract class GridController : MonoBehaviour
             ResetBodyHeight();
         }
 
-        Cell = map.WorldToCell(body.position);
+        Cell = map.WorldToCell(nextPosition);
+    }
+
+    private void ClearPhysicsDrift()
+    {
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+    }
+
+    private bool IsFootprintWalkable(Vector3 position, BombermanMap map, System.Func<Vector2Int, bool> isCellBlocked)
+    {
+        Vector2Int centerCell = map.WorldToCell(position);
+        Vector3 center = map.CellToWorld(centerCell);
+        Vector2 offset = new(position.x - center.x, position.z - center.z);
+        float edgeLimit = 0.5f - freeMoveRadius;
+
+        if (IsMovementBlocked(centerCell, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.x > edgeLimit && IsMovementBlocked(centerCell + Vector2Int.right, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.x < -edgeLimit && IsMovementBlocked(centerCell + Vector2Int.left, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.y > edgeLimit && IsMovementBlocked(centerCell + Vector2Int.up, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.y < -edgeLimit && IsMovementBlocked(centerCell + Vector2Int.down, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.x > edgeLimit
+            && offset.y > edgeLimit
+            && IsMovementBlocked(centerCell + Vector2Int.right + Vector2Int.up, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.x > edgeLimit
+            && offset.y < -edgeLimit
+            && IsMovementBlocked(centerCell + Vector2Int.right + Vector2Int.down, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.x < -edgeLimit
+            && offset.y > edgeLimit
+            && IsMovementBlocked(centerCell + Vector2Int.left + Vector2Int.up, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        if (offset.x < -edgeLimit
+            && offset.y < -edgeLimit
+            && IsMovementBlocked(centerCell + Vector2Int.left + Vector2Int.down, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsMovementBlocked(Vector2Int cell, BombermanMap map, System.Func<Vector2Int, bool> isCellBlocked)
+    {
+        return !map.IsWalkable(cell)
+            || (isCellBlocked != null && isCellBlocked(cell));
     }
 
     protected virtual void Update()

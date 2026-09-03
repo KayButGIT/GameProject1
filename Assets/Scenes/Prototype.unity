@@ -668,6 +668,7 @@ MonoBehaviour:
   playerTurnSpeed: 14
   playerModelPrefab: {fileID: 0}
   playerAnimatorController: {fileID: 9100000, guid: 11111111111111111111111111111111, type: 2}
+  bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}
   maxBombs: 1
   blastRange: 1
   bombFuseTime: 2
