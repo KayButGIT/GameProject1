@@ -27,6 +27,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private float playerTurnSpeed = 14f;
     [SerializeField] private GameObject playerModelPrefab;
     [SerializeField] private RuntimeAnimatorController playerAnimatorController;
+    [SerializeField] private GameObject bombModelPrefab;
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
     [SerializeField] private float bombFuseTime = 2f;
@@ -62,6 +63,13 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     public bool IsPaused => paused;
     public Vector2Int PlayerCell => player != null ? player.Cell : Vector2Int.zero;
+
+    public bool IsBombBlockingCell(Vector2Int cell)
+    {
+        return bombs.TryGetValue(cell, out Bomb bomb)
+            && bomb != null
+            && bomb.BlocksMovement;
+    }
 
     private void Start()
     {
@@ -273,14 +281,23 @@ public sealed class BombermanPrototype : MonoBehaviour
             return;
         }
 
-        GameObject bombObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        GameObject bombObject = bombModelPrefab != null
+            ? Instantiate(bombModelPrefab)
+            : GameObject.CreatePrimitive(PrimitiveType.Sphere);
         bombObject.name = $"Bomb {bombCell.x},{bombCell.y}";
         bombObject.transform.position = map.CellToWorld(bombCell) + new Vector3(0f, 0.35f, 0f);
-        bombObject.transform.localScale = new Vector3(0.62f, 0.62f, 0.62f);
-        bombObject.GetComponent<Renderer>().material = materials.Bomb;
+        if (bombModelPrefab == null)
+        {
+            bombObject.transform.localScale = new Vector3(0.62f, 0.62f, 0.62f);
+            bombObject.GetComponent<Renderer>().material = materials.Bomb;
+        }
 
-        Bomb bomb = bombObject.AddComponent<Bomb>();
-        bomb.Initialize(bombCell, player.transform, 0.72f);
+        Bomb bomb = bombObject.GetComponent<Bomb>();
+        if (bomb == null)
+        {
+            bomb = bombObject.AddComponent<Bomb>();
+        }
+        bomb.Initialize(bombCell, player.transform, 0.9f);
         bombs[bomb.Cell] = bomb;
         activeBombs++;
         StartCoroutine(ExplodeAfterFuse(bomb));

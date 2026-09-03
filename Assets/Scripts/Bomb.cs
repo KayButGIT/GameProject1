@@ -4,18 +4,21 @@ public sealed class Bomb : MonoBehaviour
 {
     public Vector2Int Cell;
 
-    private Collider bombCollider;
+    private Collider[] bombColliders;
     private Transform owner;
     private float ownerReleaseDistance;
+    private bool blocksMovement;
+
+    public bool BlocksMovement => blocksMovement;
 
     public void Initialize(Vector2Int cell, Transform ownerTransform, float releaseDistance)
     {
         Cell = cell;
         owner = ownerTransform;
         ownerReleaseDistance = releaseDistance;
-        bombCollider = GetComponent<Collider>();
+        bombColliders = GetComponentsInChildren<Collider>();
 
-        if (bombCollider != null && owner != null)
+        foreach (Collider bombCollider in bombColliders)
         {
             bombCollider.enabled = false;
         }
@@ -23,14 +26,14 @@ public sealed class Bomb : MonoBehaviour
 
     private void Update()
     {
-        if (bombCollider == null || bombCollider.enabled)
+        if (blocksMovement)
         {
             return;
         }
 
         if (owner == null || PlanarDistance(transform.position, owner.position) >= ownerReleaseDistance)
         {
-            bombCollider.enabled = true;
+            blocksMovement = true;
             owner = null;
         }
     }
