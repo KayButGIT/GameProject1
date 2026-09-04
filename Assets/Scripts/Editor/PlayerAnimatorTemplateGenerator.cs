@@ -12,19 +12,34 @@ public static class PlayerAnimatorTemplateGenerator
     private const string IdleClipPath = FolderPath + "/PlayerIdle.anim";
     private const string WalkClipPath = FolderPath + "/PlayerWalk.anim";
     private const string DeadClipPath = FolderPath + "/PlayerDead.anim";
+    private const string SourceIdleClipPath = "Assets/Animations/Transfer/BombermanAnimation_Idle.fbx";
+    private const string SourceWalkClipPath = "Assets/Animations/Transfer/BombermanAnimation_Walk.fbx";
     private const string PrototypeScenePath = "Assets/Scenes/Prototype.unity";
+
+    [InitializeOnLoadMethod]
+    private static void EnsureSourceClipsLoopOnLoad()
+    {
+        EditorApplication.delayCall += () =>
+        {
+            ConfigureLoopingSourceClip(SourceIdleClipPath);
+            ConfigureLoopingSourceClip(SourceWalkClipPath);
+        };
+    }
 
     [MenuItem("Bomberman/Create Player Animator Template")]
     public static void CreateTemplate()
     {
         EnsureFolder(FolderPath);
+        ConfigureLoopingSourceClip(SourceIdleClipPath);
+        ConfigureLoopingSourceClip(SourceWalkClipPath);
 
-        AnimationClip idleClip = LoadOrCreateClip(IdleClipPath, ConfigureIdleClip);
-        AnimationClip walkClip = LoadOrCreateClip(WalkClipPath, ConfigureWalkClip);
+        AnimationClip idleClip = LoadSourceClip(SourceIdleClipPath) ?? LoadOrCreateClip(IdleClipPath, ConfigureIdleClip);
+        AnimationClip walkClip = LoadSourceClip(SourceWalkClipPath) ?? LoadOrCreateClip(WalkClipPath, ConfigureWalkClip);
         AnimationClip deadClip = LoadOrCreateClip(DeadClipPath, ConfigureDeadClip);
 
         AnimatorController controller = LoadOrCreateController();
         EnsureParameter(controller, "Speed", AnimatorControllerParameterType.Float);
+        EnsureParameter(controller, "WalkCycleSpeed", AnimatorControllerParameterType.Float, 1f);
         EnsureParameter(controller, "IsMoving", AnimatorControllerParameterType.Bool);
         EnsureParameter(controller, "Die", AnimatorControllerParameterType.Trigger);
 
@@ -32,6 +47,8 @@ public static class PlayerAnimatorTemplateGenerator
         AnimatorState idleState = EnsureState(stateMachine, "Idle", idleClip, new Vector3(250f, 80f, 0f));
         AnimatorState walkState = EnsureState(stateMachine, "Walk", walkClip, new Vector3(250f, 180f, 0f));
         AnimatorState deadState = EnsureState(stateMachine, "Dead", deadClip, new Vector3(520f, 130f, 0f));
+        walkState.speedParameterActive = true;
+        walkState.speedParameter = "WalkCycleSpeed";
         stateMachine.defaultState = idleState;
 
         EnsureBoolTransition(idleState, walkState, "IsMoving", true);
@@ -73,6 +90,70 @@ public static class PlayerAnimatorTemplateGenerator
         configure(clip);
         EditorUtility.SetDirty(clip);
         return clip;
+    }
+
+    private static AnimationClip LoadSourceClip(string clipPath)
+    {
+        Object[] assets = AssetDatabase.LoadAllAssetRepresentationsAtPath(clipPath);
+        foreach (Object asset in assets)
+        {
+            if (asset is AnimationClip clip)
+            {
+                return clip;
+            }
+        }
+
+        return null;
+    }
+
+    private static void ConfigureLoopingSourceClip(string clipPath)
+    {
+        ModelImporter importer = AssetImporter.GetAtPath(clipPath) as ModelImporter;
+        if (importer == null)
+        {
+            return;
+        }
+
+        ModelImporterClipAnimation[] clips = importer.clipAnimations;
+        if (clips == null || clips.Length == 0)
+        {
+            clips = importer.defaultClipAnimations;
+        }
+
+        if (clips == null || clips.Length == 0)
+        {
+            return;
+        }
+
+        bool changed = false;
+        for (int i = 0; i < clips.Length; i++)
+        {
+            ModelImporterClipAnimation clip = clips[i];
+            changed |= !clip.loopTime
+                || !clip.loopPose
+                || !clip.lockRootRotation
+                || !clip.lockRootHeightY
+                || !clip.lockRootPositionXZ
+                || !clip.keepOriginalPositionY
+                || !clip.keepOriginalPositionXZ
+                || clip.wrapMode != WrapMode.Loop;
+
+            clip.loopTime = true;
+            clip.loopPose = true;
+            clip.wrapMode = WrapMode.Loop;
+            clip.lockRootRotation = true;
+            clip.lockRootHeightY = true;
+            clip.lockRootPositionXZ = true;
+            clip.keepOriginalPositionY = true;
+            clip.keepOriginalPositionXZ = true;
+            clips[i] = clip;
+        }
+
+        importer.clipAnimations = clips;
+        if (changed)
+        {
+            importer.SaveAndReimport();
+        }
     }
 
     private static AnimatorController LoadOrCreateController()
@@ -127,17 +208,29 @@ public static class PlayerAnimatorTemplateGenerator
     private static void EnsureParameter(
         AnimatorController controller,
         string parameterName,
-        AnimatorControllerParameterType parameterType)
+        AnimatorControllerParameterType parameterType,
+        float defaultFloat = 0f)
     {
         foreach (AnimatorControllerParameter parameter in controller.parameters)
         {
             if (parameter.name == parameterName)
             {
+                if (parameter.type == AnimatorControllerParameterType.Float)
+                {
+                    parameter.defaultFloat = defaultFloat;
+                }
+
                 return;
             }
         }
 
-        controller.AddParameter(parameterName, parameterType);
+        AnimatorControllerParameter newParameter = new()
+        {
+            name = parameterName,
+            type = parameterType,
+            defaultFloat = defaultFloat
+        };
+        controller.AddParameter(newParameter);
     }
 
     private static AnimatorState EnsureState(
@@ -213,7 +306,7 @@ public static class PlayerAnimatorTemplateGenerator
     private static void ConfigureInstantTransition(AnimatorStateTransition transition)
     {
         transition.hasExitTime = false;
-        transition.duration = 0.08f;
+        transition.duration = 0.16f;
         transition.offset = 0f;
         transition.exitTime = 0f;
     }

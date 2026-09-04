@@ -26,6 +26,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private float playerDeceleration = 36f;
     [SerializeField] private float playerTurnSpeed = 14f;
     [SerializeField] private GameObject playerModelPrefab;
+    [SerializeField] private float playerModelScale = 8.91f;
     [SerializeField] private RuntimeAnimatorController playerAnimatorController;
     [SerializeField] private GameObject bombModelPrefab;
     [SerializeField] private int maxBombs = 1;
@@ -55,6 +56,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private PauseMenu pauseMenu;
     private Camera mainCamera;
     private Vector3 cameraBasePosition;
+    private Vector3 cameraFollowVelocity;
     private Quaternion cameraRotation;
     private PlayerController player;
     private int activeBombs;
@@ -116,6 +118,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         Vector3 center = map.CellToWorld(new Vector2Int(width / 2, height / 2));
         cameraRotation = Quaternion.Euler(cameraPitchAngle, 0f, 0f);
         cameraBasePosition = GetCameraPositionLookingAt(center);
+        cameraFollowVelocity = Vector3.zero;
 
         mainCamera.transform.position = cameraBasePosition;
         mainCamera.transform.rotation = cameraRotation;
@@ -141,10 +144,21 @@ public sealed class BombermanPrototype : MonoBehaviour
         Vector3 playerPosition = player.transform.position;
         float targetX = Mathf.Clamp(playerPosition.x, GetMinCameraX(), GetMaxCameraX());
         Vector3 targetPosition = new(targetX, cameraBasePosition.y, cameraBasePosition.z);
-        mainCamera.transform.position = Vector3.Lerp(
+        float smoothTime = cameraFollowSpeed > 0.001f ? 1f / cameraFollowSpeed : 0f;
+        if (smoothTime <= 0f)
+        {
+            mainCamera.transform.position = targetPosition;
+            cameraFollowVelocity = Vector3.zero;
+            return;
+        }
+
+        mainCamera.transform.position = Vector3.SmoothDamp(
             mainCamera.transform.position,
             targetPosition,
-            Time.unscaledDeltaTime * cameraFollowSpeed);
+            ref cameraFollowVelocity,
+            smoothTime,
+            Mathf.Infinity,
+            Time.deltaTime);
     }
 
     private Vector3 GetCameraPositionLookingAt(Vector3 groundTarget)
@@ -180,6 +194,7 @@ public sealed class BombermanPrototype : MonoBehaviour
             materials.PlayerDead,
             0.9f,
             playerModelPrefab,
+            playerModelScale,
             playerAnimatorController);
         player.MoveSpeed = playerMoveSpeed;
         player.FreeMoveAcceleration = playerAcceleration;

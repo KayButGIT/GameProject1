@@ -738,7 +738,8 @@ MonoBehaviour:
   playerAcceleration: 28
   playerDeceleration: 36
   playerTurnSpeed: 14
-  playerModelPrefab: {fileID: 0}
+  playerModelPrefab: {fileID: 919132149155446097, guid: 8b0b3834197ea174bb01f77b7932dc3e, type: 3}
+  playerModelScale: 18.91
   playerAnimatorController: {fileID: 9100000, guid: 11111111111111111111111111111111, type: 2}
   bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}
   maxBombs: 1

@@ -18,12 +18,13 @@ public sealed class PlayerController : GridController
         Material deadMaterial,
         float scale,
         GameObject modelPrefab,
+        float modelScale,
         RuntimeAnimatorController animatorController)
     {
         PlayerController player = CreateActor<PlayerController>(actorName, cell, map, normalMaterial, deadMaterial, true, scale);
         player.map = map;
         player.ConfigureFreeMovementPhysics(0.32f * scale, 1.25f * scale);
-        player.ConfigureVisual(modelPrefab, animatorController);
+        player.ConfigureVisual(modelPrefab, modelScale, animatorController);
         return player;
     }
 
@@ -56,7 +57,7 @@ public sealed class PlayerController : GridController
         }
 
         MoveFreely(moveInput, map, game.IsBombBlockingCell);
-        animationBridge?.SetMovement(CurrentFreeMoveSpeed);
+        animationBridge?.SetMovement(CurrentFreeMoveSpeed, MoveSpeed);
     }
 
     public override void Die()
@@ -75,7 +76,7 @@ public sealed class PlayerController : GridController
         base.Die();
     }
 
-    private void ConfigureVisual(GameObject modelPrefab, RuntimeAnimatorController animatorController)
+    private void ConfigureVisual(GameObject modelPrefab, float modelScale, RuntimeAnimatorController animatorController)
     {
         Transform visualRoot = transform;
         if (modelPrefab != null)
@@ -85,7 +86,7 @@ public sealed class PlayerController : GridController
             model.name = "Player Model";
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
-            model.transform.localScale = Vector3.one;
+            model.transform.localScale = Vector3.one * modelScale;
             visualRoot = model.transform;
             BodyRenderer = model.GetComponentInChildren<Renderer>();
         }
@@ -103,6 +104,8 @@ public sealed class PlayerController : GridController
 
         if (animator != null)
         {
+            animator.applyRootMotion = false;
+            animator.updateMode = AnimatorUpdateMode.Fixed;
             animationBridge = gameObject.AddComponent<PlayerAnimationBridge>();
             animationBridge.Initialize(animator);
         }
