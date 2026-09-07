@@ -783,19 +783,30 @@ MonoBehaviour:
   playerAcceleration: 28
   playerDeceleration: 36
   playerTurnSpeed: 14
+  playerColliderRadius: 0.55
+  playerColliderHeight: 1.125
   playerModelPrefab: {fileID: 919132149155446097, guid: 8b0b3834197ea174bb01f77b7932dc3e, type: 3}
   playerModelScale: 18.91
   playerAnimatorController: {fileID: 9100000, guid: 11111111111111111111111111111111, type: 2}
+  playerBodyNormalMaterial: {fileID: 2100000, guid: cf284d27f26075a44ae83e5bedb34657, type: 2}
+  playerBodyBurntMaterial: {fileID: 2100000, guid: af91f09c9346b6b41af532a19c72c3b6, type: 2}
+  playerFaceNormalMaterial: {fileID: 2100000, guid: 6c182811e77beec468875aed9647f61e, type: 2}
+  playerFaceBlinkMaterial: {fileID: 2100000, guid: cef0108da01fea34e89e45ad624e4ad4, type: 2}
+  playerFaceDeadMaterial: {fileID: 2100000, guid: df7bc559456209f428e5d8cc7c7efc6e, type: 2}
+  playerFaceDeadBurntMaterial: {fileID: 2100000, guid: e1633b51609fb7d4c97c76220aacdc3c, type: 2}
   bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}
   maxBombs: 1
   blastRange: 1
   bombFuseTime: 2
-  playerCanDieFromBomb: 0
+  playerCanDieFromBomb: 1
+  playerDeathAnimationTime: 0.85
+  playerDeathParticleTime: 0.6
   playerRestartDelay: 1
-  spawnEnemies: 0
+  spawnEnemies: 1
   onealCount: 3
   dahlCount: 3
   enemyMoveSpeed: 3
+  enemyPlayerHitDistance: 0.3
   cameraOrthographicSize: 5.7
   cameraHeight: 18
   cameraPitchAngle: 55

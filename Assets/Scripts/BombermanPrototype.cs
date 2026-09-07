@@ -6,6 +6,12 @@ using UnityEngine.SceneManagement;
 
 public sealed class BombermanPrototype : MonoBehaviour
 {
+    private enum PlayerDeathCause
+    {
+        Bomb,
+        Enemy
+    }
+
     public static readonly Vector2Int[] Directions =
     {
         Vector2Int.up,
@@ -25,21 +31,32 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private float playerAcceleration = 28f;
     [SerializeField] private float playerDeceleration = 36f;
     [SerializeField] private float playerTurnSpeed = 14f;
+    [SerializeField, Min(0.05f)] private float playerColliderRadius = 0.55f;
+    [SerializeField, Min(0.05f)] private float playerColliderHeight = 1.125f;
     [SerializeField] private GameObject playerModelPrefab;
     [SerializeField] private float playerModelScale = 8.91f;
     [SerializeField] private RuntimeAnimatorController playerAnimatorController;
+    [SerializeField] private Material playerBodyNormalMaterial;
+    [SerializeField] private Material playerBodyBurntMaterial;
+    [SerializeField] private Material playerFaceNormalMaterial;
+    [SerializeField] private Material playerFaceBlinkMaterial;
+    [SerializeField] private Material playerFaceDeadMaterial;
+    [SerializeField] private Material playerFaceDeadBurntMaterial;
     [SerializeField] private GameObject bombModelPrefab;
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
     [SerializeField] private float bombFuseTime = 2f;
     [SerializeField] private bool playerCanDieFromBomb = false;
-    [SerializeField] private float playerRestartDelay = 1f;
+    [SerializeField, Min(0f)] private float playerDeathAnimationTime = 0.85f;
+    [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
+    [SerializeField] private float playerRestartDelay = 0.15f;
 
     [Header("Enemies")]
     [SerializeField] private bool spawnEnemies = false;
     [SerializeField] private int onealCount = 3;
     [SerializeField] private int dahlCount = 3;
     [SerializeField] private float enemyMoveSpeed = 3f;
+    [SerializeField, Min(0.05f)] private float enemyPlayerHitDistance = 0.45f;
 
     [Header("Camera")]
     [SerializeField] private float cameraOrthographicSize = 6.9f;
@@ -102,6 +119,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private void LateUpdate()
     {
         UpdateCameraFollow();
+        KillPlayerIfEnemyTouches();
     }
 
     private void ConfigureCamera()
@@ -193,9 +211,17 @@ public sealed class BombermanPrototype : MonoBehaviour
             materials.Player,
             materials.PlayerDead,
             0.9f,
+            playerColliderRadius,
+            playerColliderHeight,
             playerModelPrefab,
             playerModelScale,
-            playerAnimatorController);
+            playerAnimatorController,
+            playerBodyNormalMaterial,
+            playerBodyBurntMaterial,
+            playerFaceNormalMaterial,
+            playerFaceBlinkMaterial,
+            playerFaceDeadMaterial,
+            playerFaceDeadBurntMaterial);
         player.MoveSpeed = playerMoveSpeed;
         player.FreeMoveAcceleration = playerAcceleration;
         player.FreeMoveDeceleration = playerDeceleration;
@@ -386,20 +412,71 @@ public sealed class BombermanPrototype : MonoBehaviour
                     continue;
                 }
 
-                actor.Die();
-                if (actor.IsPlayer && !restarting)
+                if (actor.IsPlayer)
                 {
-                    // Player death flow: bomb damage destroys the player model, then restarts the scene.
-                    StartCoroutine(RestartAfterPlayerDeath());
+                    StartPlayerDeath(PlayerDeathCause.Bomb);
+                    continue;
                 }
+
+                actor.Die();
             }
         }
     }
 
-    private IEnumerator RestartAfterPlayerDeath()
+    private void StartPlayerDeath(PlayerDeathCause cause)
+    {
+        if (restarting || player == null || player.IsDead)
+        {
+            return;
+        }
+
+        StartCoroutine(PlayerDeathSequence(cause));
+    }
+
+    private void KillPlayerIfEnemyTouches()
+    {
+        if (paused || restarting || player == null || player.IsDead)
+        {
+            return;
+        }
+
+        foreach (GridController actor in actors)
+        {
+            if (actor == null || actor.IsPlayer || actor.IsDead)
+            {
+                continue;
+            }
+
+            float distance = Vector3.Distance(actor.transform.position, player.transform.position);
+            if (actor.Cell == player.Cell || distance <= enemyPlayerHitDistance)
+            {
+                StartPlayerDeath(PlayerDeathCause.Enemy);
+                return;
+            }
+        }
+    }
+
+    private IEnumerator PlayerDeathSequence(PlayerDeathCause cause)
     {
         restarting = true;
         SetPaused(false);
+        player.BeginDeathAnimation(cause == PlayerDeathCause.Bomb);
+
+        yield return new WaitForSeconds(playerDeathAnimationTime);
+
+        if (player != null)
+        {
+            Vector3 playerPosition = player.transform.position;
+            bool fromBomb = cause == PlayerDeathCause.Bomb;
+            GameObject particle = ExplosionParticleFactory.CreatePlayerDeathBurst(
+                fromBomb ? "Player Bomb Death Particles" : "Player Enemy Death Particles",
+                playerPosition,
+                fromBomb);
+            Destroy(player.gameObject);
+            Destroy(particle, playerDeathParticleTime);
+        }
+
+        yield return new WaitForSeconds(playerDeathParticleTime);
         yield return new WaitForSeconds(playerRestartDelay);
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);

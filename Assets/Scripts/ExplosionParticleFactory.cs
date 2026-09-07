@@ -4,17 +4,30 @@ public static class ExplosionParticleFactory
 {
     private static Material orangeMaterial;
     private static Material yellowMaterial;
+    private static Material redMaterial;
+    private static Material whiteMaterial;
 
     public static GameObject CreateCartoonFlame(string objectName, Vector3 groundPosition)
     {
         GameObject root = new(objectName);
         root.transform.position = groundPosition + new Vector3(0f, 0.12f, 0f);
 
-        CreateChunks(root.transform);
+        CreateChunks(root.transform, GetOrangeMaterial(), GetYellowMaterial());
         return root;
     }
 
-    private static void CreateChunks(Transform parent)
+    public static GameObject CreatePlayerDeathBurst(string objectName, Vector3 groundPosition, bool fromBomb)
+    {
+        GameObject root = new(objectName);
+        root.transform.position = groundPosition + new Vector3(0f, 0.45f, 0f);
+
+        Material primary = fromBomb ? GetOrangeMaterial() : GetRedMaterial();
+        Material secondary = fromBomb ? GetYellowMaterial() : GetWhiteMaterial();
+        CreateChunks(root.transform, primary, secondary);
+        return root;
+    }
+
+    private static void CreateChunks(Transform parent, Material primaryMaterial, Material secondaryMaterial)
     {
         for (int i = 0; i < 34; i++)
         {
@@ -29,7 +42,7 @@ public static class ExplosionParticleFactory
 
             float size = Random.Range(0.12f, 0.28f);
             chunk.transform.localScale = Vector3.one * size;
-            chunk.GetComponent<Renderer>().material = Random.value > 0.35f ? GetOrangeMaterial() : GetYellowMaterial();
+            chunk.GetComponent<Renderer>().material = Random.value > 0.35f ? primaryMaterial : secondaryMaterial;
             Object.Destroy(chunk.GetComponent<Collider>());
 
             Vector3 velocity = new(
@@ -63,6 +76,26 @@ public static class ExplosionParticleFactory
         }
 
         return yellowMaterial;
+    }
+
+    private static Material GetRedMaterial()
+    {
+        if (redMaterial == null)
+        {
+            redMaterial = BombermanMaterials.Make("Player Death Particle Red", new Color(0.95f, 0.06f, 0.08f));
+        }
+
+        return redMaterial;
+    }
+
+    private static Material GetWhiteMaterial()
+    {
+        if (whiteMaterial == null)
+        {
+            whiteMaterial = BombermanMaterials.Make("Player Death Particle White", new Color(0.95f, 0.95f, 1f));
+        }
+
+        return whiteMaterial;
     }
 }
 

@@ -23,6 +23,7 @@ public abstract class GridController : MonoBehaviour
     private Vector3 freeMoveVelocity;
     private float freeMoveWalkTime;
     private float freeMoveRadius;
+    private const float MaxWallBlockRadius = 0.45f;
 
     protected static TActor CreateActor<TActor>(
         string actorName,
@@ -62,7 +63,9 @@ public abstract class GridController : MonoBehaviour
 
     protected void ConfigureFreeMovementPhysics(float radius, float height)
     {
-        freeMoveRadius = radius;
+        radius = Mathf.Max(0.05f, radius);
+        height = Mathf.Max(0.05f, height);
+        freeMoveRadius = Mathf.Min(radius, MaxWallBlockRadius);
 
         CapsuleCollider collider = gameObject.AddComponent<CapsuleCollider>();
         collider.center = new Vector3(0f, height * 0.5f, 0f);
