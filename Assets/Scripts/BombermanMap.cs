@@ -138,7 +138,7 @@ public sealed class BombermanMap
         block.transform.localScale = new Vector3(0.92f, heightScale, 0.92f);
         block.GetComponent<Renderer>().material = material;
         BoxCollider collider = block.GetComponent<BoxCollider>();
-        collider.size = new Vector3(0.86f, 1f, 0.86f);
+        collider.size = new Vector3(0.97f, 1f, 0.97f);
         block.AddComponent<CellObject>().Cell = cell;
         return block;
     }

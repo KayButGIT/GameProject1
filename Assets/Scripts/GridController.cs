@@ -23,7 +23,10 @@ public abstract class GridController : MonoBehaviour
     private Vector3 freeMoveVelocity;
     private float freeMoveWalkTime;
     private float freeMoveRadius;
-    private const float MaxWallBlockRadius = 0.45f;
+    private const float MaxWallBlockRadius = 0.46f;
+    private const float MaxCornerBlockRadius = 0.24f;
+    private const float CornerAssistSpeed = 6f;
+    private const float CornerAssistMinMoveRatio = 0.65f;
 
     protected static TActor CreateActor<TActor>(
         string actorName,
@@ -71,6 +74,7 @@ public abstract class GridController : MonoBehaviour
         collider.center = new Vector3(0f, height * 0.5f, 0f);
         collider.radius = radius;
         collider.height = height;
+        collider.isTrigger = true;
 
         body = gameObject.AddComponent<Rigidbody>();
         body.useGravity = false;
@@ -103,23 +107,23 @@ public abstract class GridController : MonoBehaviour
             targetVelocity,
             acceleration * Time.fixedDeltaTime);
 
-        Vector3 nextPosition = body.position;
-        Vector3 xPosition = nextPosition + new Vector3(freeMoveVelocity.x * Time.fixedDeltaTime, 0f, 0f);
-        if (IsFootprintWalkable(xPosition, map, isCellBlocked))
+        Vector3 currentPosition = body.position;
+        Vector3 desiredDelta = freeMoveVelocity * Time.fixedDeltaTime;
+        Vector3 nextPosition = GetSlidePosition(currentPosition, desiredDelta, map, isCellBlocked);
+        float minSmoothMove = desiredDelta.sqrMagnitude * CornerAssistMinMoveRatio * CornerAssistMinMoveRatio;
+        if ((nextPosition - currentPosition).sqrMagnitude < minSmoothMove && direction.sqrMagnitude > 0.001f)
         {
-            nextPosition = xPosition;
+            nextPosition = ApplyCornerAssist(currentPosition, direction, map, isCellBlocked);
+            nextPosition = GetSlidePosition(nextPosition, desiredDelta, map, isCellBlocked);
         }
-        else
+
+        Vector3 actualDelta = nextPosition - currentPosition;
+        if (Mathf.Abs(actualDelta.x) < 0.0001f)
         {
             freeMoveVelocity.x = 0f;
         }
 
-        Vector3 zPosition = nextPosition + new Vector3(0f, 0f, freeMoveVelocity.z * Time.fixedDeltaTime);
-        if (IsFootprintWalkable(zPosition, map, isCellBlocked))
-        {
-            nextPosition = zPosition;
-        }
-        else
+        if (Mathf.Abs(actualDelta.z) < 0.0001f)
         {
             freeMoveVelocity.z = 0f;
         }
@@ -130,7 +134,8 @@ public abstract class GridController : MonoBehaviour
         if (freeMoveVelocity.sqrMagnitude > 0.001f)
         {
             Quaternion targetRotation = Quaternion.LookRotation(freeMoveVelocity.normalized, Vector3.up);
-            body.MoveRotation(Quaternion.Slerp(body.rotation, targetRotation, FreeMoveTurnSpeed * Time.fixedDeltaTime));
+            float turnAmount = 1f - Mathf.Exp(-FreeMoveTurnSpeed * Time.fixedDeltaTime);
+            body.MoveRotation(Quaternion.Slerp(body.rotation, targetRotation, turnAmount));
             freeMoveWalkTime += freeMoveVelocity.magnitude * Time.fixedDeltaTime;
             AnimateWalkBob(freeMoveWalkTime);
         }
@@ -147,6 +152,51 @@ public abstract class GridController : MonoBehaviour
     {
         body.linearVelocity = Vector3.zero;
         body.angularVelocity = Vector3.zero;
+    }
+
+    private Vector3 GetSlidePosition(
+        Vector3 position,
+        Vector3 desiredDelta,
+        BombermanMap map,
+        System.Func<Vector2Int, bool> isCellBlocked)
+    {
+        Vector3 fullPosition = position + desiredDelta;
+        if (IsFootprintWalkable(fullPosition, map, isCellBlocked))
+        {
+            return fullPosition;
+        }
+
+        Vector3 xDelta = new(desiredDelta.x, 0f, 0f);
+        Vector3 zDelta = new(0f, 0f, desiredDelta.z);
+        Vector3 xThenZ = TryMoveAxis(TryMoveAxis(position, xDelta, map, isCellBlocked), zDelta, map, isCellBlocked);
+        Vector3 zThenX = TryMoveAxis(TryMoveAxis(position, zDelta, map, isCellBlocked), xDelta, map, isCellBlocked);
+
+        return (xThenZ - position).sqrMagnitude >= (zThenX - position).sqrMagnitude ? xThenZ : zThenX;
+    }
+
+    private Vector3 TryMoveAxis(
+        Vector3 position,
+        Vector3 delta,
+        BombermanMap map,
+        System.Func<Vector2Int, bool> isCellBlocked)
+    {
+        Vector3 targetPosition = position + delta;
+        return IsFootprintWalkable(targetPosition, map, isCellBlocked) ? targetPosition : position;
+    }
+
+    private Vector3 ApplyCornerAssist(
+        Vector3 position,
+        Vector3 direction,
+        BombermanMap map,
+        System.Func<Vector2Int, bool> isCellBlocked)
+    {
+        Vector3 center = map.CellToWorld(map.WorldToCell(position));
+        Vector3 assistDelta = Mathf.Abs(direction.x) > Mathf.Abs(direction.z)
+            ? new Vector3(0f, 0f, Mathf.MoveTowards(position.z, center.z, CornerAssistSpeed * Time.fixedDeltaTime) - position.z)
+            : new Vector3(Mathf.MoveTowards(position.x, center.x, CornerAssistSpeed * Time.fixedDeltaTime) - position.x, 0f, 0f);
+
+        Vector3 assistedPosition = position + assistDelta;
+        return IsFootprintWalkable(assistedPosition, map, isCellBlocked) ? assistedPosition : position;
     }
 
     private bool IsFootprintWalkable(Vector3 position, BombermanMap map, System.Func<Vector2Int, bool> isCellBlocked)
@@ -181,35 +231,34 @@ public abstract class GridController : MonoBehaviour
             return false;
         }
 
-        if (offset.x > edgeLimit
-            && offset.y > edgeLimit
-            && IsMovementBlocked(centerCell + Vector2Int.right + Vector2Int.up, map, isCellBlocked))
-        {
-            return false;
-        }
-
-        if (offset.x > edgeLimit
-            && offset.y < -edgeLimit
-            && IsMovementBlocked(centerCell + Vector2Int.right + Vector2Int.down, map, isCellBlocked))
-        {
-            return false;
-        }
-
-        if (offset.x < -edgeLimit
-            && offset.y > edgeLimit
-            && IsMovementBlocked(centerCell + Vector2Int.left + Vector2Int.up, map, isCellBlocked))
-        {
-            return false;
-        }
-
-        if (offset.x < -edgeLimit
-            && offset.y < -edgeLimit
-            && IsMovementBlocked(centerCell + Vector2Int.left + Vector2Int.down, map, isCellBlocked))
+        if (TouchesBlockedCorner(offset, Vector2Int.right, Vector2Int.up, centerCell, map, isCellBlocked)
+            || TouchesBlockedCorner(offset, Vector2Int.right, Vector2Int.down, centerCell, map, isCellBlocked)
+            || TouchesBlockedCorner(offset, Vector2Int.left, Vector2Int.up, centerCell, map, isCellBlocked)
+            || TouchesBlockedCorner(offset, Vector2Int.left, Vector2Int.down, centerCell, map, isCellBlocked))
         {
             return false;
         }
 
         return true;
+    }
+
+    private bool TouchesBlockedCorner(
+        Vector2 offset,
+        Vector2Int xDirection,
+        Vector2Int yDirection,
+        Vector2Int centerCell,
+        BombermanMap map,
+        System.Func<Vector2Int, bool> isCellBlocked)
+    {
+        Vector2Int diagonalCell = centerCell + xDirection + yDirection;
+        if (!IsMovementBlocked(diagonalCell, map, isCellBlocked))
+        {
+            return false;
+        }
+
+        float cornerBlockRadius = Mathf.Min(freeMoveRadius, MaxCornerBlockRadius);
+        Vector2 corner = new(0.5f * xDirection.x, 0.5f * yDirection.y);
+        return (offset - corner).sqrMagnitude < cornerBlockRadius * cornerBlockRadius;
     }
 
     private static bool IsMovementBlocked(Vector2Int cell, BombermanMap map, System.Func<Vector2Int, bool> isCellBlocked)

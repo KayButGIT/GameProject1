@@ -7,6 +7,7 @@ public sealed class PlayerController : GridController
     private BombermanMap map;
     private PlayerAnimationBridge animationBridge;
     private Renderer faceRenderer;
+    private Renderer headRenderer;
     private int bodyMaterialIndex = -1;
     private int faceMaterialIndex = -1;
     private Material bodyNormalMaterial;
@@ -21,6 +22,8 @@ public sealed class PlayerController : GridController
 
     private const float BlinkInterval = 4f;
     private const float BlinkDuration = 0.14f;
+    private const float InputAcceleration = 12f;
+    private const float InputDeceleration = 18f;
 
     public override bool IsPlayer => true;
 
@@ -72,7 +75,9 @@ public sealed class PlayerController : GridController
             return;
         }
 
-        moveInput = ReadMove();
+        Vector2 targetMoveInput = ReadMove();
+        float inputChangeSpeed = targetMoveInput.sqrMagnitude > 0.001f ? InputAcceleration : InputDeceleration;
+        moveInput = Vector2.MoveTowards(moveInput, targetMoveInput, inputChangeSpeed * Time.deltaTime);
         UpdateIdleBlink();
 
         if (WasPressed(Key.Space))
@@ -130,6 +135,7 @@ public sealed class PlayerController : GridController
             RemovePlaceholderVisual();
             BodyRenderer = null;
             faceRenderer = null;
+            headRenderer = null;
             bodyMaterialIndex = -1;
             faceMaterialIndex = -1;
             GameObject model = Instantiate(modelPrefab, transform);
@@ -172,6 +178,20 @@ public sealed class PlayerController : GridController
     private void CacheModelRenderers(GameObject model)
     {
         Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
+        BodyRenderer = FindRendererByName(renderers, "body");
+        headRenderer = FindRendererByName(renderers, "head");
+
+        if (BodyRenderer != null)
+        {
+            bodyMaterialIndex = FindMaterialIndex(BodyRenderer, "body", 0);
+        }
+
+        if (headRenderer != null)
+        {
+            faceRenderer = headRenderer;
+            faceMaterialIndex = FindMaterialIndex(headRenderer, "face", headRenderer.sharedMaterials.Length > 1 ? 1 : 0);
+        }
+
         foreach (Renderer renderer in renderers)
         {
             string rendererName = renderer.name.ToLowerInvariant();
@@ -221,6 +241,33 @@ public sealed class PlayerController : GridController
         }
     }
 
+    private static Renderer FindRendererByName(Renderer[] renderers, string namePart)
+    {
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer.name.ToLowerInvariant().Contains(namePart))
+            {
+                return renderer;
+            }
+        }
+
+        return null;
+    }
+
+    private static int FindMaterialIndex(Renderer renderer, string materialNamePart, int fallbackIndex)
+    {
+        Material[] materials = renderer.sharedMaterials;
+        for (int i = 0; i < materials.Length; i++)
+        {
+            if (materials[i] != null && materials[i].name.ToLowerInvariant().Contains(materialNamePart))
+            {
+                return i;
+            }
+        }
+
+        return fallbackIndex >= 0 && fallbackIndex < materials.Length ? fallbackIndex : -1;
+    }
+
     private void UpdateIdleBlink()
     {
         if (faceRenderer == null || faceMaterialIndex < 0 || faceNormalMaterial == null || faceBlinkMaterial == null)
@@ -262,6 +309,11 @@ public sealed class PlayerController : GridController
             SetRendererMaterial(BodyRenderer, bodyMaterialIndex, bodyNormalMaterial);
         }
 
+        if (headRenderer != null && bodyNormalMaterial != null)
+        {
+            SetNonFaceHeadMaterials(bodyNormalMaterial);
+        }
+
         if (faceRenderer != null && faceMaterialIndex >= 0 && faceNormalMaterial != null)
         {
             SetRendererMaterial(faceRenderer, faceMaterialIndex, faceNormalMaterial);
@@ -275,11 +327,32 @@ public sealed class PlayerController : GridController
             SetRendererMaterial(BodyRenderer, bodyMaterialIndex, bodyBurntMaterial);
         }
 
+        if (headRenderer != null && burnt && bodyBurntMaterial != null)
+        {
+            SetNonFaceHeadMaterials(bodyBurntMaterial);
+        }
+
         Material faceMaterial = burnt ? faceDeadBurntMaterial : faceDeadMaterial;
         if (faceRenderer != null && faceMaterialIndex >= 0 && faceMaterial != null)
         {
             SetRendererMaterial(faceRenderer, faceMaterialIndex, faceMaterial);
         }
+    }
+
+    private void SetNonFaceHeadMaterials(Material material)
+    {
+        Material[] materials = headRenderer.materials;
+        for (int i = 0; i < materials.Length; i++)
+        {
+            if (i == faceMaterialIndex)
+            {
+                continue;
+            }
+
+            materials[i] = material;
+        }
+
+        headRenderer.materials = materials;
     }
 
     private static void SetRendererMaterial(Renderer renderer, int materialIndex, Material material)

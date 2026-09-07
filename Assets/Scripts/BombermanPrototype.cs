@@ -28,9 +28,9 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     [Header("Player")]
     [SerializeField] private float playerMoveSpeed = 6f;
-    [SerializeField] private float playerAcceleration = 28f;
-    [SerializeField] private float playerDeceleration = 36f;
-    [SerializeField] private float playerTurnSpeed = 14f;
+    [SerializeField] private float playerAcceleration = 18f;
+    [SerializeField] private float playerDeceleration = 24f;
+    [SerializeField] private float playerTurnSpeed = 10f;
     [SerializeField, Min(0.05f)] private float playerColliderRadius = 0.55f;
     [SerializeField, Min(0.05f)] private float playerColliderHeight = 1.125f;
     [SerializeField] private GameObject playerModelPrefab;
