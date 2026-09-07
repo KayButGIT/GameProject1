@@ -31,7 +31,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private float playerAcceleration = 18f;
     [SerializeField] private float playerDeceleration = 24f;
     [SerializeField] private float playerTurnSpeed = 10f;
-    [SerializeField, Min(0.05f)] private float playerColliderRadius = 0.55f;
+    [Tooltip("Actual wall-blocking capsule radius. Use 0.50 or less to fit the 1.08-unit passages.")]
+    [SerializeField, Min(0.05f)] private float playerColliderRadius = 0.5f;
     [SerializeField, Min(0.05f)] private float playerColliderHeight = 1.125f;
     [SerializeField] private GameObject playerModelPrefab;
     [SerializeField] private float playerModelScale = 8.91f;
