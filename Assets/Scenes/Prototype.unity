@@ -783,7 +783,7 @@ MonoBehaviour:
   playerAcceleration: 18
   playerDeceleration: 24
   playerTurnSpeed: 10
-  playerColliderRadius: 0.5
+  playerColliderRadius: 0.52
   playerColliderHeight: 1.125
   playerModelPrefab: {fileID: 919132149155446097, guid: 8b0b3834197ea174bb01f77b7932dc3e, type: 3}
   playerModelScale: 18.91
