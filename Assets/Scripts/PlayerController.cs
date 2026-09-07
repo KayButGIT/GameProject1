@@ -20,7 +20,7 @@ public sealed class PlayerController : GridController
     private float blinkTimer = BlinkInterval;
     private float blinkDurationTimer;
 
-    private const float BlinkInterval = 4f;
+    private const float BlinkInterval = 3f;
     private const float BlinkDuration = 0.14f;
     private const float InputAcceleration = 12f;
     private const float InputDeceleration = 18f;
