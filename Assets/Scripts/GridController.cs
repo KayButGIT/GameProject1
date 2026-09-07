@@ -304,6 +304,40 @@ public abstract class GridController : MonoBehaviour
         Destroy(gameObject);
     }
 
+    public void GetParticleColors(out Color primaryColor, out Color secondaryColor)
+    {
+        primaryColor = Color.white;
+        secondaryColor = Color.white;
+        bool foundPrimaryColor = false;
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        foreach (Renderer renderer in renderers)
+        {
+            foreach (Material material in renderer.materials)
+            {
+                if (material == null)
+                {
+                    continue;
+                }
+
+                Color color = material.color;
+                if (!foundPrimaryColor)
+                {
+                    primaryColor = color;
+                    secondaryColor = color;
+                    foundPrimaryColor = true;
+                    continue;
+                }
+
+                if (color != primaryColor)
+                {
+                    secondaryColor = color;
+                    return;
+                }
+            }
+        }
+    }
+
     private void AnimateWalkBob(float animationTime)
     {
         Transform body = transform.Find("Body");

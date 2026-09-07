@@ -798,6 +798,7 @@ MonoBehaviour:
   maxBombs: 1
   blastRange: 1
   bombFuseTime: 2
+  bombReleasePadding: 0.65
   playerCanDieFromBomb: 1
   playerDeathAnimationTime: 0.85
   playerDeathParticleTime: 0.6

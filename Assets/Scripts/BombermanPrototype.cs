@@ -46,6 +46,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
     [SerializeField] private float bombFuseTime = 2f;
+    [SerializeField, Min(0f)] private float bombReleasePadding = 0.65f;
     [SerializeField] private bool playerCanDieFromBomb = false;
     [SerializeField, Min(0f)] private float playerDeathAnimationTime = 0.85f;
     [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
@@ -338,7 +339,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         {
             bomb = bombObject.AddComponent<Bomb>();
         }
-        bomb.Initialize(bombCell, player.transform, 0.9f);
+        bomb.Initialize(bombCell, player.transform, playerColliderRadius + bombReleasePadding);
         bombs[bomb.Cell] = bomb;
         activeBombs++;
         StartCoroutine(ExplodeAfterFuse(bomb));
@@ -418,9 +419,17 @@ public sealed class BombermanPrototype : MonoBehaviour
                     continue;
                 }
 
+                SpawnActorDeathParticles(actor, "Enemy Death Particles", playerDeathParticleTime);
                 actor.Die();
             }
         }
+    }
+
+    private void SpawnActorDeathParticles(GridController actor, string objectName, float lifetime)
+    {
+        actor.GetParticleColors(out Color primaryColor, out Color secondaryColor);
+        GameObject particle = ExplosionParticleFactory.CreateColorBurst(objectName, actor.transform.position, primaryColor, secondaryColor);
+        Destroy(particle, lifetime);
     }
 
     private void StartPlayerDeath(PlayerDeathCause cause)
@@ -466,12 +475,12 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         if (player != null)
         {
-            Vector3 playerPosition = player.transform.position;
-            bool fromBomb = cause == PlayerDeathCause.Bomb;
-            GameObject particle = ExplosionParticleFactory.CreatePlayerDeathBurst(
-                fromBomb ? "Player Bomb Death Particles" : "Player Enemy Death Particles",
-                playerPosition,
-                fromBomb);
+            player.GetParticleColors(out Color primaryColor, out Color secondaryColor);
+            GameObject particle = ExplosionParticleFactory.CreateColorBurst(
+                cause == PlayerDeathCause.Bomb ? "Player Bomb Death Particles" : "Player Enemy Death Particles",
+                player.transform.position,
+                primaryColor,
+                secondaryColor);
             Destroy(player.gameObject);
             Destroy(particle, playerDeathParticleTime);
         }

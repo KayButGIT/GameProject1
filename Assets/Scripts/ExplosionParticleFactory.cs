@@ -27,6 +27,18 @@ public static class ExplosionParticleFactory
         return root;
     }
 
+    public static GameObject CreateColorBurst(string objectName, Vector3 groundPosition, Color primaryColor, Color secondaryColor)
+    {
+        GameObject root = new(objectName);
+        root.transform.position = groundPosition + new Vector3(0f, 0.45f, 0f);
+
+        CreateChunks(
+            root.transform,
+            MakeParticleMaterial($"{objectName} Primary", primaryColor),
+            MakeParticleMaterial($"{objectName} Secondary", secondaryColor));
+        return root;
+    }
+
     private static void CreateChunks(Transform parent, Material primaryMaterial, Material secondaryMaterial)
     {
         for (int i = 0; i < 34; i++)
@@ -96,6 +108,12 @@ public static class ExplosionParticleFactory
         }
 
         return whiteMaterial;
+    }
+
+    private static Material MakeParticleMaterial(string materialName, Color color)
+    {
+        color.a = 1f;
+        return BombermanMaterials.Make(materialName, color);
     }
 }
 
