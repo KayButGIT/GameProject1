@@ -314,7 +314,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinuoEnemy
   Cell: {x: 0, y: 0}
-  MoveSpeed: 4
+  MoveSpeed: 3
   BodyRenderer: {fileID: 6329660302310784748}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28

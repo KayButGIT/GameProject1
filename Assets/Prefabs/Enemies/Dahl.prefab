@@ -314,7 +314,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DahlEnemy
   Cell: {x: 0, y: 0}
-  MoveSpeed: 3.5
+  MoveSpeed: 2.75
   BodyRenderer: {fileID: 6914731762061281385}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28

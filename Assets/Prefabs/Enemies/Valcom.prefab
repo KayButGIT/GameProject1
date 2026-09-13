@@ -314,7 +314,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ValcomEnemy
   Cell: {x: 0, y: 0}
-  MoveSpeed: 2
+  MoveSpeed: 1.5
   BodyRenderer: {fileID: 6310036113541511611}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28

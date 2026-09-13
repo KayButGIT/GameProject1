@@ -432,7 +432,7 @@ MonoBehaviour:
   destructibleDensity: 0.55
   randomSeed: 0
   playerMoveSpeed: 4
-  playerAcceleration: 18
+  playerAcceleration: 22
   playerDeceleration: 24
   playerTurnSpeed: 10
   playerColliderRadius: 0.52
@@ -456,14 +456,14 @@ MonoBehaviour:
   playerDeathParticleTime: 0.6
   playerRestartDelay: 1
   spawnEnemies: 1
-  onealCount: 1
-  dahlCount: 1
+  onealCount: 0
+  dahlCount: 0
   pontanCount: 1
-  passCount: 1
-  valcomCount: 1
-  ovapeCount: 1
-  doriaCount: 1
-  minuoCount: 1
+  passCount: 0
+  valcomCount: 0
+  ovapeCount: 0
+  doriaCount: 0
+  minuoCount: 0
   enemyPlayerHitDistance: 0.3
   enemyPrefabs:
   - {fileID: 5289937365063296213, guid: 2ee33a8423472274fb1a637f1f855619, type: 3}

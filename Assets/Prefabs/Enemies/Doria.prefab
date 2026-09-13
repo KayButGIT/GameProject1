@@ -78,7 +78,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoriaEnemy
   Cell: {x: 0, y: 0}
-  MoveSpeed: 1
+  MoveSpeed: 0.7
   BodyRenderer: {fileID: 1689264737428785676}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28
