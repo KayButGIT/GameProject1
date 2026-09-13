@@ -465,14 +465,15 @@ MonoBehaviour:
   doriaCount: 1
   minuoCount: 1
   enemyPlayerHitDistance: 0.3
-  onealSpeed: 3.5
-  dahlSpeed: 3.5
-  pontanSpeed: 5.5
-  passSpeed: 4.5
-  valcomSpeed: 2
-  ovapeSpeed: 1.5
-  doriaSpeed: 3
-  minuoSpeed: 4
+  enemyPrefabs:
+  - {fileID: 5289937365063296213, guid: 2ee33a8423472274fb1a637f1f855619, type: 3}
+  - {fileID: 116773780750337980, guid: 58bbda40116ac084e9a90bd91942b9fc, type: 3}
+  - {fileID: 6738829313803337161, guid: 347b8822a5ebcd04581c550c0b6a4876, type: 3}
+  - {fileID: 1161696780468328565, guid: d2d3a8e59c0d0f9408b68b925f0d34f1, type: 3}
+  - {fileID: 7057797805197994696, guid: b4d34c288dc5f504e81c3f3d78fe1310, type: 3}
+  - {fileID: 6620013482215686235, guid: fb5dcb744b118a24dbbb2579706a1ee5, type: 3}
+  - {fileID: 2748077993896910579, guid: d420e06235be1284cb9e529c579b92ee, type: 3}
+  - {fileID: 2226920271405273773, guid: e354abf7a004fad4582a31851a8ddccd, type: 3}
   cameraOrthographicSize: 5.7
   cameraHeight: 18
   cameraPitchAngle: 55

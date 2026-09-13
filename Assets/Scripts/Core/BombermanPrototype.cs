@@ -65,16 +65,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private int minuoCount = 3;
     [SerializeField, Min(0.05f)] private float enemyPlayerHitDistance = 0.45f;
 
-    [Header("Enemy Speeds")]
-    [SerializeField] private float onealSpeed = 3.5f;
-    [SerializeField] private float dahlSpeed = 3.5f;
-    [SerializeField] private float pontanSpeed = 5.5f;
-    [SerializeField] private float passSpeed = 4.5f;
-    [SerializeField] private float valcomSpeed = 2f;
-    [SerializeField] private float ovapeSpeed = 1.5f;
-    [SerializeField] private float doriaSpeed = 3f;
-    [SerializeField] private float minuoSpeed = 4f;
-
+    [Tooltip("Enemy prefab settings control movement and behavior.")]
+    [SerializeField] private EnemyController[] enemyPrefabs;
     [Header("Camera")]
     [SerializeField] private float cameraOrthographicSize = 6.9f;
     [SerializeField] private float cameraHeight = 18f;
@@ -98,6 +90,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     private bool restarting;
 
     public bool IsPaused => paused;
+    public bool HasLivingPlayer => player != null && !player.IsDead;
+    public bool IsReady => map != null && player != null;
     public Vector2Int PlayerCell => player != null ? player.Cell : Vector2Int.zero;
 
     public bool IsBombBlockingCell(Vector2Int cell)
@@ -118,6 +112,8 @@ public sealed class BombermanPrototype : MonoBehaviour
         ConfigureCamera();
         map.Generate();
         SpawnPlayer();
+        foreach (EnemyController enemy in FindObjectsByType<EnemyController>(FindObjectsSortMode.None))
+            RegisterEnemy(enemy);
         if (spawnEnemies)
         {
             SpawnEnemies();
@@ -249,29 +245,70 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void SpawnEnemies()
     {
-        SpawnEnemyGroup<OnealEnemy>("O'neal", onealCount, materials.Oneal, 0.85f, onealSpeed);
-        SpawnEnemyGroup<DahlEnemy>("Dahl", dahlCount, materials.Dahl, 0.75f, dahlSpeed);
-        SpawnEnemyGroup<PontanEnemy>("Pontan", pontanCount, materials.Pontan, 0.7f, pontanSpeed);
-        SpawnEnemyGroup<PassEnemy>("Pass", passCount, materials.Pass, 0.75f, passSpeed);
-        SpawnEnemyGroup<ValcomEnemy>("Valcom", valcomCount, materials.Valcom, 0.7f, valcomSpeed);
-        SpawnEnemyGroup<OvapeEnemy>("Ovape", ovapeCount, materials.Ovape, 0.8f, ovapeSpeed);
-        SpawnEnemyGroup<DoriaEnemy>("Doria", doriaCount, materials.Doria, 0.75f, doriaSpeed);
-        SpawnEnemyGroup<MinuoEnemy>("Minuo", minuoCount, materials.Minuo, 0.85f, minuoSpeed);
+        SpawnEnemyGroup<OnealEnemy>("O'neal", onealCount);
+        SpawnEnemyGroup<DahlEnemy>("Dahl", dahlCount);
+        SpawnEnemyGroup<PontanEnemy>("Pontan", pontanCount);
+        SpawnEnemyGroup<PassEnemy>("Pass", passCount);
+        SpawnEnemyGroup<ValcomEnemy>("Valcom", valcomCount);
+        SpawnEnemyGroup<OvapeEnemy>("Ovape", ovapeCount);
+        SpawnEnemyGroup<DoriaEnemy>("Doria", doriaCount);
+        SpawnEnemyGroup<MinuoEnemy>("Minuo", minuoCount);
     }
 
-    private void SpawnEnemyGroup<TEnemy>(string enemyName, int count, Material material, float scale, float moveSpeed)
-        where TEnemy : EnemyController
+    private void SpawnEnemyGroup<TEnemy>(string enemyName, int count) where TEnemy : EnemyController
     {
+        EnemyController prefab = null;
+        if (enemyPrefabs != null)
+            foreach (EnemyController candidate in enemyPrefabs)
+                if (candidate is TEnemy) { prefab = candidate; break; }
+        if (prefab == null)
+        {
+            Debug.LogError($"Assign the {enemyName} prefab to Enemy Prefabs on {name}.", this);
+            return;
+        }
         for (int i = 0; i < count; i++)
         {
-            Vector2Int cell = FindEnemySpawnCell();
-            TEnemy enemy = EnemyController.Create<TEnemy>($"{enemyName} {i + 1}", cell, map, material, materials.EnemyDead, scale);
-            enemy.MoveSpeed = moveSpeed;
-            enemy.Initialize(this);
-            actors.Add(enemy);
+            EnemyController enemy = Instantiate(prefab, map.CellToWorld(FindEnemySpawnCell()), Quaternion.identity);
+            enemy.name = $"{enemyName} {i + 1}";
+            RegisterEnemy(enemy);
         }
     }
 
+    public void RegisterEnemy(EnemyController enemy)
+    {
+        if (!IsReady || enemy == null || actors.Contains(enemy)) return;
+        enemy.Cell = map.WorldToCell(enemy.transform.position);
+        enemy.transform.position = map.CellToWorld(enemy.Cell);
+        actors.Add(enemy);
+        enemy.Initialize(this);
+    }
+
+    public bool CanEnemyTraverse(EnemyController enemy, Vector2Int cell)
+    {
+        return map != null && (enemy.CanPassDestructibleWalls
+            ? IsWalkableIncludingDestructible(cell) : IsWalkable(cell));
+    }
+
+    // Read-only forecast of the current explosion geometry, without fuse or chain prediction.
+    public bool IsCellThreatenedByBomb(Vector2Int target)
+    {
+        if (map == null) return false;
+        foreach (Bomb bomb in bombs.Values)
+        {
+            if (bomb == null) continue;
+            if (bomb.Cell == target) return true;
+            foreach (Vector2Int direction in Directions)
+                for (int step = 1; step <= blastRange; step++)
+                {
+                    Vector2Int cell = bomb.Cell + direction * step;
+                    CellKind kind = map.GetCellKind(cell);
+                    if (kind == CellKind.None || kind == CellKind.Solid) break;
+                    if (cell == target) return true;
+                    if (kind == CellKind.Destructible) break;
+                }
+        }
+        return false;
+    }
     private Vector2Int FindEnemySpawnCell()
     {
         for (int attempts = 0; attempts < 200; attempts++)
@@ -293,8 +330,9 @@ public sealed class BombermanPrototype : MonoBehaviour
             return;
         }
 
+        if (Mathf.Abs(direction.x) + Mathf.Abs(direction.y) != 1) return;
         Vector2Int target = controller.Cell + direction;
-        bool walkable = controller.CanPassDestructibleWalls
+        bool walkable = controller is EnemyController enemy ? CanEnemyTraverse(enemy, target) : controller.CanPassDestructibleWalls
             ? IsWalkableIncludingDestructible(target)
             : IsWalkable(target);
 

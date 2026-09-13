@@ -19,7 +19,7 @@ $compilerArguments = @(
     "-r:$framework/System.dll",
     "-r:$framework/Facades/netstandard.dll",
     "-r:$unityManaged/UnityEngine.CoreModule.dll",
-    (Join-Path $projectRoot 'Assets/Scripts/GridMovement.cs'),
+    (Join-Path $projectRoot 'Assets/Scripts/Grid/GridMovement.cs'),
     (Join-Path $PSScriptRoot 'GridMovementRegression.cs')
 )
 & (Join-Path $EditorData 'NetCoreRuntime/dotnet.exe') (Join-Path $EditorData 'DotNetSdkRoslyn/csc.dll') @compilerArguments
