@@ -57,8 +57,23 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private bool spawnEnemies = false;
     [SerializeField] private int onealCount = 3;
     [SerializeField] private int dahlCount = 3;
-    [SerializeField] private float enemyMoveSpeed = 3f;
+    [SerializeField] private int pontanCount = 3;
+    [SerializeField] private int passCount = 3;
+    [SerializeField] private int valcomCount = 3;
+    [SerializeField] private int ovapeCount = 3;
+    [SerializeField] private int doriaCount = 3;
+    [SerializeField] private int minuoCount = 3;
     [SerializeField, Min(0.05f)] private float enemyPlayerHitDistance = 0.45f;
+
+    [Header("Enemy Speeds")]
+    [SerializeField] private float onealSpeed = 3.5f;
+    [SerializeField] private float dahlSpeed = 3.5f;
+    [SerializeField] private float pontanSpeed = 5.5f;
+    [SerializeField] private float passSpeed = 4.5f;
+    [SerializeField] private float valcomSpeed = 2f;
+    [SerializeField] private float ovapeSpeed = 1.5f;
+    [SerializeField] private float doriaSpeed = 3f;
+    [SerializeField] private float minuoSpeed = 4f;
 
     [Header("Camera")]
     [SerializeField] private float cameraOrthographicSize = 6.9f;
@@ -234,20 +249,24 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void SpawnEnemies()
     {
-        // Enemy spawn is disabled for now; turn on spawnEnemies later when enemy gameplay returns.
-        SpawnEnemyGroup<OnealEnemy>("O'neal", onealCount, materials.Oneal, 0.85f);
-        SpawnEnemyGroup<DahlEnemy>("Dahl", dahlCount, materials.Dahl, 0.75f);
+        SpawnEnemyGroup<OnealEnemy>("O'neal", onealCount, materials.Oneal, 0.85f, onealSpeed);
+        SpawnEnemyGroup<DahlEnemy>("Dahl", dahlCount, materials.Dahl, 0.75f, dahlSpeed);
+        SpawnEnemyGroup<PontanEnemy>("Pontan", pontanCount, materials.Pontan, 0.7f, pontanSpeed);
+        SpawnEnemyGroup<PassEnemy>("Pass", passCount, materials.Pass, 0.75f, passSpeed);
+        SpawnEnemyGroup<ValcomEnemy>("Valcom", valcomCount, materials.Valcom, 0.7f, valcomSpeed);
+        SpawnEnemyGroup<OvapeEnemy>("Ovape", ovapeCount, materials.Ovape, 0.8f, ovapeSpeed);
+        SpawnEnemyGroup<DoriaEnemy>("Doria", doriaCount, materials.Doria, 0.75f, doriaSpeed);
+        SpawnEnemyGroup<MinuoEnemy>("Minuo", minuoCount, materials.Minuo, 0.85f, minuoSpeed);
     }
 
-    private void SpawnEnemyGroup<TEnemy>(string enemyName, int count, Material material, float scale)
+    private void SpawnEnemyGroup<TEnemy>(string enemyName, int count, Material material, float scale, float moveSpeed)
         where TEnemy : EnemyController
     {
         for (int i = 0; i < count; i++)
         {
-            // Enemy spawn is centralized here so each enemy type can reuse the same placement rules.
             Vector2Int cell = FindEnemySpawnCell();
             TEnemy enemy = EnemyController.Create<TEnemy>($"{enemyName} {i + 1}", cell, map, material, materials.EnemyDead, scale);
-            enemy.MoveSpeed = enemyMoveSpeed;
+            enemy.MoveSpeed = moveSpeed;
             enemy.Initialize(this);
             actors.Add(enemy);
         }
@@ -275,7 +294,11 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         Vector2Int target = controller.Cell + direction;
-        if (IsWalkable(target))
+        bool walkable = controller.CanPassDestructibleWalls
+            ? IsWalkableIncludingDestructible(target)
+            : IsWalkable(target);
+
+        if (walkable)
         {
             controller.StartMove(target, map.CellToWorld(target));
         }
@@ -284,6 +307,13 @@ public sealed class BombermanPrototype : MonoBehaviour
     private bool IsWalkable(Vector2Int cell)
     {
         return map.IsWalkable(cell)
+            && !bombs.ContainsKey(cell);
+    }
+
+    private bool IsWalkableIncludingDestructible(Vector2Int cell)
+    {
+        CellKind kind = map.GetCellKind(cell);
+        return (kind == CellKind.Empty || kind == CellKind.Destructible)
             && !bombs.ContainsKey(cell);
     }
 

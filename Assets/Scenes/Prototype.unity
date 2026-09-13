@@ -246,37 +246,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
---- !u!1 &1028424126
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1028424127}
-  m_Layer: 0
-  m_Name: Test
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1028424127
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1028424126}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.46307, y: -0, z: -1.51076}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1551479745
 GameObject:
   m_ObjectHideFlags: 0
@@ -487,10 +456,23 @@ MonoBehaviour:
   playerDeathParticleTime: 0.6
   playerRestartDelay: 1
   spawnEnemies: 1
-  onealCount: 3
-  dahlCount: 3
-  enemyMoveSpeed: 3
+  onealCount: 1
+  dahlCount: 1
+  pontanCount: 1
+  passCount: 1
+  valcomCount: 1
+  ovapeCount: 1
+  doriaCount: 1
+  minuoCount: 1
   enemyPlayerHitDistance: 0.3
+  onealSpeed: 3.5
+  dahlSpeed: 3.5
+  pontanSpeed: 5.5
+  passSpeed: 4.5
+  valcomSpeed: 2
+  ovapeSpeed: 1.5
+  doriaSpeed: 3
+  minuoSpeed: 4
   cameraOrthographicSize: 5.7
   cameraHeight: 18
   cameraPitchAngle: 55
@@ -503,4 +485,3 @@ SceneRoots:
   - {fileID: 1551479748}
   - {fileID: 291330901}
   - {fileID: 1901000001}
-  - {fileID: 1028424127}

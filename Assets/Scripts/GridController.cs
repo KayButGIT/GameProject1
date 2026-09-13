@@ -12,6 +12,7 @@ public abstract class GridController : MonoBehaviour
     public bool IsMoving { get; protected set; }
     public bool IsDead { get; protected set; }
     public virtual bool IsPlayer => false;
+    public virtual bool CanPassDestructibleWalls => false;
     public float CurrentFreeMoveSpeed => visualFreeMoveVelocity.magnitude;
 
     private const float BodyIdleHeight = 0.55f;

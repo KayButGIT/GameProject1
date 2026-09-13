@@ -9,6 +9,12 @@ public sealed class BombermanMaterials
     public Material PlayerDead { get; private set; }
     public Material Oneal { get; private set; }
     public Material Dahl { get; private set; }
+    public Material Pontan { get; private set; }
+    public Material Pass { get; private set; }
+    public Material Valcom { get; private set; }
+    public Material Ovape { get; private set; }
+    public Material Doria { get; private set; }
+    public Material Minuo { get; private set; }
     public Material EnemyDead { get; private set; }
     public Material Bomb { get; private set; }
     public Material Explosion { get; private set; }
@@ -25,6 +31,12 @@ public sealed class BombermanMaterials
             PlayerDead = Make("Bomberman Dead Burnt", new Color(0.07f, 0.07f, 0.07f)),
             Oneal = Make("O'neal Normal", new Color(0.98f, 0.95f, 0.86f)),
             Dahl = Make("Dahl Normal", new Color(0.75f, 0.12f, 0.12f)),
+            Pontan = Make("Pontan Normal", new Color(0.95f, 0.85f, 0.15f)),
+            Pass = Make("Pass Normal", new Color(0.85f, 0.4f, 0.75f)),
+            Valcom = Make("Valcom Normal", new Color(0.3f, 0.75f, 0.95f)),
+            Ovape = Make("Ovape Normal", new Color(0.9f, 0.9f, 0.98f)),
+            Doria = Make("Doria Normal", new Color(0.4f, 0.85f, 0.35f)),
+            Minuo = Make("Minuo Normal", new Color(0.5f, 0.55f, 0.6f)),
             EnemyDead = Make("Enemy Dead", new Color(0.18f, 0.16f, 0.2f)),
             Bomb = Make("Bomb", new Color(0.02f, 0.02f, 0.025f)),
             Explosion = Make("Explosion", new Color(1f, 0.55f, 0.02f)),
