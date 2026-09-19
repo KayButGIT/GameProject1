@@ -393,6 +393,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1901000001}
   - component: {fileID: 1901000002}
+  - component: {fileID: 1901000003}
   m_Layer: 0
   m_Name: Bomberman Prototype
   m_TagString: Untagged
@@ -479,6 +480,20 @@ MonoBehaviour:
   cameraPitchAngle: 55
   cameraFollowSpeed: 8
   horizontalEdgePadding: 5
+--- !u!114 &1901000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1901000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09235ed386844fa483d4d6736bd11dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StageManager
+  sequence: {fileID: 11400000, guid: 4a503099d4c99aa4aae35c2b185c7de5, type: 2}
+  startingStage: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

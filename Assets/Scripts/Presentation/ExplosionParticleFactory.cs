@@ -7,15 +7,6 @@ public static class ExplosionParticleFactory
     private static Material redMaterial;
     private static Material whiteMaterial;
 
-    public static GameObject CreateCartoonFlame(string objectName, Vector3 groundPosition)
-    {
-        GameObject root = new(objectName);
-        root.transform.position = groundPosition + new Vector3(0f, 0.12f, 0f);
-
-        CreateChunks(root.transform, GetOrangeMaterial(), GetYellowMaterial());
-        return root;
-    }
-
     public static GameObject CreatePlayerDeathBurst(string objectName, Vector3 groundPosition, bool fromBomb)
     {
         GameObject root = new(objectName);

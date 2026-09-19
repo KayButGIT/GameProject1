@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd67b7f5d93e4f6dadb1eb0042e00e33, type: 3}
+  m_Name: Phase 1
+  m_EditorClassIdentifier: Assembly-CSharp::StageTheme
+  SolidBlock:
+    Prefab: {fileID: 57357588090562620, guid: b45481a2f01243149a9176773cfeb1c3, type: 3}
+    Position: {x: -0, y: -0.5, z: -0}
+    Rotation: {x: 0, y: 0, z: 0}
+    Scale: {x: 1, y: 1, z: 1}
+  BreakableBlock:
+    Prefab: {fileID: 4582649169030214046, guid: db121dd2fa1f7794ebfe6f04664021c8, type: 3}
+    Position: {x: -0, y: -0.5, z: -0}
+    Rotation: {x: 0, y: 0, z: 0}
+    Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+  Floor:
+    Prefab: {fileID: 7927509653938583676, guid: 0a792aa401fb7374c8db972d16d9cc13, type: 3}
+    Position: {x: 0, y: 0, z: 0}
+    Rotation: {x: 0, y: 0, z: 0}
+    Scale: {x: 1, y: 1, z: 1}
+  BorderMaterial: {fileID: 0}

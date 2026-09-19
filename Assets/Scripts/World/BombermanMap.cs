@@ -8,25 +8,38 @@ public sealed class BombermanMap
     private readonly float destructibleDensity;
     private readonly int randomSeed;
     private readonly BombermanMaterials materials;
+    private readonly StageTheme theme;
+    private readonly Transform parent;
+    private System.Random layoutRandom;
+    private System.Random visualRandom;
+    private readonly Dictionary<Vector2Int, GameObject> blocks = new();
     private readonly Dictionary<Vector2Int, CellKind> cells = new();
 
-    public BombermanMap(int width, int height, float destructibleDensity, int randomSeed, BombermanMaterials materials)
+    public BombermanMap(int width, int height, float destructibleDensity, int randomSeed, BombermanMaterials materials, StageTheme theme = null, Transform parent = null)
     {
         this.width = width;
         this.height = height;
         this.destructibleDensity = destructibleDensity;
         this.randomSeed = randomSeed;
         this.materials = materials;
+        this.theme = theme;
+        this.parent = parent;
     }
 
     public float LeftWorldX => CellToWorld(new Vector2Int(0, 0)).x;
     public float RightWorldX => CellToWorld(new Vector2Int(width - 1, 0)).x;
+    public ExitDoor ExitDoor { get; private set; }
 
     public void Generate()
     {
-        Random.InitState(randomSeed == 0 ? System.Environment.TickCount : randomSeed);
+        Random.InitState(randomSeed);
+        layoutRandom = new System.Random(randomSeed);
+        // Model variants use their own sequence, so they never change the layout or the exit.
+        visualRandom = new System.Random(~randomSeed);
         GameObject mapRoot = new("Generated Bomberman Map");
+        mapRoot.transform.SetParent(parent, false);
         cells.Clear();
+        blocks.Clear();
 
         for (int x = 0; x < width; x++)
         {
@@ -39,15 +52,16 @@ public sealed class BombermanMap
                 CreateFloor(cell, mapRoot.transform);
                 if (kind == CellKind.Solid)
                 {
-                    CreateBlock(cell, "Solid Wall", materials.Solid, 1f, mapRoot.transform);
+                    CreateBlock(cell, "Solid Wall", materials.Solid, 1f, mapRoot.transform, GetSolidVisual(cell));
                 }
                 else if (kind == CellKind.Destructible)
                 {
-                    CreateBlock(cell, "Destructible Wall", materials.Destructible, 0.8f, mapRoot.transform);
+                    CreateBlock(cell, "Destructible Wall", materials.Destructible, 0.8f, mapRoot.transform, theme != null ? theme.BreakableBlock : null);
                 }
             }
         }
 
+        ExitDoor = CreateExitDoor(mapRoot.transform);
         CreateArenaBorder(mapRoot.transform);
     }
 
@@ -69,15 +83,36 @@ public sealed class BombermanMap
         }
 
         cells[cell] = CellKind.Empty;
-        CellObject[] cellObjects = UnityEngine.Object.FindObjectsByType<CellObject>(FindObjectsSortMode.None);
-        foreach (CellObject cellObject in cellObjects)
+        if (blocks.TryGetValue(cell, out GameObject block))
         {
-            if (cellObject.Cell == cell)
+            block.SetActive(false);
+            UnityEngine.Object.Destroy(block);
+            blocks.Remove(cell);
+        }
+
+        if (ExitDoor != null && ExitDoor.Cell == cell)
+        {
+            ExitDoor.Reveal();
+        }
+    }
+
+    // The material a block is drawn with: its theme model's when one is attached.
+    public Material GetBlockMaterial(Vector2Int cell)
+    {
+        if (!blocks.TryGetValue(cell, out GameObject block))
+        {
+            return null;
+        }
+
+        foreach (Renderer renderer in block.GetComponentsInChildren<Renderer>())
+        {
+            if (renderer.enabled && renderer.sharedMaterial != null)
             {
-                UnityEngine.Object.Destroy(cellObject.gameObject);
-                return;
+                return renderer.sharedMaterial;
             }
         }
+
+        return null;
     }
 
     public Vector3 CellToWorld(Vector2Int cell)
@@ -94,8 +129,7 @@ public sealed class BombermanMap
 
     private CellKind GetInitialCellKind(Vector2Int cell)
     {
-        bool border = cell.x == 0 || cell.y == 0 || cell.x == width - 1 || cell.y == height - 1;
-        if (border || (cell.x % 2 == 0 && cell.y % 2 == 0))
+        if (IsBorderCell(cell) || (cell.x % 2 == 0 && cell.y % 2 == 0))
         {
             return CellKind.Solid;
         }
@@ -105,7 +139,23 @@ public sealed class BombermanMap
             return CellKind.Empty;
         }
 
-        return Random.value < destructibleDensity ? CellKind.Destructible : CellKind.Empty;
+        return layoutRandom.NextDouble() < destructibleDensity ? CellKind.Destructible : CellKind.Empty;
+    }
+
+    private bool IsBorderCell(Vector2Int cell)
+    {
+        return cell.x == 0 || cell.y == 0 || cell.x == width - 1 || cell.y == height - 1;
+    }
+
+    // The outer ring can use its own models; without any it matches the inner pillars.
+    private StageTheme.VisualSlot GetSolidVisual(Vector2Int cell)
+    {
+        if (theme == null)
+        {
+            return null;
+        }
+
+        return IsBorderCell(cell) && theme.BorderBlock != null && theme.BorderBlock.HasVariants ? theme.BorderBlock : theme.SolidBlock;
     }
 
     private bool IsSafeSpawnCell(Vector2Int cell)
@@ -118,6 +168,40 @@ public sealed class BombermanMap
             || cell == new Vector2Int(width - 2, height - 3);
     }
 
+    private ExitDoor CreateExitDoor(Transform parent)
+    {
+        // Like the original game, the exit hides under a random breakable block.
+        List<Vector2Int> hidingCells = new();
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                if (cells[new Vector2Int(x, y)] == CellKind.Destructible)
+                {
+                    hidingCells.Add(new Vector2Int(x, y));
+                }
+            }
+        }
+
+        // Picked after the layout, so a seed still produces the same blocks. Open layouts show the exit in the far corner.
+        bool hidden = hidingCells.Count > 0;
+        Vector2Int cell = hidden ? hidingCells[layoutRandom.Next(hidingCells.Count)] : new Vector2Int(width - 2, height - 2);
+        return ExitDoor.Create(cell, CellToWorld(cell), parent, materials, theme != null ? theme.ExitDoor : null, visualRandom, !hidden);
+    }
+
+    // Edit-mode stage previews cannot use deferred destruction.
+    internal static void DestroyGenerated(UnityEngine.Object target)
+    {
+        if (Application.isPlaying)
+        {
+            UnityEngine.Object.Destroy(target);
+        }
+        else
+        {
+            UnityEngine.Object.DestroyImmediate(target);
+        }
+    }
+
     private void CreateFloor(Vector2Int cell, Transform parent)
     {
         GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -125,21 +209,25 @@ public sealed class BombermanMap
         floor.transform.SetParent(parent);
         floor.transform.position = CellToWorld(cell) + new Vector3(0f, -0.06f, 0f);
         floor.transform.localScale = new Vector3(0.96f, 0.08f, 0.96f);
-        floor.GetComponent<Renderer>().material = materials.Floor;
-        UnityEngine.Object.Destroy(floor.GetComponent<Collider>());
+        floor.GetComponent<Renderer>().sharedMaterial = materials.Floor;
+        if (theme != null && theme.Floor != null && theme.Floor.Attach(floor.transform, visualRandom))
+            floor.GetComponent<Renderer>().enabled = false;
+        DestroyGenerated(floor.GetComponent<Collider>());
     }
 
-    private GameObject CreateBlock(Vector2Int cell, string blockName, Material material, float heightScale, Transform parent)
+    private GameObject CreateBlock(Vector2Int cell, string blockName, Material material, float heightScale, Transform parent, StageTheme.VisualSlot visual)
     {
         GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
         block.name = $"{blockName} {cell.x},{cell.y}";
         block.transform.SetParent(parent);
         block.transform.position = CellToWorld(cell) + new Vector3(0f, heightScale * 0.45f, 0f);
         block.transform.localScale = new Vector3(0.92f, heightScale, 0.92f);
-        block.GetComponent<Renderer>().material = material;
+        block.GetComponent<Renderer>().sharedMaterial = material;
+        if (visual != null && visual.Attach(block.transform, visualRandom)) block.GetComponent<Renderer>().enabled = false;
         BoxCollider collider = block.GetComponent<BoxCollider>();
         collider.size = Vector3.one;
         block.AddComponent<CellObject>().Cell = cell;
+        blocks[cell] = block;
         return block;
     }
 
@@ -159,6 +247,6 @@ public sealed class BombermanMap
         rail.transform.SetParent(parent);
         rail.transform.position = position;
         rail.transform.localScale = scale;
-        rail.GetComponent<Renderer>().material = materials.Border;
+        rail.GetComponent<Renderer>().sharedMaterial = theme != null && theme.BorderMaterial != null ? theme.BorderMaterial : materials.Border;
     }
 }

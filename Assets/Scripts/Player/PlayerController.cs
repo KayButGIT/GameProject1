@@ -69,7 +69,7 @@ public sealed class PlayerController : GridController
 
     protected override void Update()
     {
-        if (game == null || game.IsPaused || IsDead)
+        if (game == null || game.IsPaused || game.IsStageClearing || IsDead)
         {
             moveInput = Vector2.zero;
             return;

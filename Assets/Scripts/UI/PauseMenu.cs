@@ -9,9 +9,9 @@ public sealed class PauseMenu
         this.panel = panel;
     }
 
-    public static PauseMenu Create()
+    public static PauseMenu Create(string canvasName = "Pause Canvas", string message = "PAUSED\nEsc to resume")
     {
-        GameObject canvasObject = new("Pause Canvas");
+        GameObject canvasObject = new(canvasName);
         Canvas canvas = canvasObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvasObject.AddComponent<UnityEngine.UI.CanvasScaler>();
@@ -29,7 +29,7 @@ public sealed class PauseMenu
         panelTransform.offsetMin = Vector2.zero;
         panelTransform.offsetMax = Vector2.zero;
 
-        CreateText(panel.transform);
+        CreateText(panel.transform, message);
         panel.SetActive(false);
         return new PauseMenu(panel);
     }
@@ -39,13 +39,13 @@ public sealed class PauseMenu
         panel.SetActive(visible);
     }
 
-    private static void CreateText(Transform parent)
+    private static void CreateText(Transform parent, string message)
     {
         GameObject textObject = new("Pause Text");
         textObject.transform.SetParent(parent);
 
         UnityEngine.UI.Text text = textObject.AddComponent<UnityEngine.UI.Text>();
-        text.text = "PAUSED\nEsc to resume";
+        text.text = message;
         text.alignment = TextAnchor.MiddleCenter;
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         text.fontSize = 42;
