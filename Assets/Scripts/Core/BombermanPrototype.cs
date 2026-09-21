@@ -49,6 +49,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private float bombFuseTime = 2f;
     [SerializeField, Min(0f)] private float bombReleasePadding = 0.65f;
     [SerializeField] private bool playerCanDieFromBomb = false;
+    [Tooltip("God mode: the player survives bombs, enemies, and the time-out Pontans.")]
+    [SerializeField] private bool godMode;
     [SerializeField, Min(0f)] private float playerDeathAnimationTime = 0.85f;
     [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
     [SerializeField] private float playerRestartDelay = 0.15f;
@@ -759,10 +761,12 @@ public sealed class BombermanPrototype : MonoBehaviour
         particle.transform.SetParent(stageRoot.transform, true);
         Destroy(particle, lifetime);
     }
+    
+    public void SetGodMode(bool enabled) => godMode = enabled;
 
     private void StartPlayerDeath(PlayerDeathCause cause)
     {
-        if (restarting || stageClearing || player == null || player.IsDead)
+        if (godMode || restarting || stageClearing || player == null || player.IsDead)
         {
             return;
         }
