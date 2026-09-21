@@ -453,10 +453,12 @@ MonoBehaviour:
   bombFuseTime: 2
   bombReleasePadding: 0.65
   playerCanDieFromBomb: 1
+  godMode: 0
   playerDeathAnimationTime: 1.2
   playerDeathParticleTime: 0.6
   playerRestartDelay: 1
   spawnEnemies: 1
+  useOriginalStageEnemies: 1
   onealCount: 0
   dahlCount: 0
   pontanCount: 1
@@ -475,6 +477,11 @@ MonoBehaviour:
   - {fileID: 6620013482215686235, guid: fb5dcb744b118a24dbbb2579706a1ee5, type: 3}
   - {fileID: 2748077993896910579, guid: d420e06235be1284cb9e529c579b92ee, type: 3}
   - {fileID: 2226920271405273773, guid: e354abf7a004fad4582a31851a8ddccd, type: 3}
+  exitDoorEnterDistance: 0.4
+  exitDoorPopulationCap: 10
+  exitDoorSpawnDelay: 0.5
+  stageClearDelay: 2
+  stageTimeLimit: 0
   cameraOrthographicSize: 5.7
   cameraHeight: 18
   cameraPitchAngle: 55
