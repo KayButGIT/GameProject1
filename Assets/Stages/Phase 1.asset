@@ -12,19 +12,102 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd67b7f5d93e4f6dadb1eb0042e00e33, type: 3}
   m_Name: Phase 1
   m_EditorClassIdentifier: Assembly-CSharp::StageTheme
+  BorderBlock:
+    Variants:
+    - Prefab: {fileID: 57357588090562620, guid: b45481a2f01243149a9176773cfeb1c3, type: 3}
+      Position: {x: 0, y: -0.5, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Weight: 1
+    - Prefab: {fileID: 4910407925775727352, guid: bbcb809a65901c14b9dcee044570ec71, type: 3}
+      Position: {x: 0, y: -0.5, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Weight: 1
+    - Prefab: {fileID: 2627630298175922129, guid: 19b2217b4f409414f80d08c7f3ea80bb, type: 3}
+      Position: {x: 0, y: -0.5, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Weight: 1
+    - Prefab: {fileID: 7907817309491006003, guid: b74e3a37bf8959748b44c041576e5f97, type: 3}
+      Position: {x: 0, y: -0.5, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Weight: 1
+    RandomYRotation: 1
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: 0, y: 0, z: 0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
   SolidBlock:
-    Prefab: {fileID: 57357588090562620, guid: b45481a2f01243149a9176773cfeb1c3, type: 3}
-    Position: {x: -0, y: -0.5, z: -0}
-    Rotation: {x: 0, y: 0, z: 0}
-    Scale: {x: 1, y: 1, z: 1}
+    Variants:
+    - Prefab: {fileID: 8932056107165616546, guid: afdfdd9bf1fc95d44a697d71d6cc2731, type: 3}
+      Position: {x: -0, y: -0.5, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    - Prefab: {fileID: 713524429779533072, guid: 40da3aa5d5ab050418b45e2f56848335, type: 3}
+      Position: {x: -0, y: -0.5, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    - Prefab: {fileID: 2111625344407438493, guid: e4a24f36a567a4b4bb61d1f761188e64, type: 3}
+      Position: {x: -0, y: -0.5, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    RandomYRotation: 1
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: -0, y: -0.5, z: -0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
   BreakableBlock:
-    Prefab: {fileID: 4582649169030214046, guid: db121dd2fa1f7794ebfe6f04664021c8, type: 3}
-    Position: {x: -0, y: -0.5, z: -0}
-    Rotation: {x: 0, y: 0, z: 0}
-    Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+    Variants:
+    - Prefab: {fileID: 6730927209612355673, guid: 99847013b86b2be49962873384a2e400, type: 3}
+      Position: {x: -0, y: -0.5, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 1
+    - Prefab: {fileID: 4582649169030214046, guid: db121dd2fa1f7794ebfe6f04664021c8, type: 3}
+      Position: {x: -0, y: -0.5, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 1
+    RandomYRotation: 0
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: -0, y: -0.5, z: -0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 0.99999976, y: 1, z: 0.99999976}
   Floor:
-    Prefab: {fileID: 7927509653938583676, guid: 0a792aa401fb7374c8db972d16d9cc13, type: 3}
-    Position: {x: 0, y: 0, z: 0}
-    Rotation: {x: 0, y: 0, z: 0}
-    Scale: {x: 1, y: 1, z: 1}
+    Variants:
+    - Prefab: {fileID: 7927509653938583676, guid: 0a792aa401fb7374c8db972d16d9cc13, type: 3}
+      Position: {x: 0, y: 0, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    RandomYRotation: 0
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: 0, y: 0, z: 0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
+  ExitDoor:
+    Variants: []
+    RandomYRotation: 0
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: 0, y: 0, z: 0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
   BorderMaterial: {fileID: 0}
+  Lighting:
+    Enabled: 1
+    SunColor: {r: 1, g: 0.94, b: 0.82, a: 1}
+    SunIntensity: 1.35
+    SunRotation: {x: 50, y: 150, z: 0}
+    ShadowStrength: 0.8
+    AmbientSky: {r: 0.55, g: 0.65, b: 0.8, a: 1}
+    AmbientEquator: {r: 0.42, g: 0.44, b: 0.45, a: 1}
+    AmbientGround: {r: 0.18, g: 0.2, b: 0.16, a: 1}
+    Background: {r: 0.08, g: 0.1, b: 0.13, a: 1}
+    PostProcessing: {fileID: 0}
+    ExplosionColor: {r: 1, g: 0.6, b: 0.2, a: 1}
+    ExplosionIntensity: 6
