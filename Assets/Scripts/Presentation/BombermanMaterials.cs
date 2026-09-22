@@ -19,6 +19,8 @@ public sealed class BombermanMaterials
     public Material Bomb { get; private set; }
     public Material Explosion { get; private set; }
     public Material Border { get; private set; }
+    public Material ExitDoorLocked { get; private set; }
+    public Material ExitDoorOpen { get; private set; }
 
     public static BombermanMaterials Create()
     {
@@ -40,7 +42,9 @@ public sealed class BombermanMaterials
             EnemyDead = Make("Enemy Dead", new Color(0.18f, 0.16f, 0.2f)),
             Bomb = Make("Bomb", new Color(0.02f, 0.02f, 0.025f)),
             Explosion = Make("Explosion", new Color(1f, 0.55f, 0.02f)),
-            Border = Make("Blue Border", new Color(0.04f, 0.28f, 0.58f))
+            Border = Make("Blue Border", new Color(0.04f, 0.28f, 0.58f)),
+            ExitDoorLocked = Make("Exit Door Locked", new Color(0.2f, 0.22f, 0.28f)),
+            ExitDoorOpen = Make("Exit Door Open", new Color(1f, 0.82f, 0.18f))
         };
     }
 

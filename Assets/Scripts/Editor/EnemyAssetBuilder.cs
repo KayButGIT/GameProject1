@@ -7,7 +7,7 @@ using UnityEngine;
 public static class EnemyAssetBuilder
 {
     public const string PrefabFolder = "Assets/Prefabs/Enemies";
-    [MenuItem("Tools/Bomberman/Create Missing Enemy Assets")]
+    // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void Build()
     {
         Directory.CreateDirectory(PrefabFolder);
@@ -118,7 +118,7 @@ public static class EnemyAssetBuilder
         return material;
     }
 
-    [MenuItem("Tools/Bomberman/Repair Placeholder Appearance")]
+    // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void RepairPlaceholderAppearance()
     {
         Material faceMaterial = GetFaceMaterial();

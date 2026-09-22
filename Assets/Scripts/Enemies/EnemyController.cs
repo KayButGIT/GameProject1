@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public abstract class EnemyController : GridController
@@ -186,25 +187,33 @@ public abstract class EnemyController : GridController
 
     private Vector2Int ChooseChaseDirection()
     {
-        Vector2Int best = Vector2Int.zero;
-        int bestDistance = Distance(Cell, lastSeen);
-        // Continuing forward wins ties between reducing directions.
-        if (CanMove(heading) && Distance(Cell + heading, lastSeen) < bestDistance)
+        int dx = lastSeen.x - Cell.x;
+        int dy = lastSeen.y - Cell.y;
+
+        List<Vector2Int> preferredDirections = new List<Vector2Int>();
+        
+        if (Mathf.Abs(dx) >= Mathf.Abs(dy))
         {
-            best = heading;
-            bestDistance = Distance(Cell + heading, lastSeen);
+            if (dx != 0) preferredDirections.Add(dx > 0 ? Vector2Int.right : Vector2Int.left);
+            if (dy != 0) preferredDirections.Add(dy > 0 ? Vector2Int.up : Vector2Int.down);
         }
-        foreach (Vector2Int direction in BombermanPrototype.Directions)
+        else
         {
-            int distance = Distance(Cell + direction, lastSeen);
-            if (CanMove(direction) && (distance < bestDistance
-                || (best != Vector2Int.zero && distance == bestDistance && best == -heading && direction != -heading)))
-            {
-                best = direction;
-                bestDistance = distance;
-            }
+            if (dy != 0) preferredDirections.Add(dy > 0 ? Vector2Int.up : Vector2Int.down);
+            if (dx != 0) preferredDirections.Add(dx > 0 ? Vector2Int.right : Vector2Int.left);
         }
-        return best != Vector2Int.zero ? best : AnyValidDirection();
+        
+        foreach (Vector2Int dir in preferredDirections)
+        {
+            if (dir != -heading && CanMove(dir)) return dir;
+        }
+        
+        foreach (Vector2Int dir in BombermanPrototype.Directions)
+        {
+            if (dir != -heading && CanMove(dir)) return dir;
+        }
+        
+        return CanMove(-heading) ? -heading : Vector2Int.zero;
     }
 
     private Vector2Int AnyValidDirection()

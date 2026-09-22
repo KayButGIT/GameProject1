@@ -25,6 +25,7 @@ public static class EnemyPlaySmoke
         game = new GameObject("Smoke Game").AddComponent<BombermanPrototype>();
         SerializedObject settings = new(game);
         settings.FindProperty("spawnEnemies").boolValue = true;
+        settings.FindProperty("useOriginalStageEnemies").boolValue = false;
         settings.FindProperty("destructibleDensity").floatValue = 0f;
         settings.FindProperty("randomSeed").intValue = 123;
         string[] counts = { "valcomCount", "onealCount", "dahlCount", "minuoCount", "ovapeCount", "doriaCount", "passCount", "pontanCount" };
