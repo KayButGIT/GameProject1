@@ -81,11 +81,11 @@ MonoBehaviour:
   Floor:
     Variants:
     - Prefab: {fileID: 4289181965728556406, guid: 17d2c8d41b30b3b42812b1a1b20dcd4d, type: 3}
-      Position: {x: 0, y: 0, z: 0}
+      Position: {x: 0, y: -0.5, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
-    RandomYRotation: 0
+    RandomYRotation: 1
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: 0, y: 0, z: 0}
     legacyRotation: {x: 0, y: 0, z: 0}
@@ -104,7 +104,7 @@ MonoBehaviour:
     legacyScale: {x: 1, y: 1, z: 1}
   Border:
     Prefab: {fileID: 2312951138010549279, guid: cbb5c7ba50de2fe49bcbc00e1832ba9a, type: 3}
-    Offset: {x: 0, y: 0, z: 0}
+    Offset: {x: 0, y: -0.08, z: 0}
     Rotation: {x: 0, y: 0, z: 0}
     AutoFit: 1
     ExtraScale: {x: 1.04, y: 1.1, z: 1.1}
