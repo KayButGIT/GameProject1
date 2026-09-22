@@ -67,6 +67,11 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     [Tooltip("Enemy prefab settings control movement and behavior.")]
     [SerializeField] private EnemyController[] enemyPrefabs;
+
+    [Header("Exit Door")]
+    [Tooltip("Hidden under a random destructible wall until that wall is destroyed. Opens once every enemy in the scene has been killed.")]
+    [SerializeField, Min(0.05f)] private float doorReachDistance = 0.45f;
+
     [Header("Camera")]
     [SerializeField] private float cameraOrthographicSize = 6.9f;
     [SerializeField] private float cameraHeight = 18f;
@@ -85,9 +90,11 @@ public sealed class BombermanPrototype : MonoBehaviour
     private Vector3 cameraFollowVelocity;
     private Quaternion cameraRotation;
     private PlayerController player;
+    private ExitDoor exitDoor;
     private int activeBombs;
     private bool paused;
     private bool restarting;
+    private bool levelCompleted;
 
     public bool IsPaused => paused;
     public bool HasLivingPlayer => player != null && !player.IsDead;
@@ -112,12 +119,14 @@ public sealed class BombermanPrototype : MonoBehaviour
         ConfigureCamera();
         map.Generate();
         SpawnPlayer();
+        SpawnExitDoor();
         foreach (EnemyController enemy in FindObjectsByType<EnemyController>(FindObjectsSortMode.None))
             RegisterEnemy(enemy);
         if (spawnEnemies)
         {
             SpawnEnemies();
         }
+        UpdateExitDoorLockState();
         pauseMenu = PauseMenu.Create();
     }
 
@@ -133,6 +142,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         UpdateCameraFollow();
         KillPlayerIfEnemyTouches();
+        CheckPlayerReachedExit();
     }
 
     private void ConfigureCamera()
@@ -241,6 +251,60 @@ public sealed class BombermanPrototype : MonoBehaviour
         player.FreeMoveTurnSpeed = playerTurnSpeed;
         player.Initialize(this);
         actors.Add(player);
+    }
+
+    private void SpawnExitDoor()
+    {
+        Vector2Int doorCell = FindExitDoorCell();
+        exitDoor = ExitDoor.Create(doorCell, map, materials.ExitDoorLocked, materials.ExitDoorUnlocked);
+
+        // Edge case: destructibleDensity is 0 (or every destructible cell got filtered out), so there is
+        // no wall to hide the door under. Show it immediately instead of leaving it stuck invisible.
+        if (map.GetCellKind(doorCell) != CellKind.Destructible)
+        {
+            exitDoor.Reveal();
+        }
+    }
+
+    private Vector2Int FindExitDoorCell()
+    {
+        List<Vector2Int> candidates = new();
+        Vector2Int playerStart = new(1, 1);
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                Vector2Int cell = new(x, y);
+                if (map.GetCellKind(cell) == CellKind.Destructible && Vector2Int.Distance(cell, playerStart) > 4f)
+                {
+                    candidates.Add(cell);
+                }
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    Vector2Int cell = new(x, y);
+                    if (map.GetCellKind(cell) == CellKind.Destructible)
+                    {
+                        candidates.Add(cell);
+                    }
+                }
+            }
+        }
+
+        if (candidates.Count > 0)
+        {
+            return candidates[Random.Range(0, candidates.Count)];
+        }
+
+        // Ultimate fallback if the map has no destructible walls at all.
+        return new Vector2Int(width - 2, height - 2);
     }
 
     private void SpawnEnemies()
@@ -450,6 +514,10 @@ public sealed class BombermanPrototype : MonoBehaviour
                 if (kind == CellKind.Destructible)
                 {
                     map.DestroyDestructibleAt(cell);
+                    if (exitDoor != null && cell == exitDoor.Cell)
+                    {
+                        exitDoor.Reveal();
+                    }
                     break;
                 }
             }
@@ -473,6 +541,8 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void DamageActorsAt(Vector2Int cell)
     {
+        bool enemyDiedThisCall = false;
+
         foreach (GridController actor in actors)
         {
             if (actor != null && !actor.IsDead && actor.Cell == cell)
@@ -490,7 +560,13 @@ public sealed class BombermanPrototype : MonoBehaviour
 
                 SpawnActorDeathParticles(actor, "Enemy Death Particles", playerDeathParticleTime);
                 actor.Die();
+                enemyDiedThisCall = true;
             }
+        }
+
+        if (enemyDiedThisCall)
+        {
+            UpdateExitDoorLockState();
         }
     }
 
@@ -532,6 +608,57 @@ public sealed class BombermanPrototype : MonoBehaviour
                 return;
             }
         }
+    }
+
+    // Enemies only die inside DamageActorsAt, so that call site keeps the door state accurate;
+    // this also runs once at Start to cover scenes with no enemies configured.
+    private void UpdateExitDoorLockState()
+    {
+        if (exitDoor == null || exitDoor.IsUnlocked)
+        {
+            return;
+        }
+
+        if (!AnyEnemyAliveInScene())
+        {
+            exitDoor.Unlock();
+        }
+    }
+
+    private bool AnyEnemyAliveInScene()
+    {
+        foreach (GridController actor in actors)
+        {
+            if (actor != null && !actor.IsPlayer && !actor.IsDead)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void CheckPlayerReachedExit()
+    {
+        if (levelCompleted || paused || restarting || exitDoor == null || !exitDoor.IsUnlocked
+            || player == null || player.IsDead)
+        {
+            return;
+        }
+
+        float distance = Vector3.Distance(player.transform.position, map.CellToWorld(exitDoor.Cell));
+        if (player.Cell == exitDoor.Cell || distance <= doorReachDistance)
+        {
+            StartCoroutine(WinSequence());
+        }
+    }
+
+    private IEnumerator WinSequence()
+    {
+        levelCompleted = true;
+        Debug.Log("Stage Clear!");
+        // TODO: replace with a real win screen or SceneManager.LoadScene for the next stage.
+        yield break;
     }
 
     private IEnumerator PlayerDeathSequence(PlayerDeathCause cause)
