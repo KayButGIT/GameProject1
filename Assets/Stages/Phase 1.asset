@@ -17,22 +17,22 @@ MonoBehaviour:
     - Prefab: {fileID: 57357588090562620, guid: b45481a2f01243149a9176773cfeb1c3, type: 3}
       Position: {x: 0, y: -0.5, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
-      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Scale: {x: 1, y: 1, z: 1}
       Weight: 1
     - Prefab: {fileID: 4910407925775727352, guid: bbcb809a65901c14b9dcee044570ec71, type: 3}
       Position: {x: 0, y: -0.5, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
-      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Scale: {x: 1, y: 1, z: 1}
       Weight: 1
     - Prefab: {fileID: 2627630298175922129, guid: 19b2217b4f409414f80d08c7f3ea80bb, type: 3}
       Position: {x: 0, y: -0.5, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
-      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Scale: {x: 1, y: 1, z: 1}
       Weight: 1
     - Prefab: {fileID: 7907817309491006003, guid: b74e3a37bf8959748b44c041576e5f97, type: 3}
       Position: {x: 0, y: -0.5, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
-      Scale: {x: 1.08, y: 1.08, z: 1.08}
+      Scale: {x: 1, y: 1, z: 1}
       Weight: 1
     RandomYRotation: 1
     legacyPrefab: {fileID: 0}
@@ -80,26 +80,43 @@ MonoBehaviour:
     legacyScale: {x: 0.99999976, y: 1, z: 0.99999976}
   Floor:
     Variants:
-    - Prefab: {fileID: 7927509653938583676, guid: 0a792aa401fb7374c8db972d16d9cc13, type: 3}
+    - Prefab: {fileID: 4289181965728556406, guid: 17d2c8d41b30b3b42812b1a1b20dcd4d, type: 3}
       Position: {x: 0, y: 0, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
-      Weight: 0
+      Weight: 1
     RandomYRotation: 0
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: 0, y: 0, z: 0}
     legacyRotation: {x: 0, y: 0, z: 0}
     legacyScale: {x: 1, y: 1, z: 1}
   ExitDoor:
-    Variants: []
+    Variants:
+    - Prefab: {fileID: 4289181965728556406, guid: 17d2c8d41b30b3b42812b1a1b20dcd4d, type: 3}
+      Position: {x: 0, y: 0, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
     RandomYRotation: 0
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: 0, y: 0, z: 0}
     legacyRotation: {x: 0, y: 0, z: 0}
     legacyScale: {x: 1, y: 1, z: 1}
-  BorderMaterial: {fileID: 0}
+  Border:
+    Prefab: {fileID: 2312951138010549279, guid: cbb5c7ba50de2fe49bcbc00e1832ba9a, type: 3}
+    Offset: {x: 0, y: 0, z: 0}
+    Rotation: {x: 0, y: 0, z: 0}
+    AutoFit: 1
+    ExtraScale: {x: 1.04, y: 1.1, z: 1.1}
+  Scenery:
+    Prefab: {fileID: 1146845005328507934, guid: 49e0382b71e25f74fb7ac6b8fbf6c181, type: 3}
+    Offset: {x: 1.1, y: 0, z: 0.3}
+    Rotation: {x: 0, y: 0, z: 0}
+    Scale: {x: 1, y: 1, z: 1}
+    CenterOnArena: 1
   Lighting:
     Enabled: 1
+    SunPrefab: {fileID: 6002527405507834751, guid: ce6ecf0b7bb40e6408393da0834e1caf, type: 3}
     SunColor: {r: 1, g: 0.94, b: 0.82, a: 1}
     SunIntensity: 1.35
     SunRotation: {x: 50, y: 150, z: 0}
@@ -108,6 +125,9 @@ MonoBehaviour:
     AmbientEquator: {r: 0.42, g: 0.44, b: 0.45, a: 1}
     AmbientGround: {r: 0.18, g: 0.2, b: 0.16, a: 1}
     Background: {r: 0.08, g: 0.1, b: 0.13, a: 1}
+    Skybox: {fileID: 0}
+    AmbientFromSkybox: 1
+    SkyboxAmbientIntensity: 1
     PostProcessing: {fileID: 0}
     ExplosionColor: {r: 1, g: 0.6, b: 0.2, a: 1}
     ExplosionIntensity: 6

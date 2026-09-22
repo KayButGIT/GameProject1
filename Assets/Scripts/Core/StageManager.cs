@@ -10,13 +10,17 @@ public sealed class StageManager : MonoBehaviour
     public int CurrentPhase { get; private set; }
     public StageTheme CurrentTheme { get; private set; }
     public StageSequence Sequence => sequence;
+    /// <summary>Stages in the sequence, or 0 when there is none, which keeps the game endless.</summary>
+    public int TotalStages => sequence != null ? sequence.TotalStages : 0;
+    public bool OnLastStage => TotalStages > 0 && CurrentStage >= TotalStages;
     public int StartingStage => startingStage;
     private BombermanPrototype game;
 
     internal void Initialize(BombermanPrototype owner)
     {
         game = owner;
-        LoadStage(startingStage);
+        // The title screen picks the stage; opening this scene on its own uses Starting Stage.
+        LoadStage(GameProgress.RequestedStage >= 1 ? GameProgress.RequestedStage : startingStage);
     }
 
     public void LoadStage(int stage)
@@ -34,6 +38,8 @@ public sealed class StageManager : MonoBehaviour
         CurrentStage = stage;
         CurrentPhase = phase + 1;
         CurrentTheme = theme;
+        // Continue on the title screen returns to the furthest stage reached.
+        GameProgress.Save(stage);
         game.LoadStage(stage, theme);
     }
 

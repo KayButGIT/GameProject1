@@ -12,8 +12,9 @@ public static class GrassBlockBuilder
     public const string Folder = "Assets/Models/Blocks/Grass";
     public const string PrefabPath = Folder + "/GrassBlock.prefab";
     public const string FloorPrefabPath = Folder + "/GrassFloor.prefab";
+    public const string FloorMeshPath = Folder + "/GrassFloor_Blades.asset";
 
-    [MenuItem("Tools/Bomberman/Create Missing Grass Floor")]
+    // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void BuildFloor()
     {
         Build();
@@ -22,13 +23,9 @@ public static class GrassBlockBuilder
         try
         {
             floor.name = "GrassFloor";
-            // BombermanMap uses 0.08-high floor roots. Compensate only the blades,
-            // preserving the thin soil and keeping their roots on the grass cap.
-            const float floorHeight = 0.08f;
-            const float bladeRootHeight = 0.502f;
-            Transform blades = floor.GetComponent<GrassBlock>().GrassMesh.transform;
-            blades.localScale = new Vector3(1f, 1f / floorHeight, 1f);
-            blades.localPosition = new Vector3(0, bladeRootHeight * (1f - 1f / floorHeight), 0);
+            // Its own blade mesh, so rebuilding the floor never overwrites the block's grass.
+            GrassBlock settings = floor.GetComponent<GrassBlock>();
+            settings.GrassMesh.sharedMesh = SaveMesh(BuildGrass(settings), FloorMeshPath);
             PrefabUtility.SaveAsPrefabAsset(floor, FloorPrefabPath);
             AssetDatabase.SaveAssets();
         }
@@ -36,7 +33,7 @@ public static class GrassBlockBuilder
         Debug.Log("GRASS_FLOOR_BUILD_PASS: " + FloorPrefabPath);
     }
 
-    [MenuItem("Tools/Bomberman/Create Missing Grass Block")]
+    // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void Build()
     {
         Directory.CreateDirectory(Folder);
@@ -94,13 +91,46 @@ public static class GrassBlockBuilder
 
     public static Mesh SaveMesh(Mesh mesh, string path)
     {
+        // Unity warns when an asset's main object is named something other than its file.
+        mesh.name = Path.GetFileNameWithoutExtension(path);
         Mesh saved = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (saved == null) { AssetDatabase.CreateAsset(mesh, path); return mesh; }
         Undo.RecordObject(saved, "Rebuild grass mesh");
-        EditorUtility.CopySerialized(mesh, saved);
+        // Written through the Mesh API. EditorUtility.CopySerialized updates the saved data but leaves
+        // every renderer drawing the geometry it already uploaded, so a rebuild changed nothing on screen.
+        saved.Clear();
+        saved.vertices = mesh.vertices;
+        saved.normals = mesh.normals;
+        saved.uv = mesh.uv;
+        saved.uv2 = mesh.uv2;
+        saved.triangles = mesh.triangles;
+        saved.bounds = mesh.bounds;
+        saved.name = mesh.name;
         Object.DestroyImmediate(mesh);
         EditorUtility.SetDirty(saved);
+        AssetDatabase.SaveAssets();
         return saved;
+    }
+
+    // Measured from the saved mesh rather than the fields, so the log shows what really landed.
+    public static string Describe(Mesh mesh, GrassBlock settings, string meshPath)
+    {
+        Vector3[] vertices = mesh.vertices;
+        int blades = vertices.Length / 7;
+        float minWidth = float.MaxValue, maxWidth = 0f, minHeight = float.MaxValue, maxHeight = 0f;
+        for (int blade = 0; blade < blades; blade++)
+        {
+            int first = blade * 7;
+            float width = Vector3.Distance(vertices[first], vertices[first + 1]);
+            float height = vertices[first + 6].y - vertices[first].y;
+            minWidth = Mathf.Min(minWidth, width);
+            maxWidth = Mathf.Max(maxWidth, width);
+            minHeight = Mathf.Min(minHeight, height);
+            maxHeight = Mathf.Max(maxHeight, height);
+        }
+
+        return $"[Grass] {meshPath}: {blades} blades, width {settings.BladeWidthPercent:F1}% ({minWidth:F4}-{maxWidth:F4} units), " +
+            $"height {minHeight:F3}-{maxHeight:F3}, seed {settings.RandomSeed}.";
     }
 
     public static Mesh BuildGrass(GrassBlock settings)
@@ -108,7 +138,7 @@ public static class GrassBlockBuilder
         int count = Mathf.Clamp(settings.BladeCount, 1, 2000);
         float minHeight = Mathf.Clamp(settings.MinimumHeight, 0.01f, 3f);
         float maxHeight = Mathf.Clamp(settings.MaximumHeight, minHeight, 3f);
-        float width = Mathf.Clamp(settings.BladeWidth, 0.005f, 0.2f);
+        float width = Mathf.Clamp(settings.BladeWidth, 0.005f, 1f);
         System.Random random = new(settings.RandomSeed);
         float Next(float min, float max) => Mathf.Lerp(min, max, (float)random.NextDouble());
         List<Vector3> vertices = new(count * 7);
@@ -200,31 +230,69 @@ public static class GrassBlockBuilder
 [CustomEditor(typeof(GrassBlock))]
 public sealed class GrassBlockEditor : Editor
 {
+    private const string AutoKey = "Bomberman.GrassAutoRebuild";
+    private static GrassBlock queued;
+
+    private static bool AutoRebuild
+    {
+        get => EditorPrefs.GetBool(AutoKey, true);
+        set => EditorPrefs.SetBool(AutoKey, value);
+    }
+
     public override void OnInspectorGUI()
     {
+        EditorGUI.BeginChangeCheck();
         DrawDefaultInspector();
+        bool edited = EditorGUI.EndChangeCheck();
+
         GrassBlock block = (GrassBlock)target;
         EditorGUILayout.HelpBox("Wind and colors are on the GrassWind material. Rebuild saves geometry; prefab mesh changes affect all instances using that mesh. Height is limited to 0.01–3 units.", MessageType.Info);
+        AutoRebuild = EditorGUILayout.Toggle("Auto Rebuild", AutoRebuild);
         using (new EditorGUI.DisabledScope(Application.isPlaying || block.GrassMesh == null))
         {
-            if (!GUILayout.Button("Rebuild Grass")) return;
-            string prefabPath = AssetDatabase.GetAssetPath(block.gameObject);
-            PrefabStage stage = PrefabStageUtility.GetPrefabStage(block.gameObject);
-            if (stage != null) prefabPath = stage.assetPath;
-            string meshPath;
-            if (!string.IsNullOrEmpty(prefabPath))
-                meshPath = Path.GetDirectoryName(prefabPath).Replace('\\', '/') + "/" + Path.GetFileNameWithoutExtension(prefabPath) + "_Blades.asset";
-            else
-                meshPath = EditorUtility.SaveFilePanelInProject("Save rebuilt grass mesh", "GrassBlock_Blades", "asset", "Save a mesh for this scene instance.", GrassBlockBuilder.Folder);
-            if (string.IsNullOrEmpty(meshPath)) return;
-            Undo.RecordObject(block.GrassMesh, "Assign rebuilt grass mesh");
-            block.GrassMesh.sharedMesh = GrassBlockBuilder.SaveMesh(GrassBlockBuilder.BuildGrass(block), meshPath);
-            EditorUtility.SetDirty(block.GrassMesh);
-            if (stage != null) EditorSceneManager.MarkSceneDirty(stage.scene);
-            else if (PrefabUtility.IsPartOfPrefabAsset(block)) PrefabUtility.SavePrefabAsset(block.gameObject.transform.root.gameObject);
-            else PrefabUtility.RecordPrefabInstancePropertyModifications(block.GrassMesh);
-            AssetDatabase.SaveAssets();
-            SceneView.RepaintAll();
+            if (GUILayout.Button("Rebuild Grass")) Rebuild(block);
+            // One rebuild per editor tick, however many changes a slider drag sends.
+            if (edited && AutoRebuild && !Application.isPlaying && block.GrassMesh != null) Queue(block);
         }
+    }
+
+    private static void Queue(GrassBlock block)
+    {
+        if (queued != null) return;
+        queued = block;
+        EditorApplication.update += RunQueued;
+    }
+
+    private static void RunQueued()
+    {
+        EditorApplication.update -= RunQueued;
+        GrassBlock block = queued;
+        queued = null;
+        if (block != null && block.GrassMesh != null) Rebuild(block);
+    }
+
+    public static void Rebuild(GrassBlock block)
+    {
+        string prefabPath = AssetDatabase.GetAssetPath(block.gameObject);
+        PrefabStage stage = PrefabStageUtility.GetPrefabStage(block.gameObject);
+        if (stage != null) prefabPath = stage.assetPath;
+        string meshPath;
+        if (!string.IsNullOrEmpty(prefabPath))
+            meshPath = Path.GetDirectoryName(prefabPath).Replace('\\', '/') + "/" + Path.GetFileNameWithoutExtension(prefabPath) + "_Blades.asset";
+        else
+            meshPath = EditorUtility.SaveFilePanelInProject("Save rebuilt grass mesh", "GrassBlock_Blades", "asset", "Save a mesh for this scene instance.", GrassBlockBuilder.Folder);
+        if (string.IsNullOrEmpty(meshPath)) return;
+        Undo.RecordObject(block.GrassMesh, "Assign rebuilt grass mesh");
+        Mesh saved = GrassBlockBuilder.SaveMesh(GrassBlockBuilder.BuildGrass(block), meshPath);
+        // Reassigned even when the asset is the same object, so open views drop their cached geometry.
+        block.GrassMesh.sharedMesh = null;
+        block.GrassMesh.sharedMesh = saved;
+        EditorUtility.SetDirty(block.GrassMesh);
+        if (stage != null) EditorSceneManager.MarkSceneDirty(stage.scene);
+        else if (PrefabUtility.IsPartOfPrefabAsset(block)) PrefabUtility.SavePrefabAsset(block.gameObject.transform.root.gameObject);
+        else PrefabUtility.RecordPrefabInstancePropertyModifications(block.GrassMesh);
+        AssetDatabase.SaveAssets();
+        SceneView.RepaintAll();
+        Debug.Log(GrassBlockBuilder.Describe(saved, block, meshPath), saved);
     }
 }

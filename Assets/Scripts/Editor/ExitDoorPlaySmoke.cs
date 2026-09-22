@@ -32,6 +32,7 @@ public static class ExitDoorPlaySmoke
         settings.FindProperty("enemyPlayerHitDistance").floatValue = 0.05f;
         settings.FindProperty("exitDoorSpawnDelay").floatValue = 0.1f;
         settings.FindProperty("stageClearDelay").floatValue = 0.3f;
+        settings.FindProperty("gameClearDelay").floatValue = 0.3f;
         string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { EnemyAssetBuilder.PrefabFolder });
         SerializedProperty prefabs = settings.FindProperty("enemyPrefabs");
         prefabs.arraySize = guids.Length;
@@ -67,6 +68,12 @@ public static class ExitDoorPlaySmoke
     }
     private static BombermanMap Map => (BombermanMap)typeof(BombermanPrototype).GetField("map", Private).GetValue(game);
     private static int PendingWaves => (int)typeof(BombermanPrototype).GetField("pendingExitWaves", Private).GetValue(game);
+    // Coroutine methods need starting, not just invoking.
+    private static void StartRoutine(string name)
+    {
+        game.StartCoroutine((System.Collections.IEnumerator)typeof(BombermanPrototype).GetMethod(name, Private).Invoke(game, null));
+    }
+
     private static void Call(string name, params object[] args) => typeof(BombermanPrototype).GetMethod(name, Private).Invoke(game, args);
     private static T[] All<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
 
@@ -138,15 +145,14 @@ public static class ExitDoorPlaySmoke
                 Check(Map.ExitDoor.IsOpen, "Exit opens after the last enemy dies");
                 Teleport(doorCell);
                 phase = 4;
-                deadline = Time.timeAsDouble + 1.0;
+                deadline = Time.timeAsDouble + 0.3;
             }
-            else if (phase == 4)
+            else if (phase == 4 && Time.timeAsDouble >= deadline)
             {
-                if (!game.IsStageClearing)
-                {
-                    Check(Time.timeAsDouble < deadline, "Player on the open exit clears the stage");
-                    return;
-                }
+                Check(!game.IsStageClearing, "Standing on the open exit waits for the player");
+                // Space, the bomb key, enters the exit instead.
+                game.TryDropBomb();
+                Check(game.IsStageClearing && All<Bomb>().Length == 0, "Space on the open exit clears the stage and drops no bomb");
                 Type cause = typeof(BombermanPrototype).GetNestedType("PlayerDeathCause", BindingFlags.NonPublic);
                 Call("StartPlayerDeath", Enum.Parse(cause, "Bomb"));
                 game.TryDropBomb();
@@ -161,11 +167,50 @@ public static class ExitDoorPlaySmoke
                 typeof(BombermanPrototype).GetField("destructibleDensity", Private).SetValue(game, 0f);
                 manager.LoadStage(1);
                 Check(Map.ExitDoor.Cell == new Vector2Int(7, 5) && Map.ExitDoor.IsRevealed, "Open layout shows the exit in the far corner");
-                Debug.Log("EXIT_DOOR_SMOKE_PASS: hidden exit, stable cell, uncovering blast, locked exit, flame stop, exit enemy wave to 10, opening, stage clear, safe clear, open-layout fallback.");
+
+                // A sequence gives the run a last stage; clearing it ends the game instead of loading another.
+                StageTheme endingTheme = ScriptableObject.CreateInstance<StageTheme>();
+                StageSequence ending = ScriptableObject.CreateInstance<StageSequence>();
+                ending.Phases.Add(new StageSequence.Phase { Theme = endingTheme, StageCount = 2 });
+                SerializedObject managerSettings = new(manager);
+                managerSettings.FindProperty("sequence").objectReferenceValue = ending;
+                managerSettings.ApplyModifiedPropertiesWithoutUndo();
+                manager.LoadStage(1);
+                Check(manager.TotalStages == 2 && !manager.OnLastStage, "Stage 1 of 2 is not the last stage");
+                manager.LoadStage(2);
+                GameProgress.Save(2);
+                Check(manager.OnLastStage && GameProgress.HasSave, "Stage 2 of 2 is the last stage");
+                StartRoutine("StageClearSequence");
+                phase = 6;
+                deadline = Time.timeAsDouble + 0.45;
+            }
+            else if (phase == 6 && Time.timeAsDouble >= deadline)
+            {
+                Check(Banner("Game Clear Canvas"), "Clearing the last stage shows the ending banner");
+                Check(!Banner("Stage Clear Canvas"), "The stage clear banner gives way to the ending");
+                Check(!GameProgress.HasSave && GameProgress.RequestedStage == 0, "The ending clears the saved stage");
+                Check(manager.CurrentStage == 2, "The ending does not load another stage");
+                phase = 7;
+                deadline = Time.timeAsDouble + 0.5;
+            }
+            else if (phase == 7 && Time.timeAsDouble >= deadline)
+            {
+                // With the title scene in Build Settings the ending loads it, exactly as Game Over does.
+                bool atTitle = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Title";
+                bool restarted = manager != null && !Banner("Game Clear Canvas") && manager.CurrentStage == 1;
+                Check(atTitle || restarted, "The ending hands the game to the title screen");
+                Check(!GameProgress.HasSave, "Continue stays off after the ending");
+                Debug.Log("EXIT_DOOR_SMOKE_PASS: hidden exit, stable cell, uncovering blast, locked exit, flame stop, exit enemy wave to 10, opening, Space entry, stage clear, safe clear, open-layout fallback, last stage ending, save cleared.");
                 Finish(0);
             }
         }
         catch (Exception exception) { Debug.LogException(exception); Finish(1); }
+    }
+
+    private static bool Banner(string canvasName)
+    {
+        GameObject canvas = GameObject.Find(canvasName);
+        return canvas != null && canvas.transform.GetChild(0).gameObject.activeSelf;
     }
 
     private static void Finish(int code)

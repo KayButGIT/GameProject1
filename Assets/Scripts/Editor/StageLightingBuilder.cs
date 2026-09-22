@@ -7,7 +7,7 @@ public static class StageLightingBuilder
     public const string ProfilePath = StageExampleBuilder.Folder + "/DayPostProcessing.asset";
 
     // Saves the built-in day post-processing as an editable asset to assign to a theme's Lighting.
-    [MenuItem("Tools/Bomberman/Create Day Post-Processing Profile")]
+    // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void CreateDayProfile()
     {
         VolumeProfile profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(ProfilePath);

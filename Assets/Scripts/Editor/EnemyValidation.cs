@@ -19,7 +19,7 @@ public static class EnemyValidation
     private static void Set(object target, Type owner, string field, object value) => owner.GetField(field, Private).SetValue(target, value);
     private static T Get<T>(object target, Type owner, string field) => (T)owner.GetField(field, Private).GetValue(target);
 
-    [MenuItem("Tools/Bomberman/Validate Enemy Assets and Behaviors")]
+    // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void Run()
     {
         checks = 0;

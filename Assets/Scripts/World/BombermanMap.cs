@@ -233,11 +233,52 @@ public sealed class BombermanMap
 
     private void CreateArenaBorder(Transform parent)
     {
+        if (theme != null && theme.Border != null && theme.Border.Prefab != null)
+        {
+            CreateBorderModel(parent);
+            return;
+        }
+
         Vector3 center = CellToWorld(new Vector2Int(width / 2, height / 2));
         CreateRail("Top Rail", center + new Vector3(0f, 0.12f, height / 2f + 0.55f), new Vector3(width, 0.25f, 0.25f), parent);
         CreateRail("Bottom Rail", center + new Vector3(0f, 0.12f, -height / 2f - 0.55f), new Vector3(width, 0.25f, 0.25f), parent);
         CreateRail("Left Rail", center + new Vector3(-width / 2f - 0.55f, 0.12f, 0f), new Vector3(0.25f, 0.25f, height), parent);
         CreateRail("Right Rail", center + new Vector3(width / 2f + 0.55f, 0.12f, 0f), new Vector3(0.25f, 0.25f, height), parent);
+    }
+
+    // A single model frames the arena instead of the rails, stretched to the current map size.
+    private void CreateBorderModel(Transform parent)
+    {
+        StageTheme.BorderVisual border = theme.Border;
+        GameObject holder = new("Arena Border");
+        holder.transform.SetParent(parent);
+        holder.transform.position = CellToWorld(new Vector2Int(width / 2, height / 2)) + border.Offset;
+
+        // The prefab's own placement in the scene is ignored; Offset and Extra Scale replace it.
+        GameObject visual = UnityEngine.Object.Instantiate(border.Prefab, holder.transform);
+        visual.name = "Visual";
+        visual.transform.localPosition = Vector3.zero;
+        visual.transform.localRotation = border.Prefab.transform.localRotation;
+        visual.transform.localScale = border.Prefab.transform.localScale;
+        foreach (Collider collider in visual.GetComponentsInChildren<Collider>(true)) collider.enabled = false;
+        foreach (Rigidbody body in visual.GetComponentsInChildren<Rigidbody>(true))
+        {
+            body.isKinematic = true;
+            body.detectCollisions = false;
+        }
+
+        // Measured in the holder's own axes, before it turns or scales.
+        Vector3 scale = border.ExtraScale;
+        if (border.AutoFit && VisualBounds.TryMeasure(holder.transform, visual, out Bounds bounds))
+        {
+            if (bounds.size.x > 0.0001f) scale.x *= width / bounds.size.x;
+            if (bounds.size.z > 0.0001f) scale.z *= height / bounds.size.z;
+            // Models whose pivot sits off center still end up framing the arena.
+            visual.transform.localPosition -= new Vector3(bounds.center.x, 0f, bounds.center.z);
+        }
+
+        holder.transform.localScale = scale;
+        holder.transform.localRotation = Quaternion.Euler(border.Rotation);
     }
 
     private void CreateRail(string railName, Vector3 position, Vector3 scale, Transform parent)
@@ -247,6 +288,6 @@ public sealed class BombermanMap
         rail.transform.SetParent(parent);
         rail.transform.position = position;
         rail.transform.localScale = scale;
-        rail.GetComponent<Renderer>().sharedMaterial = theme != null && theme.BorderMaterial != null ? theme.BorderMaterial : materials.Border;
+        rail.GetComponent<Renderer>().sharedMaterial = materials.Border;
     }
 }

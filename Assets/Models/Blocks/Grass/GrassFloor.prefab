@@ -117,8 +117,8 @@ Transform:
   m_GameObject: {fileID: 7917192300770041542}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -5.773, z: 0}
-  m_LocalScale: {x: 1, y: 12.5, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8561162746249151409}
@@ -130,7 +130,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7917192300770041542}
-  m_Mesh: {fileID: 4300000, guid: 26d5bae5de596fb4f824b83b7fae517f, type: 2}
+  m_Mesh: {fileID: 4300000, guid: a27358d831f01d240900820e5c26ae53, type: 2}
 --- !u!23 &1037727032954574268
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -227,12 +227,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b4714a3b5be82e4984b56e1b1044383, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GrassBlock
-  BladeCount: 160
+  BladeCount: 497
   MinimumHeight: 0.15
   MaximumHeight: 0.3
-  BladeWidth: 0.065
+  BladeWidthPercent: 10.7
   RandomSeed: 87597
   GrassMesh: {fileID: 2034822316123825266}
+  legacyBladeWidth: 0
 --- !u!1 &8145516978765901687
 GameObject:
   m_ObjectHideFlags: 0

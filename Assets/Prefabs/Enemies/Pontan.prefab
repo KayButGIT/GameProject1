@@ -320,12 +320,12 @@ MonoBehaviour:
   FreeMoveAcceleration: 28
   FreeMoveDeceleration: 36
   FreeMoveTurnSpeed: 14
-  Chase: 1
+  Chase: 5
   AcquisitionProbability: 1
   AvoidBombLanes: 0
   PatrolMinCells: 3
   PatrolMaxCells: 5
-  AxisChangeChance: 0.2
+  AxisChangeChance: 0.975
   DetectionRange: 50
   ChaseMinSeconds: 3
   ChaseMaxSeconds: 4

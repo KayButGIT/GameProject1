@@ -101,7 +101,7 @@ public static class StagePlaySmoke
                 Check(solid.GetComponent<BoxCollider>().enabled && solid.transform.localScale.x == 0.92f, "Collider preserved");
                 Check(solid.transform.Find("Visual").GetComponentsInChildren<Collider>().All(c => !c.enabled), "Visual colliders disabled");
                 Bounds bounds = solid.transform.Find("Visual").GetComponentInChildren<Renderer>().bounds;
-                Check(Mathf.Abs(bounds.size.x - 0.92f) < 0.01f && Mathf.Abs(bounds.size.y - 1f) < 0.01f, "Example model fits collider");
+                Check(Mathf.Abs(bounds.size.x - 1f) < 0.01f && Mathf.Abs(bounds.size.y - 1f) < 0.01f, "Example model keeps its own size");
                 CellObject breakable = All<CellObject>().First(c => Map.GetCellKind(c.Cell) == CellKind.Destructible);
                 Map.DestroyDestructibleAt(breakable.Cell);
                 Check(Map.IsWalkable(breakable.Cell) && !breakable.gameObject.activeSelf, "Breakable destruction");
@@ -139,7 +139,6 @@ public static class StagePlaySmoke
                 Check(manager.CurrentStage == 62, "Manual next stage");
                 StageTheme floorTheme = ScriptableObject.CreateInstance<StageTheme>();
                 floorTheme.Floor = manager.Sequence.Phases[0].Theme.SolidBlock;
-                floorTheme.BorderMaterial = floorTheme.Floor.Variants[0].Prefab.GetComponentInChildren<Renderer>().sharedMaterial;
                 StageSequence floorSequence = ScriptableObject.CreateInstance<StageSequence>();
                 floorSequence.Phases.Add(new StageSequence.Phase { Theme = floorTheme, StageCount = 1 });
                 SerializedObject settings = new(manager);
@@ -148,8 +147,7 @@ public static class StagePlaySmoke
                 manager.LoadStage(1);
                 Transform floor = All<Transform>().First(t => t.name == "Floor 1,1");
                 Check(floor.Find("Visual") != null && !floor.GetComponent<Renderer>().enabled, "Floor replacement");
-                Transform rail = All<Transform>().First(t => t.name == "Top Rail");
-                Check(rail.GetComponent<Renderer>().sharedMaterial == floorTheme.BorderMaterial, "Border material replacement");
+                Check(All<Transform>().Count(t => t.name.EndsWith(" Rail")) == 4, "Themes without a border prefab keep the rails");
                 settings.FindProperty("sequence").objectReferenceValue = null;
                 settings.ApplyModifiedPropertiesWithoutUndo();
                 manager.LoadStage(1);
@@ -157,7 +155,7 @@ public static class StagePlaySmoke
                 Check(All<CellObject>().All(c => c.GetComponent<Renderer>().enabled), "Original blocks without sequence");
                 UnityEngine.Object.Destroy(floorSequence);
                 UnityEngine.Object.Destroy(floorTheme);
-                Debug.Log("STAGE_SMOKE_PASS: boundaries, edited lengths, validation, model fit, collision, destruction, cleanup, scene enemies, stable restart, pause, death, fallback.");
+                Debug.Log("STAGE_SMOKE_PASS: boundaries, edited lengths, validation, model fit, rails, collision, destruction, cleanup, scene enemies, stable restart, pause, death, fallback.");
                 Finish(0);
             }
         }

@@ -140,9 +140,10 @@ MonoBehaviour:
   BladeCount: 160
   MinimumHeight: 0.15
   MaximumHeight: 0.3
-  BladeWidth: 0.065
+  BladeWidthPercent: 10
   RandomSeed: 87597
   GrassMesh: {fileID: 8919747937007739349}
+  legacyBladeWidth: 0
 --- !u!1 &4995119922178112530
 GameObject:
   m_ObjectHideFlags: 0

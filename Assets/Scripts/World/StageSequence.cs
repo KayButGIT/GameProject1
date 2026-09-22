@@ -14,6 +14,18 @@ public sealed class StageSequence : ScriptableObject
 
     public List<Phase> Phases = new();
 
+    /// <summary>Stages the sequence covers, or 0 when it is not usable. The game ends after the last one.</summary>
+    public int TotalStages
+    {
+        get
+        {
+            if (!Validate(out _)) return 0;
+            long total = 0;
+            foreach (Phase phase in Phases) total += phase.StageCount;
+            return total > int.MaxValue ? int.MaxValue : (int)total;
+        }
+    }
+
     public bool Validate(out string error)
     {
         error = null;

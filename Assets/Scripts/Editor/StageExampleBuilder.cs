@@ -7,7 +7,7 @@ public static class StageExampleBuilder
 {
     public const string Folder = "Assets/Stages";
 
-    [MenuItem("Tools/Bomberman/Create Missing Stage Examples")]
+    // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void Build()
     {
         Directory.CreateDirectory(Folder);

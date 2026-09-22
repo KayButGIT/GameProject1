@@ -36,10 +36,15 @@ public sealed class ExitDoor : MonoBehaviour
         door.placeholder = slab.GetComponent<Renderer>();
         door.placeholder.sharedMaterial = door.lockedMaterial;
         door.visual = slab.transform;
-        if (themeVisual != null && themeVisual.Attach(root.transform, random))
+        // Models hang off a holder at the height a block's primitive stands at,
+        // so the same variant offsets work in the Exit Door slot and the block slots.
+        GameObject holder = new("Door Visual");
+        holder.transform.SetParent(root.transform, false);
+        holder.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+        if (themeVisual != null && themeVisual.Attach(holder.transform, random))
         {
             door.placeholder.enabled = false;
-            door.visual = root.transform.Find("Visual");
+            door.visual = holder.transform.Find("Visual");
         }
 
         door.visualScale = door.visual.localScale;

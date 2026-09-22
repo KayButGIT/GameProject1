@@ -55,10 +55,56 @@ public sealed class StageManagerEditor : Editor
             using (new EditorGUI.DisabledScope(requestedStage < 1))
                 if (GUILayout.Button("Preview Stage In Scene")) StagePreview.Build(manager, requestedStage);
             if (GUILayout.Button("Clear Scene Preview")) StagePreview.Clear();
+            StagePreview.Live = EditorGUILayout.Toggle("Live Preview", StagePreview.Live);
+            if (GUILayout.Button("Open Stage Config")) StageConfigWindow.Open();
             using SerializedObject gameSettings = new(manager.GetComponent<BombermanPrototype>());
             if (gameSettings.FindProperty("randomSeed").intValue == 0)
                 EditorGUILayout.HelpBox("Random Seed is 0, so each preview and Play session gets a new layout.", MessageType.Info);
         }
         if (Application.isPlaying) Repaint();
+    }
+}
+
+// Preview and Live Preview live on the theme too, so artists never have to hunt for the game object.
+[CustomEditor(typeof(StageTheme))]
+public sealed class StageThemeEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        DrawDefaultInspector();
+        if (Application.isPlaying) return;
+
+        EditorGUILayout.Space();
+        StageTheme theme = (StageTheme)target;
+        StageManager manager = FindFirstObjectByType<StageManager>();
+        if (manager == null)
+        {
+            EditorGUILayout.HelpBox("Open the game scene to preview this theme.", MessageType.Info);
+            return;
+        }
+
+        using (new EditorGUI.DisabledScope(manager.GetComponent<BombermanPrototype>() == null))
+            if (GUILayout.Button("Preview In Scene")) StagePreview.Build(manager, FirstStage(manager, theme), theme);
+        if (GUILayout.Button("Clear Scene Preview")) StagePreview.Clear();
+        StagePreview.Live = EditorGUILayout.Toggle("Live Preview", StagePreview.Live);
+        if (!StageConfigWindow.DrawingEmbedded && GUILayout.Button("Open Stage Config")) StageConfigWindow.Open();
+
+        using SerializedObject gameSettings = new(manager.GetComponent<BombermanPrototype>());
+        if (gameSettings.FindProperty("randomSeed").intValue == 0)
+            EditorGUILayout.HelpBox("Random Seed is 0, so each preview and Play session gets a new layout.", MessageType.Info);
+    }
+
+    // The first stage of the phase that uses this theme, so the preview matches what players see.
+    private static int FirstStage(StageManager manager, StageTheme theme)
+    {
+        int stage = 1;
+        if (manager.Sequence == null) return stage;
+        foreach (StageSequence.Phase phase in manager.Sequence.Phases)
+        {
+            if (phase.Theme == theme) return stage;
+            stage += Mathf.Max(1, phase.StageCount);
+        }
+
+        return 1;
     }
 }

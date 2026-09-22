@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 [DefaultExecutionOrder(-100)]
 public sealed class BombermanPrototype : MonoBehaviour
@@ -51,6 +52,16 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private bool playerCanDieFromBomb = false;
     [Tooltip("God mode: the player survives bombs, enemies, and the time-out Pontans.")]
     [SerializeField] private bool godMode;
+    [Tooltip("Deaths allowed before the game ends, as in the original game.")]
+    [SerializeField, Min(1)] private int playerLives = 3;
+    [Tooltip("Scene loaded after GAME OVER. It must be in Build Settings.")]
+    [SerializeField] private string titleSceneName = "Title";
+    [Tooltip("Seconds the GAME OVER banner stays up before the title screen loads.")]
+    [SerializeField, Min(0f)] private float gameOverDelay = 2.5f;
+    [Tooltip("Banner shown once the sequence's last stage is cleared.")]
+    [SerializeField] private string gameClearText = "ALL STAGES CLEAR";
+    [Tooltip("Seconds that banner stays up before the title screen loads.")]
+    [SerializeField, Min(0f)] private float gameClearDelay = 4f;
     [SerializeField, Min(0f)] private float playerDeathAnimationTime = 0.85f;
     [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
     [SerializeField] private float playerRestartDelay = 0.15f;
@@ -68,11 +79,13 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private int doriaCount = 3;
     [SerializeField] private int minuoCount = 3;
     [SerializeField, Min(0.05f)] private float enemyPlayerHitDistance = 0.45f;
+    [Tooltip("Write exit door and enemy spawn events to the Console.")]
+    [SerializeField] private bool logSpawnEvents = true;
 
     [Tooltip("Enemy prefab settings control movement and behavior.")]
     [SerializeField] private EnemyController[] enemyPrefabs;
     [Header("Exit Door")]
-    [Tooltip("Planar distance from the door center at which the player enters an open exit.")]
+    [Tooltip("How close the player must stand to the door center for Space to enter an open exit.")]
     [SerializeField, Min(0.05f)] private float exitDoorEnterDistance = 0.4f;
     [Tooltip("A blast on the revealed exit releases the stage's exit enemy from the original table until this many are alive. Zero disables it.")]
     [SerializeField, Min(0)] private int exitDoorPopulationCap = 10;
@@ -104,6 +117,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     private bool restarting;
     private StageManager stageManager;
     private GameObject stageRoot;
+    private GameObject sceneryRoot;
+    private StageTheme.SceneryVisual builtScenery;
     private GameObject sceneEnemyTemplates;
     private int sessionSeed;
     private bool firstStage = true;
@@ -116,6 +131,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     private bool timeUp;
     private StageLighting stageLighting;
     private StageTheme.ThemeLighting currentLighting;
+    private PauseMenu gameOverBanner;
+    private PauseMenu gameClearBanner;
+    private int livesLeft;
 
     public bool IsPaused => paused;
     public bool IsStageClearing => stageClearing;
@@ -139,7 +157,10 @@ public sealed class BombermanPrototype : MonoBehaviour
         sessionSeed = randomSeed == 0 ? System.Environment.TickCount : randomSeed;
         pauseMenu = PauseMenu.Create();
         stageClearBanner = PauseMenu.Create("Stage Clear Canvas", "STAGE CLEAR");
+        gameOverBanner = PauseMenu.Create("Game Over Canvas", "GAME OVER");
+        gameClearBanner = PauseMenu.Create("Game Clear Canvas", gameClearText);
         stageHud = StageHud.Create();
+        livesLeft = playerLives;
         stageLighting = StageLighting.Create();
         sceneEnemyTemplates = new GameObject("Scene Enemy Templates");
         sceneEnemyTemplates.transform.SetParent(transform, false);
@@ -159,10 +180,13 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageClearing = false;
         pendingExitWaves = 0;
         stageClearBanner.SetVisible(false);
+        gameOverBanner.SetVisible(false);
+        gameClearBanner.SetVisible(false);
         timeLeft = stageTimeLimit;
         timeUp = false;
         stageHud.SetVisible(stageTimeLimit > 0f);
         stageHud.SetTime(timeLeft);
+        stageHud.SetLives(livesLeft);
         if (stageRoot != null)
         {
             stageRoot.SetActive(false);
@@ -174,6 +198,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         player = null;
         stageRoot = new GameObject($"Stage {stage}");
         stageRoot.transform.SetParent(transform, false);
+        ApplyScenery(theme);
         map = new BombermanMap(width, height, destructibleDensity, GetStageSeed(sessionSeed, stage), materials, theme, stageRoot.transform);
         ConfigureCamera();
         currentLighting = theme != null ? theme.Lighting : null;
@@ -197,6 +222,30 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
         if (spawnEnemies) SpawnEnemies(stage);
         exitWaveEnemyType = OriginalStageEnemies.GetExitEnemy(stage);
+        LogSpawnEvent($"Stage {stage} starts with {DescribeEnemies()}. Bombing the open exit releases {exitWaveEnemyType.Name}.");
+    }
+
+    // Scenery is heavy, so it outlives the stage root and is rebuilt only when a stage asks for different scenery.
+    private void ApplyScenery(StageTheme theme)
+    {
+        StageTheme.SceneryVisual scenery = theme != null ? theme.Scenery : null;
+        bool wanted = scenery != null && scenery.Prefab != null;
+        if (wanted && sceneryRoot != null && scenery.Matches(builtScenery)) return;
+
+        if (sceneryRoot != null)
+        {
+            sceneryRoot.SetActive(false);
+            Destroy(sceneryRoot);
+            sceneryRoot = null;
+        }
+
+        builtScenery = wanted ? scenery.Copy() : null;
+        if (wanted) sceneryRoot = scenery.Attach(transform, ArenaCenter(width, height));
+    }
+
+    private static Vector3 ArenaCenter(int mapWidth, int mapHeight)
+    {
+        return new Vector3(mapWidth / 2 - mapWidth / 2f, 0f, mapHeight / 2 - mapHeight / 2f);
     }
 
     // Builds a stage's arena without actors for the Stage Manager's edit-mode scene preview.
@@ -205,15 +254,18 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         GameObject root = new("Stage Preview");
         int previewSessionSeed = randomSeed == 0 ? System.Environment.TickCount : randomSeed;
+        int previewWidth = Mathf.Max(5, width | 1);
+        int previewHeight = Mathf.Max(5, height | 1);
         BombermanMap previewMap = new(
-            Mathf.Max(5, width | 1),
-            Mathf.Max(5, height | 1),
+            previewWidth,
+            previewHeight,
             destructibleDensity,
             GetStageSeed(previewSessionSeed, stage),
             BombermanMaterials.Create(),
             theme,
             root.transform);
         previewMap.Generate();
+        if (theme != null) theme.Scenery.Attach(root.transform, ArenaCenter(previewWidth, previewHeight));
         return root;
     }
 
@@ -267,6 +319,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         actors.RemoveAll(actor => actor == null || !actor.IsPlayer);
         SpawnEnemyGroup(typeof(PontanEnemy), OriginalStageEnemies.MaxEnemies, () => FindOriginalSpawnCell(1));
+        LogSpawnEvent($"Time ran out. Every enemy was replaced by {OriginalStageEnemies.MaxEnemies} Pontans.");
     }
 
     private void LateUpdate()
@@ -582,6 +635,11 @@ public sealed class BombermanPrototype : MonoBehaviour
             return;
         }
 
+        if (TryEnterExit())
+        {
+            return;
+        }
+
         Vector2Int bombCell = map.WorldToCell(player.transform.position);
         if (activeBombs >= maxBombs || bombs.ContainsKey(bombCell))
         {
@@ -681,10 +739,40 @@ public sealed class BombermanPrototype : MonoBehaviour
             DamageActorsAt(cell);
         }
 
+        if (exitDoor != null && !exitWasRevealed && exitDoor.IsRevealed)
+        {
+            LogSpawnEvent($"Blast from {origin} uncovered the exit at {exitDoor.Cell}. No enemies released.");
+        }
+
         if (exitWasRevealed && exitDoorPopulationCap > 0 && blastCells.Contains(exitDoor.Cell))
         {
+            LogSpawnEvent($"Blast from {origin} hit the open exit at {exitDoor.Cell}. Enemies come out in {exitDoorSpawnDelay:0.##}s.");
             StartCoroutine(SpawnExitWave());
         }
+    }
+
+    private void LogSpawnEvent(string message)
+    {
+        if (logSpawnEvents)
+        {
+            Debug.Log($"[Bomberman] {message}", this);
+        }
+    }
+
+    private string DescribeEnemies()
+    {
+        Dictionary<string, int> counts = new();
+        foreach (GridController actor in actors)
+        {
+            if (actor == null || actor.IsPlayer || actor.IsDead) continue;
+            string enemyName = actor.GetType().Name;
+            counts[enemyName] = counts.TryGetValue(enemyName, out int count) ? count + 1 : 1;
+        }
+
+        if (counts.Count == 0) return "no enemies";
+        List<string> parts = new();
+        foreach (KeyValuePair<string, int> entry in counts) parts.Add($"{entry.Value} {entry.Key}");
+        return string.Join(", ", parts);
     }
 
     private IEnumerator SpawnExitWave()
@@ -706,12 +794,16 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         Vector3 position = map.CellToWorld(map.ExitDoor.Cell);
+        int released = 0;
         for (int alive = CountLivingEnemies(); alive < exitDoorPopulationCap; alive++)
         {
             EnemyController enemy = Instantiate(prefab, position, Quaternion.identity);
             enemy.name = $"{prefab.name} (Exit)";
             RegisterEnemy(enemy);
+            released++;
         }
+
+        LogSpawnEvent($"The exit at {map.ExitDoor.Cell} released {released} {prefab.name}.");
     }
 
     private IEnumerator ShowExplosion(Vector2Int cell, Vector2Int origin)
@@ -807,17 +899,26 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         exitDoor.SetOpen(pendingExitWaves == 0 && CountLivingEnemies() == 0);
-        if (!exitDoor.IsOpen || !exitDoor.IsRevealed || paused || restarting || player == null || player.IsDead)
+    }
+
+    // Space on an open exit clears the stage instead of dropping a bomb.
+    private bool TryEnterExit()
+    {
+        ExitDoor exitDoor = map != null ? map.ExitDoor : null;
+        if (exitDoor == null || !exitDoor.IsRevealed || !exitDoor.IsOpen || restarting || player == null || player.IsDead)
         {
-            return;
+            return false;
         }
 
         Vector3 offset = player.transform.position - map.CellToWorld(exitDoor.Cell);
         offset.y = 0f;
-        if (offset.sqrMagnitude <= exitDoorEnterDistance * exitDoorEnterDistance)
+        if (offset.sqrMagnitude > exitDoorEnterDistance * exitDoorEnterDistance)
         {
-            StartCoroutine(StageClearSequence());
+            return false;
         }
+
+        StartCoroutine(StageClearSequence());
+        return true;
     }
 
     private IEnumerator StageClearSequence()
@@ -825,7 +926,37 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageClearing = true;
         stageClearBanner.SetVisible(true);
         yield return new WaitForSeconds(stageClearDelay);
+        // A sequence ends after its last stage; without one the stages keep coming.
+        if (stageManager.OnLastStage)
+        {
+            stageClearBanner.SetVisible(false);
+            yield return GameClearSequence();
+            yield break;
+        }
+
         stageManager.NextStage();
+    }
+
+    // The run is won, so the ending reads like GAME OVER without being one.
+    private IEnumerator GameClearSequence()
+    {
+        gameClearBanner.SetVisible(true);
+        GameProgress.Clear();
+        GameProgress.RequestedStage = 0;
+        LogSpawnEvent($"Stage {stageManager.CurrentStage} of {stageManager.TotalStages} cleared. Returning to the title screen.");
+        yield return new WaitForSeconds(gameClearDelay);
+
+        // The smoke tests build scenes without the title, so those keep playing instead.
+        if (Application.CanStreamedLevelBeLoaded(titleSceneName))
+        {
+            SceneManager.LoadScene(titleSceneName);
+            yield break;
+        }
+
+        gameClearBanner.SetVisible(false);
+        livesLeft = playerLives;
+        stageHud.SetLives(livesLeft);
+        stageManager.LoadStage(1);
     }
 
     private IEnumerator PlayerDeathSequence(PlayerDeathCause cause)
@@ -852,6 +983,35 @@ public sealed class BombermanPrototype : MonoBehaviour
         yield return new WaitForSeconds(playerDeathParticleTime);
         yield return new WaitForSeconds(playerRestartDelay);
         Time.timeScale = 1f;
+        livesLeft--;
+        stageHud.SetLives(livesLeft);
+        if (livesLeft > 0)
+        {
+            stageManager.RestartStage();
+            yield break;
+        }
+
+        yield return GameOverSequence();
+    }
+
+    private IEnumerator GameOverSequence()
+    {
+        gameOverBanner.SetVisible(true);
+        GameProgress.Clear();
+        GameProgress.RequestedStage = 0;
+        LogSpawnEvent("Out of lives. Returning to the title screen.");
+        yield return new WaitForSeconds(gameOverDelay);
+
+        // The smoke tests build scenes without the title, so those keep playing instead.
+        if (Application.CanStreamedLevelBeLoaded(titleSceneName))
+        {
+            SceneManager.LoadScene(titleSceneName);
+            yield break;
+        }
+
+        gameOverBanner.SetVisible(false);
+        livesLeft = playerLives;
+        stageHud.SetLives(livesLeft);
         stageManager.RestartStage();
     }
 
