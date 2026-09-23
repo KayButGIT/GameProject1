@@ -110,10 +110,10 @@ MonoBehaviour:
     ExtraScale: {x: 1.04, y: 1.1, z: 1.1}
   Scenery:
     Prefab: {fileID: 1146845005328507934, guid: 49e0382b71e25f74fb7ac6b8fbf6c181, type: 3}
-    Offset: {x: 1.1, y: 0, z: 0.3}
+    Offset: {x: 10.98, y: 0, z: -3.18}
     Rotation: {x: 0, y: 0, z: 0}
     Scale: {x: 1, y: 1, z: 1}
-    CenterOnArena: 1
+    CenterOnArena: 0
   Lighting:
     Enabled: 1
     SunPrefab: {fileID: 6002527405507834751, guid: ce6ecf0b7bb40e6408393da0834e1caf, type: 3}
