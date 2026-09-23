@@ -130,4 +130,4 @@ MonoBehaviour:
     SkyboxAmbientIntensity: 1
     PostProcessing: {fileID: 0}
     ExplosionColor: {r: 1, g: 0.6, b: 0.2, a: 1}
-    ExplosionIntensity: 6
+    ExplosionIntensity: 8

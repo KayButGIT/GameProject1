@@ -358,7 +358,7 @@ MonoBehaviour:
   - {fileID: 2226920271405273773, guid: e354abf7a004fad4582a31851a8ddccd, type: 3}
   exitDoorEnterDistance: 0.4
   exitDoorPopulationCap: 10
-  exitDoorSpawnDelay: 0.5
+  exitDoorSpawnDelay: 1
   stageClearDelay: 2
   stageTimeLimit: 0
   cameraOrthographicSize: 5.7
