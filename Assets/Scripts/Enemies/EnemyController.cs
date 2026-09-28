@@ -27,12 +27,14 @@ public abstract class EnemyController : GridController
     public Animator ModelAnimator;
     [Min(0f)] public float DeathSeconds = 0.8f;
     public bool IsChasing { get; private set; }
+    protected virtual bool UseShortestPathChase => false;
     protected BombermanPrototype Game { get; private set; }
     private Vector2Int heading, lastSeen;
     private int patrolRemaining;
     private float chaseRemaining, cooldown, unseen, outside, deathRemaining;
     private bool initialized, hasSpeed, hasMoving, hasDie, movingAsPatrol;
     private bool acquisitionChecked, selectingSafeMoves;
+    private int lastChaseAxis;
     private static readonly int SpeedId = Animator.StringToHash("Speed");
     private static readonly int MovingId = Animator.StringToHash("IsMoving");
     private static readonly int DieId = Animator.StringToHash("Die");
@@ -187,6 +189,9 @@ public abstract class EnemyController : GridController
 
     private Vector2Int ChooseChaseDirection()
     {
+        if (UseShortestPathChase && TryChooseShortestPathDirection(out Vector2Int pathDirection))
+            return pathDirection;
+
         int dx = lastSeen.x - Cell.x;
         int dy = lastSeen.y - Cell.y;
 
@@ -214,6 +219,62 @@ public abstract class EnemyController : GridController
         }
         
         return CanMove(-heading) ? -heading : Vector2Int.zero;
+    }
+
+    private bool TryChooseShortestPathDirection(out Vector2Int direction)
+    {
+        direction = Vector2Int.zero;
+        Vector2Int target = Game.PlayerCell;
+        if (Cell == target) return false;
+
+        Queue<Vector2Int> frontier = new();
+        Dictionary<Vector2Int, int> distances = new();
+        frontier.Enqueue(target);
+        distances[target] = 0;
+
+        while (frontier.Count > 0)
+        {
+            Vector2Int current = frontier.Dequeue();
+            int nextDistance = distances[current] + 1;
+            foreach (Vector2Int step in BombermanPrototype.Directions)
+            {
+                Vector2Int neighbor = current + step;
+                if (distances.ContainsKey(neighbor) || !Game.CanEnemyTraverse(this, neighbor)) continue;
+                distances[neighbor] = nextDistance;
+                frontier.Enqueue(neighbor);
+            }
+        }
+
+        if (!distances.TryGetValue(Cell, out int currentDistance) || currentDistance <= 0) return false;
+
+        List<Vector2Int> shortestSteps = new(4);
+        foreach (Vector2Int step in BombermanPrototype.Directions)
+        {
+            Vector2Int neighbor = Cell + step;
+            if (!distances.TryGetValue(neighbor, out int neighborDistance)
+                || neighborDistance != currentDistance - 1
+                || !CanMove(step)) continue;
+            shortestSteps.Add(step);
+        }
+
+        if (shortestSteps.Count == 0) return false;
+
+        int preferredAxis = lastChaseAxis == 1 ? 2 : lastChaseAxis == 2 ? 1
+            : Mathf.Abs(target.x - Cell.x) >= Mathf.Abs(target.y - Cell.y) ? 1 : 2;
+        foreach (Vector2Int step in shortestSteps)
+        {
+            int axis = step.x != 0 ? 1 : 2;
+            if (axis == preferredAxis)
+            {
+                direction = step;
+                lastChaseAxis = axis;
+                return true;
+            }
+        }
+
+        direction = shortestSteps[0];
+        lastChaseAxis = direction.x != 0 ? 1 : 2;
+        return true;
     }
 
     private Vector2Int AnyValidDirection()
