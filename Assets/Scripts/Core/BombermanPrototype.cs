@@ -499,8 +499,13 @@ public sealed class BombermanPrototype : MonoBehaviour
         enemy.Initialize(this);
     }
 
-    public bool CanEnemyTraverse(EnemyController enemy, Vector2Int cell)
+    public bool CanEnemyTraverse(EnemyController enemy, Vector2Int cell, bool ignoreBombs = false)
     {
+        if (ignoreBombs && map != null)
+        {
+            CellKind kind = map.GetCellKind(cell);
+            return kind == CellKind.Empty || (enemy.CanPassDestructibleWalls && kind == CellKind.Destructible);
+        }
         return map != null && (enemy.CanPassDestructibleWalls
             ? IsWalkableIncludingDestructible(cell) : IsWalkable(cell));
     }

@@ -92,7 +92,7 @@ MonoBehaviour:
     legacyScale: {x: 1, y: 1, z: 1}
   ExitDoor:
     Variants:
-    - Prefab: {fileID: 4289181965728556406, guid: 17d2c8d41b30b3b42812b1a1b20dcd4d, type: 3}
+    - Prefab: {fileID: 8684128305394799346, guid: 6267fef5c219ead478eec2597916f90f, type: 3}
       Position: {x: 0, y: 0, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}

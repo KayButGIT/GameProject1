@@ -35,6 +35,9 @@ public abstract class EnemyController : GridController
     private bool initialized, hasSpeed, hasMoving, hasDie, movingAsPatrol;
     private bool acquisitionChecked, selectingSafeMoves;
     private int lastChaseAxis;
+    private const float BombRetreatSeconds = 2f;
+    private float bombRetreatRemaining;
+    private readonly HashSet<Vector2Int> respondedBombCells = new();
     private static readonly int SpeedId = Animator.StringToHash("Speed");
     private static readonly int MovingId = Animator.StringToHash("IsMoving");
     private static readonly int DieId = Animator.StringToHash("Die");
@@ -101,12 +104,26 @@ public abstract class EnemyController : GridController
     private void UpdateChase(float delta)
     {
         cooldown = Mathf.Max(0f, cooldown - delta);
+        if (Chase != ChaseMode.Always || !Game.HasLivingPlayer)
+        {
+            bombRetreatRemaining = 0f;
+            respondedBombCells.Clear();
+        }
         if (Chase == ChaseMode.None || !Game.HasLivingPlayer)
         {
             IsChasing = false;
             return;
         }
-        if (Chase == ChaseMode.Always || (Chase == ChaseMode.PersistentAfterSight && IsChasing))
+        if (Chase == ChaseMode.Always)
+        {
+            bombRetreatRemaining = Mathf.Max(0f, bombRetreatRemaining - delta);
+            respondedBombCells.RemoveWhere(cell => !Game.CanEnemyTraverse(this, cell, true)
+                || Game.CanEnemyTraverse(this, cell));
+            IsChasing = bombRetreatRemaining <= 0f;
+            lastSeen = Game.PlayerCell;
+            return;
+        }
+        if (Chase == ChaseMode.PersistentAfterSight && IsChasing)
         {
             IsChasing = true;
             lastSeen = Game.PlayerCell;
@@ -144,6 +161,19 @@ public abstract class EnemyController : GridController
 
     private Vector2Int ChooseDirection()
     {
+        // Probe the intended chase step before bomb avoidance reroutes it.
+        // The probe must not advance Pontan's alternating-axis state.
+        if (Chase == ChaseMode.Always && IsChasing)
+        {
+            Vector2Int intended = ChooseChaseDirectionForTraversal(true);
+            Vector2Int nextCell = Cell + intended;
+            if (intended != Vector2Int.zero && Game.CanEnemyTraverse(this, nextCell, true)
+                && !Game.CanEnemyTraverse(this, nextCell) && respondedBombCells.Add(nextCell))
+            {
+                bombRetreatRemaining = BombRetreatSeconds;
+                IsChasing = false;
+            }
+        }
         if (AvoidBombLanes)
         {
             foreach (Vector2Int direction in BombermanPrototype.Directions)
@@ -154,8 +184,30 @@ public abstract class EnemyController : GridController
                 }
             if (!selectingSafeMoves && !Game.IsCellThreatenedByBomb(Cell)) return Vector2Int.zero;
         }
-        try { return IsChasing ? ChooseChaseDirection() : ChoosePatrolDirection(); }
+        try
+        {
+            if (Chase == ChaseMode.Always && bombRetreatRemaining > 0f) return ChooseBombRetreatDirection();
+            return IsChasing ? ChooseChaseDirection() : ChoosePatrolDirection();
+        }
         finally { selectingSafeMoves = false; }
+    }
+
+    private Vector2Int ChooseBombRetreatDirection()
+    {
+        Vector2Int chosen = Vector2Int.zero;
+        int currentDistance = Distance(Cell, Game.PlayerCell);
+        int bestDistance = currentDistance;
+        foreach (Vector2Int direction in BombermanPrototype.Directions)
+        {
+            if (!CanMove(direction)) continue;
+            int distance = Distance(Cell + direction, Game.PlayerCell);
+            if (distance > bestDistance || (distance > currentDistance && distance == bestDistance && direction == heading))
+            {
+                chosen = direction;
+                bestDistance = distance;
+            }
+        }
+        return chosen;
     }
 
     public bool CanSeePlayer()
@@ -187,9 +239,11 @@ public abstract class EnemyController : GridController
         return AnyValidDirection();
     }
 
-    private Vector2Int ChooseChaseDirection()
+    private Vector2Int ChooseChaseDirection() => ChooseChaseDirectionForTraversal(false);
+
+    private Vector2Int ChooseChaseDirectionForTraversal(bool ignoreBombs)
     {
-        if (UseShortestPathChase && TryChooseShortestPathDirection(out Vector2Int pathDirection))
+        if (UseShortestPathChase && TryChooseShortestPathDirection(out Vector2Int pathDirection, ignoreBombs))
             return pathDirection;
 
         int dx = lastSeen.x - Cell.x;
@@ -210,22 +264,22 @@ public abstract class EnemyController : GridController
         
         foreach (Vector2Int dir in preferredDirections)
         {
-            if (dir != -heading && CanMove(dir)) return dir;
+            if (dir != -heading && CanMoveForTraversal(dir, ignoreBombs)) return dir;
         }
         
         foreach (Vector2Int dir in BombermanPrototype.Directions)
         {
-            if (dir != -heading && CanMove(dir)) return dir;
+            if (dir != -heading && CanMoveForTraversal(dir, ignoreBombs)) return dir;
         }
         
-        return CanMove(-heading) ? -heading : Vector2Int.zero;
+        return CanMoveForTraversal(-heading, ignoreBombs) ? -heading : Vector2Int.zero;
     }
 
-    private bool TryChooseShortestPathDirection(out Vector2Int direction)
+    private bool TryChooseShortestPathDirection(out Vector2Int direction, bool ignoreBombs)
     {
         direction = Vector2Int.zero;
         Vector2Int target = Game.PlayerCell;
-        if (Cell == target) return false;
+        if (Cell == target || !Game.CanEnemyTraverse(this, target, ignoreBombs)) return false;
 
         Queue<Vector2Int> frontier = new();
         Dictionary<Vector2Int, int> distances = new();
@@ -239,7 +293,7 @@ public abstract class EnemyController : GridController
             foreach (Vector2Int step in BombermanPrototype.Directions)
             {
                 Vector2Int neighbor = current + step;
-                if (distances.ContainsKey(neighbor) || !Game.CanEnemyTraverse(this, neighbor)) continue;
+                if (distances.ContainsKey(neighbor) || !Game.CanEnemyTraverse(this, neighbor, ignoreBombs)) continue;
                 distances[neighbor] = nextDistance;
                 frontier.Enqueue(neighbor);
             }
@@ -253,7 +307,7 @@ public abstract class EnemyController : GridController
             Vector2Int neighbor = Cell + step;
             if (!distances.TryGetValue(neighbor, out int neighborDistance)
                 || neighborDistance != currentDistance - 1
-                || !CanMove(step)) continue;
+                || !CanMoveForTraversal(step, ignoreBombs)) continue;
             shortestSteps.Add(step);
         }
 
@@ -267,13 +321,13 @@ public abstract class EnemyController : GridController
             if (axis == preferredAxis)
             {
                 direction = step;
-                lastChaseAxis = axis;
+                if (!ignoreBombs) lastChaseAxis = axis;
                 return true;
             }
         }
 
         direction = shortestSteps[0];
-        lastChaseAxis = direction.x != 0 ? 1 : 2;
+        if (!ignoreBombs) lastChaseAxis = direction.x != 0 ? 1 : 2;
         return true;
     }
 
@@ -289,9 +343,10 @@ public abstract class EnemyController : GridController
         return CanMove(-heading) ? -heading : Vector2Int.zero;
     }
 
-    private bool CanMove(Vector2Int direction) => direction != Vector2Int.zero
-        && Game.CanEnemyTraverse(this, Cell + direction)
-        && (!selectingSafeMoves || !Game.IsCellThreatenedByBomb(Cell + direction));
+    private bool CanMove(Vector2Int direction) => CanMoveForTraversal(direction, false);
+    private bool CanMoveForTraversal(Vector2Int direction, bool ignoreBombs) => direction != Vector2Int.zero
+        && Game.CanEnemyTraverse(this, Cell + direction, ignoreBombs)
+        && (ignoreBombs || !selectingSafeMoves || !Game.IsCellThreatenedByBomb(Cell + direction));
     private int NextPatrolLength() => Random.Range(Mathf.Max(1, PatrolMinCells), Mathf.Max(1, Mathf.Max(PatrolMinCells, PatrolMaxCells)) + 1);
     private static int Distance(Vector2Int a, Vector2Int b) => Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
     private void SetAnimation()
