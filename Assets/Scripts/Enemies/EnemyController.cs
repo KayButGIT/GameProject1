@@ -250,7 +250,7 @@ public abstract class EnemyController : GridController
         int dy = lastSeen.y - Cell.y;
 
         List<Vector2Int> preferredDirections = new List<Vector2Int>();
-        
+
         if (Mathf.Abs(dx) >= Mathf.Abs(dy))
         {
             if (dx != 0) preferredDirections.Add(dx > 0 ? Vector2Int.right : Vector2Int.left);
@@ -261,17 +261,17 @@ public abstract class EnemyController : GridController
             if (dy != 0) preferredDirections.Add(dy > 0 ? Vector2Int.up : Vector2Int.down);
             if (dx != 0) preferredDirections.Add(dx > 0 ? Vector2Int.right : Vector2Int.left);
         }
-        
+
         foreach (Vector2Int dir in preferredDirections)
         {
             if (dir != -heading && CanMoveForTraversal(dir, ignoreBombs)) return dir;
         }
-        
+
         foreach (Vector2Int dir in BombermanPrototype.Directions)
         {
             if (dir != -heading && CanMoveForTraversal(dir, ignoreBombs)) return dir;
         }
-        
+
         return CanMoveForTraversal(-heading, ignoreBombs) ? -heading : Vector2Int.zero;
     }
 
@@ -358,6 +358,9 @@ public abstract class EnemyController : GridController
     public override void Die()
     {
         if (IsDead) return;
+        // Per-enemy-type death SFX (SoundManager.PlayEnemyDeath switches on GetType().Name,
+        // e.g. "DahlEnemy" -> Dahl Dead.mp3, falling back to fallbackDeath for unassigned types).
+        SoundManager.Instance?.PlayEnemyDeath(GetType().Name);
         IsDead = true;
         IsMoving = false;
         IsChasing = false;

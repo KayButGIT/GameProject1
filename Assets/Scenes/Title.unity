@@ -581,6 +581,7 @@ GameObject:
   - component: {fileID: 411615582}
   - component: {fileID: 411615584}
   - component: {fileID: 411615581}
+  - component: {fileID: 411615585}
   m_Layer: 0
   m_Name: Continue Button
   m_TagString: Untagged
@@ -722,6 +723,18 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &411615585
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 411615579}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47637f56ea58b9c4589595235fb6bfa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TitleButtonSfx
 --- !u!1 &438115284
 GameObject:
   m_ObjectHideFlags: 0
@@ -829,6 +842,83 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
   m_Asset: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_ActionId: 0489e84a-4833-4c40-bfae-cea84b696689
+--- !u!1 &668113410
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 668113412}
+  - component: {fileID: 668113413}
+  m_Layer: 0
+  m_Name: SoundManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &668113412
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 668113410}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.57896, y: 0, z: 0.12326}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &668113413
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 668113410}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 561abe0bf180b9a49b804a5e151ad085, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoundManager
+  powerUpPickup: {fileID: 8300000, guid: 7112cba4b175c354e853c261c354ffb2, type: 3}
+  placeBomb: {fileID: 8300000, guid: c4d9f9c69f4a2894f9d44402dac71b7e, type: 3}
+  bombExplode: {fileID: 8300000, guid: c7a7c00c6561f6a4092ea81c29c5ffb4, type: 3}
+  exitOpen: {fileID: 8300000, guid: 636abe3a1069ced449abff0fa71d51a2, type: 3}
+  playerDeath: {fileID: 8300000, guid: e7d25daa71ee09040beaa0614677f18b, type: 3}
+  stage1Footsteps:
+  - {fileID: 8300000, guid: bae96cee30d04ef4491be1cc53d33d9a, type: 3}
+  - {fileID: 8300000, guid: b1df591a8d12c054d90142829deba05b, type: 3}
+  - {fileID: 8300000, guid: b6efb5b5ed7824e47b2cbb06ac721d67, type: 3}
+  stage2Footsteps: []
+  stage3Footsteps: []
+  footstepStride: 0.9
+  footstepPitchRange: {x: 0.96, y: 1.04}
+  onealDeath:
+  - {fileID: 8300000, guid: a3c628ae657e4ca4394f1a48b4d782f8, type: 3}
+  dahlDeath:
+  - {fileID: 8300000, guid: a07068c9d3c8ead418fbf85936ce0ab7, type: 3}
+  pontanDeath:
+  - {fileID: 8300000, guid: 4f736ce7f887e0e4ba64992f59b9fd02, type: 3}
+  passDeath:
+  - {fileID: 8300000, guid: f34b9d8199070454382d8ee86e3bf319, type: 3}
+  valcomDeath:
+  - {fileID: 8300000, guid: a1417c4a2ce44e044a2575d9c97b83c2, type: 3}
+  ovapeDeath: []
+  doriaDeath:
+  - {fileID: 8300000, guid: 72d2cc3989db04e40a3ccc985ca8a646, type: 3}
+  minuoDeath:
+  - {fileID: 8300000, guid: fd5f7f30103e8e74891f8e24e74eed37, type: 3}
+  fallbackDeath: []
+  titleChoose: {fileID: 0}
+  titleClick: {fileID: 0}
+  sfxVolume: 1
+  footstepVolume: 0.85
 --- !u!1 &860010697
 GameObject:
   m_ObjectHideFlags: 0
@@ -1244,6 +1334,7 @@ GameObject:
   - component: {fileID: 1636555201}
   - component: {fileID: 1636555200}
   - component: {fileID: 1636555199}
+  - component: {fileID: 1636555203}
   m_Layer: 0
   m_Name: Start Button
   m_TagString: Untagged
@@ -1385,6 +1476,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1636555197}
   m_CullTransparentMesh: 1
+--- !u!114 &1636555203
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1636555197}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47637f56ea58b9c4589595235fb6bfa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TitleButtonSfx
 --- !u!114 &1678630337
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1601,6 +1704,7 @@ GameObject:
   - component: {fileID: 2052784659}
   - component: {fileID: 2052784658}
   - component: {fileID: 2052784657}
+  - component: {fileID: 2052784661}
   m_Layer: 0
   m_Name: Exit Button
   m_TagString: Untagged
@@ -1742,6 +1846,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2052784655}
   m_CullTransparentMesh: 1
+--- !u!114 &2052784661
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2052784655}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47637f56ea58b9c4589595235fb6bfa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TitleButtonSfx
 --- !u!114 &2103042766
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1766,3 +1882,4 @@ SceneRoots:
   - {fileID: 30660139}
   - {fileID: 1051371126}
   - {fileID: 1801374250}
+  - {fileID: 668113412}
