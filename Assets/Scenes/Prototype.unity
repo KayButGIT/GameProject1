@@ -308,7 +308,7 @@ MonoBehaviour:
   playerMoveSpeed: 4
   playerAcceleration: 22
   playerDeceleration: 24
-  playerTurnSpeed: 10
+  playerTurnSpeed: 20
   playerColliderRadius: 0.52
   playerColliderHeight: 1.125
   playerModelPrefab: {fileID: 919132149155446097, guid: 8b0b3834197ea174bb01f77b7932dc3e, type: 3}
@@ -323,7 +323,7 @@ MonoBehaviour:
   bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}
   maxBombs: 1
   blastRange: 1
-  bombFuseTime: 0.1
+  bombFuseTime: 2
   bombReleasePadding: 0.65
   playerCanDieFromBomb: 0
   godMode: 1
@@ -336,7 +336,7 @@ MonoBehaviour:
   playerDeathParticleTime: 0.6
   playerRestartDelay: 1
   spawnEnemies: 1
-  useOriginalStageEnemies: 1
+  useOriginalStageEnemies: 0
   onealCount: 0
   dahlCount: 0
   pontanCount: 1
