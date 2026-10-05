@@ -13,6 +13,7 @@ public sealed class BombermanMap
     private System.Random layoutRandom;
     private System.Random visualRandom;
     private readonly Dictionary<Vector2Int, GameObject> blocks = new();
+    private readonly Dictionary<Vector2Int, GameObject> floors = new();
     private readonly Dictionary<Vector2Int, CellKind> cells = new();
 
     public BombermanMap(int width, int height, float destructibleDensity, int randomSeed, BombermanMaterials materials, StageTheme theme = null, Transform parent = null)
@@ -40,6 +41,7 @@ public sealed class BombermanMap
         mapRoot.transform.SetParent(parent, false);
         cells.Clear();
         blocks.Clear();
+        floors.Clear();
 
         for (int x = 0; x < width; x++)
         {
@@ -186,7 +188,28 @@ public sealed class BombermanMap
         // Picked after the layout, so a seed still produces the same blocks. Open layouts show the exit in the far corner.
         bool hidden = hidingCells.Count > 0;
         Vector2Int cell = hidden ? hidingCells[layoutRandom.Next(hidingCells.Count)] : new Vector2Int(width - 2, height - 2);
-        return ExitDoor.Create(cell, CellToWorld(cell), parent, materials, theme != null ? theme.ExitDoor : null, visualRandom, !hidden);
+        Vector3 position = CellToWorld(cell);
+        position.y = PrepareExitFloor(cell);
+        return ExitDoor.Create(cell, position, parent, materials, theme != null ? theme.ExitDoor : null, visualRandom, !hidden);
+    }
+
+    private float PrepareExitFloor(Vector2Int cell)
+    {
+        GameObject floor = floors[cell];
+        foreach (GrassBlock grass in floor.GetComponentsInChildren<GrassBlock>(true))
+            if (grass.GrassMesh != null && grass.GrassMesh.TryGetComponent(out Renderer blades))
+                blades.enabled = false;
+
+        float surfaceY = floor.transform.position.y + floor.transform.localScale.y * 0.5f;
+        bool measured = false;
+        foreach (Renderer renderer in floor.GetComponentsInChildren<Renderer>())
+        {
+            if (!renderer.enabled || !VisualBounds.TryMeasure(floor.transform, renderer.gameObject, out Bounds bounds)) continue;
+            float top = floor.transform.TransformPoint(new Vector3(0f, bounds.max.y, 0f)).y;
+            surfaceY = measured ? Mathf.Max(surfaceY, top) : top;
+            measured = true;
+        }
+        return surfaceY;
     }
 
     // Edit-mode stage previews cannot use deferred destruction.
@@ -205,6 +228,7 @@ public sealed class BombermanMap
     private void CreateFloor(Vector2Int cell, Transform parent)
     {
         GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        floors[cell] = floor;
         floor.name = $"Floor {cell.x},{cell.y}";
         floor.transform.SetParent(parent);
         floor.transform.position = CellToWorld(cell) + new Vector3(0f, -0.06f, 0f);

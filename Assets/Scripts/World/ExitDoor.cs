@@ -35,7 +35,7 @@ public sealed class ExitDoor : MonoBehaviour
         GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
         slab.name = "Door";
         slab.transform.SetParent(root.transform, false);
-        slab.transform.localPosition = new Vector3(0f, 0.01f, 0f);
+        slab.transform.localPosition = new Vector3(0f, 0.035f, 0f);
         slab.transform.localScale = new Vector3(0.78f, 0.06f, 0.78f);
         BombermanMap.DestroyGenerated(slab.GetComponent<Collider>());
 
@@ -45,15 +45,16 @@ public sealed class ExitDoor : MonoBehaviour
         door.openMaterial = materials.ExitDoorOpen;
         door.placeholder = slab.GetComponent<Renderer>();
         door.placeholder.sharedMaterial = door.lockedMaterial;
-        // Models hang off a holder at the height a block's primitive stands at,
-        // so the same variant offsets work in the Exit Door slot and the block slots.
+        // The position supplied by the map is the floor surface at this cell.
         GameObject holder = new("Door Visual");
         holder.transform.SetParent(root.transform, false);
-        holder.transform.localPosition = new Vector3(0f, 0.45f, 0f);
         if (themeVisual != null && themeVisual.Attach(holder.transform, random))
         {
             door.placeholder.enabled = false;
-            door.InitializeLockBars(holder.transform.Find("Visual"));
+            Transform model = holder.transform.Find("Visual");
+            if (model != null && VisualBounds.TryMeasure(root.transform, model.gameObject, out Bounds bounds))
+                holder.transform.localPosition = new Vector3(0f, 0.005f - bounds.min.y, 0f);
+            door.InitializeLockBars(model);
         }
 
         door.IsRevealed = revealed;
@@ -116,7 +117,7 @@ public sealed class ExitDoor : MonoBehaviour
         if (model == null) return;
         foreach (Transform part in model.GetComponentsInChildren<Transform>(true))
         {
-            if (part.name != "DoorBar" && part.name != "DoorL" && part.name != "DoorR") continue;
+            if (part.name != "DoorBar") continue;
             foreach (Renderer renderer in part.GetComponentsInChildren<Renderer>(true))
             {
                 Material[] originals = renderer.sharedMaterials;

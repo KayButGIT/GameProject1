@@ -243,7 +243,8 @@ public abstract class EnemyController : GridController
 
     private Vector2Int ChooseChaseDirectionForTraversal(bool ignoreBombs)
     {
-        if (UseShortestPathChase && TryChooseShortestPathDirection(out Vector2Int pathDirection, ignoreBombs))
+        if ((UseShortestPathChase || Chase == ChaseMode.Timed)
+            && TryChooseShortestPathDirection(out Vector2Int pathDirection, ignoreBombs))
             return pathDirection;
 
         int dx = lastSeen.x - Cell.x;
@@ -278,7 +279,7 @@ public abstract class EnemyController : GridController
     private bool TryChooseShortestPathDirection(out Vector2Int direction, bool ignoreBombs)
     {
         direction = Vector2Int.zero;
-        Vector2Int target = Game.PlayerCell;
+        Vector2Int target = lastSeen;
         if (Cell == target || !Game.CanEnemyTraverse(this, target, ignoreBombs)) return false;
 
         Queue<Vector2Int> frontier = new();
