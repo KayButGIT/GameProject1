@@ -66,6 +66,21 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
     [SerializeField] private float playerRestartDelay = 0.15f;
 
+    [Header("Scoring")]
+    [Tooltip("Score for killing each enemy type.")]
+    [SerializeField, Min(0)] private int valcomScore = 100;
+    [SerializeField, Min(0)] private int onealScore = 200;
+    [SerializeField, Min(0)] private int dahlScore = 400;
+    [SerializeField, Min(0)] private int minuoScore = 800;
+    [SerializeField, Min(0)] private int doriaScore = 1000;
+    [SerializeField, Min(0)] private int ovapeScore = 2000;
+    [SerializeField, Min(0)] private int passScore = 4000;
+    [SerializeField, Min(0)] private int pontanScore = 8000;
+    [Tooltip("Score per whole second left on the stage clock when the stage is cleared.")]
+    [SerializeField, Min(0)] private int timeBonusPerSecond = 10;
+    [Tooltip("Lives added when a stage is cleared successfully.")]
+    [SerializeField, Min(0)] private int stageClearLifeBonus = 1;
+
     [Header("Enemies")]
     [SerializeField] private bool spawnEnemies = false;
     [Tooltip("Spawn each stage's enemies from the original game's table. Turn off to use the counts below.")]
@@ -134,12 +149,18 @@ public sealed class BombermanPrototype : MonoBehaviour
     private PauseMenu gameOverBanner;
     private PauseMenu gameClearBanner;
     private int livesLeft;
+    private int score;
 
     public bool IsPaused => paused;
     public bool IsStageClearing => stageClearing;
     public bool HasLivingPlayer => player != null && !player.IsDead;
     public bool IsReady => map != null && player != null;
     public Vector2Int PlayerCell => player != null ? player.Cell : Vector2Int.zero;
+    public int Score => score;
+    public int CurrentStageNumber => stageManager != null ? stageManager.CurrentStage : 1;
+    // 1-based map/theme phase from the Stage Sequence (1, 2, 3...). Footsteps follow this, not the raw
+    // stage number, so every stage on the same map uses the same walking sound. 1 when there is no sequence.
+    public int CurrentStagePhase => stageManager != null ? Mathf.Max(1, stageManager.CurrentPhase) : 1;
 
     public bool IsBombBlockingCell(Vector2Int cell)
     {
@@ -161,6 +182,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         gameClearBanner = PauseMenu.Create("Game Clear Canvas", gameClearText);
         stageHud = StageHud.Create();
         livesLeft = playerLives;
+        score = 0;
         stageLighting = StageLighting.Create();
         sceneEnemyTemplates = new GameObject("Scene Enemy Templates");
         sceneEnemyTemplates.transform.SetParent(transform, false);
@@ -184,8 +206,11 @@ public sealed class BombermanPrototype : MonoBehaviour
         gameClearBanner.SetVisible(false);
         timeLeft = stageTimeLimit;
         timeUp = false;
-        stageHud.SetVisible(stageTimeLimit > 0f);
+        stageHud.SetVisible(true);
+        stageHud.SetTimeVisible(stageTimeLimit > 0f);
         stageHud.SetTime(timeLeft);
+        stageHud.SetScore(score);
+        stageHud.SetStage(stage);
         stageHud.SetLives(livesLeft);
         if (stageRoot != null)
         {
@@ -499,8 +524,13 @@ public sealed class BombermanPrototype : MonoBehaviour
         enemy.Initialize(this);
     }
 
-    public bool CanEnemyTraverse(EnemyController enemy, Vector2Int cell)
+    public bool CanEnemyTraverse(EnemyController enemy, Vector2Int cell, bool ignoreBombs = false)
     {
+        if (ignoreBombs && map != null)
+        {
+            CellKind kind = map.GetCellKind(cell);
+            return kind == CellKind.Empty || (enemy.CanPassDestructibleWalls && kind == CellKind.Destructible);
+        }
         return map != null && (enemy.CanPassDestructibleWalls
             ? IsWalkableIncludingDestructible(cell) : IsWalkable(cell));
     }
@@ -671,6 +701,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         bomb.Initialize(bombCell, player.transform, playerColliderRadius + bombReleasePadding);
         bombs[bomb.Cell] = bomb;
         activeBombs++;
+        SoundManager.Instance?.PlayPlaceBomb();
         StartCoroutine(ExplodeAfterFuse(bomb));
     }
 
@@ -733,6 +764,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         StageTheme.ThemeLighting lighting = StageLighting.Resolve(currentLighting);
         ExplosionFlash.Create(map.CellToWorld(origin) + Vector3.up, lighting.ExplosionColor, lighting.ExplosionIntensity, blastRange + 1.5f, stageRoot.transform);
+        SoundManager.Instance?.PlayBombExplode();
         foreach (Vector2Int cell in blastCells)
         {
             StartCoroutine(ShowExplosion(cell, origin));
@@ -840,6 +872,7 @@ public sealed class BombermanPrototype : MonoBehaviour
                     continue;
                 }
 
+                AddScore(GetEnemyScore(actor));
                 SpawnActorDeathParticles(actor, "Enemy Death Particles", playerDeathParticleTime);
                 actor.Die();
             }
@@ -853,8 +886,34 @@ public sealed class BombermanPrototype : MonoBehaviour
         particle.transform.SetParent(stageRoot.transform, true);
         Destroy(particle, lifetime);
     }
-    
+
     public void SetGodMode(bool enabled) => godMode = enabled;
+
+    // Score for one kill, by enemy type. Unknown types give 0.
+    private int GetEnemyScore(GridController actor)
+    {
+        return actor switch
+        {
+            ValcomEnemy => valcomScore,
+            OnealEnemy => onealScore,
+            DahlEnemy => dahlScore,
+            MinuoEnemy => minuoScore,
+            DoriaEnemy => doriaScore,
+            OvapeEnemy => ovapeScore,
+            PassEnemy => passScore,
+            PontanEnemy => pontanScore,
+            _ => 0
+        };
+    }
+
+    // Adds to the running score and refreshes the HUD. Called for enemy kills (DamageActorsAt, per-type score),
+    // the stage-clear time bonus (StageClearSequence), and PowerUp pickups.
+    public void AddScore(int amount)
+    {
+        if (amount == 0) return;
+        score += amount;
+        stageHud.SetScore(score);
+    }
 
     private void StartPlayerDeath(PlayerDeathCause cause)
     {
@@ -898,7 +957,12 @@ public sealed class BombermanPrototype : MonoBehaviour
             return;
         }
 
-        exitDoor.SetOpen(pendingExitWaves == 0 && CountLivingEnemies() == 0);
+        bool shouldOpen = pendingExitWaves == 0 && CountLivingEnemies() == 0;
+        if (shouldOpen && !exitDoor.IsOpen)
+        {
+            SoundManager.Instance?.PlayExitOpen();
+        }
+        exitDoor.SetOpen(shouldOpen);
     }
 
     // Space on an open exit clears the stage instead of dropping a bomb.
@@ -924,6 +988,21 @@ public sealed class BombermanPrototype : MonoBehaviour
     private IEnumerator StageClearSequence()
     {
         stageClearing = true;
+
+        // Time bonus: whole seconds left on the clock times the per-second reward. Stages without
+        // a timer (stageTimeLimit == 0) award none, since timeLeft has no meaning there.
+        if (stageTimeLimit > 0f && timeBonusPerSecond > 0)
+        {
+            AddScore(Mathf.RoundToInt(timeLeft) * timeBonusPerSecond);
+        }
+
+        // Clearing a stage grants an extra life, the "Left" system's reward for finishing a stage.
+        if (stageClearLifeBonus > 0)
+        {
+            livesLeft += stageClearLifeBonus;
+            stageHud.SetLives(livesLeft);
+        }
+
         stageClearBanner.SetVisible(true);
         yield return new WaitForSeconds(stageClearDelay);
         // A sequence ends after its last stage; without one the stages keep coming.
@@ -956,6 +1035,8 @@ public sealed class BombermanPrototype : MonoBehaviour
         gameClearBanner.SetVisible(false);
         livesLeft = playerLives;
         stageHud.SetLives(livesLeft);
+        score = 0;
+        stageHud.SetScore(score);
         stageManager.LoadStage(1);
     }
 
@@ -964,6 +1045,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         restarting = true;
         SetPaused(false);
         player.BeginDeathAnimation(cause == PlayerDeathCause.Bomb);
+        SoundManager.Instance?.PlayPlayerDeath();
 
         yield return new WaitForSeconds(playerDeathAnimationTime);
 
@@ -1012,6 +1094,8 @@ public sealed class BombermanPrototype : MonoBehaviour
         gameOverBanner.SetVisible(false);
         livesLeft = playerLives;
         stageHud.SetLives(livesLeft);
+        score = 0;
+        stageHud.SetScore(score);
         stageManager.RestartStage();
     }
 
