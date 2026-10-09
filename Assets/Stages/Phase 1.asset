@@ -128,6 +128,6 @@ MonoBehaviour:
     Skybox: {fileID: 0}
     AmbientFromSkybox: 1
     SkyboxAmbientIntensity: 1
-    PostProcessing: {fileID: 0}
+    PostProcessing: {fileID: 11400000, guid: 7b4ea0e1b26dc8345aaec1e5753cffc4, type: 2}
     ExplosionColor: {r: 1, g: 0.6, b: 0.2, a: 1}
     ExplosionIntensity: 8

@@ -323,10 +323,10 @@ MonoBehaviour:
   bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}
   maxBombs: 1
   blastRange: 1
-  bombFuseTime: 2
+  bombFuseTime: 0
   bombReleasePadding: 0.65
   playerCanDieFromBomb: 1
-  godMode: 0
+  godMode: 1
   playerLives: 2
   titleSceneName: Title
   gameOverDelay: 2.5

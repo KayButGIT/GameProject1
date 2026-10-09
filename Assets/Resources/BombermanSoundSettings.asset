@@ -36,7 +36,7 @@ MonoBehaviour:
   footstepPitchRange: {x: 0.96, y: 1.04}
   onealDeath:
   - {fileID: 8300000, guid: a3c628ae657e4ca4394f1a48b4d782f8, type: 3}
-  onealDeathVolume: 0.524
+  onealDeathVolume: 0.258
   dahlDeath:
   - {fileID: 8300000, guid: a07068c9d3c8ead418fbf85936ce0ab7, type: 3}
   dahlDeathVolume: 0.476
