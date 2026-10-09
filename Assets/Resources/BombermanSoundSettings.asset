@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd5cc5cb21724f17bc70e6b71727af18, type: 3}
+  m_Name: BombermanSoundSettings
+  m_EditorClassIdentifier: Assembly-CSharp::SoundManagerSettings
+  sfxVolume: 1
+  powerUpPickup: {fileID: 8300000, guid: 7112cba4b175c354e853c261c354ffb2, type: 3}
+  powerUpPickupVolume: 1
+  placeBomb: {fileID: 8300000, guid: c4d9f9c69f4a2894f9d44402dac71b7e, type: 3}
+  placeBombVolume: 1
+  bombExplode: {fileID: 8300000, guid: c7a7c00c6561f6a4092ea81c29c5ffb4, type: 3}
+  bombExplodeVolume: 1
+  playerDeath: {fileID: 8300000, guid: e7d25daa71ee09040beaa0614677f18b, type: 3}
+  playerDeathVolume: 1
+  exitOpen: {fileID: 8300000, guid: 636abe3a1069ced449abff0fa71d51a2, type: 3}
+  exitOpenVolume: 1
+  footstepPhases:
+  - footsteps:
+    - {fileID: 8300000, guid: bae96cee30d04ef4491be1cc53d33d9a, type: 3}
+    - {fileID: 8300000, guid: b1df591a8d12c054d90142829deba05b, type: 3}
+    - {fileID: 8300000, guid: b6efb5b5ed7824e47b2cbb06ac721d67, type: 3}
+    volume: 0.85
+  - footsteps: []
+    volume: 0.85
+  - footsteps: []
+    volume: 0.85
+  footstepPitchRange: {x: 0.96, y: 1.04}
+  onealDeath:
+  - {fileID: 8300000, guid: a3c628ae657e4ca4394f1a48b4d782f8, type: 3}
+  onealDeathVolume: 1
+  dahlDeath:
+  - {fileID: 8300000, guid: a07068c9d3c8ead418fbf85936ce0ab7, type: 3}
+  dahlDeathVolume: 1
+  pontanDeath:
+  - {fileID: 8300000, guid: 4f736ce7f887e0e4ba64992f59b9fd02, type: 3}
+  pontanDeathVolume: 1
+  passDeath:
+  - {fileID: 8300000, guid: f34b9d8199070454382d8ee86e3bf319, type: 3}
+  passDeathVolume: 1
+  valcomDeath:
+  - {fileID: 8300000, guid: a1417c4a2ce44e044a2575d9c97b83c2, type: 3}
+  valcomDeathVolume: 1
+  ovapeDeath:
+  - {fileID: 8300000, guid: 48a50bf8de56be4449deaa8fc5e4d1ff, type: 3}
+  ovapeDeathVolume: 1
+  doriaDeath:
+  - {fileID: 8300000, guid: 72d2cc3989db04e40a3ccc985ca8a646, type: 3}
+  doriaDeathVolume: 1
+  minuoDeath:
+  - {fileID: 8300000, guid: fd5f7f30103e8e74891f8e24e74eed37, type: 3}
+  minuoDeathVolume: 1
+  titleHover: {fileID: 0}
+  titleHoverVolume: 1
+  titleSelected: {fileID: 0}
+  titleSelectedVolume: 1

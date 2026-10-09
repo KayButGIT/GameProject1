@@ -19,15 +19,11 @@ public sealed class PlayerController : GridController
     private Vector2 moveInput;
     private float blinkTimer = BlinkInterval;
     private float blinkDurationTimer;
-    private float footstepDistance;
 
     private const float BlinkInterval = 3f;
     private const float BlinkDuration = 0.14f;
     private const float InputAcceleration = 12f;
     private const float InputDeceleration = 18f;
-    // Distance (world units) between footstep sounds. Tuned by ear, not from original game data.
-    private const float FootstepInterval = 0.85f;
-
     public override bool IsPlayer => true;
 
     public static PlayerController Create(
@@ -98,28 +94,14 @@ public sealed class PlayerController : GridController
 
         MoveFreely(moveInput, map, game.IsBombBlockingCell);
         animationBridge?.SetMovement(CurrentFreeMoveSpeed, MoveSpeed);
-        UpdateFootsteps();
     }
 
-    // Distance-accumulator cadence: a footstep plays every FootstepInterval meters actually
-    // traveled, so footsteps keep pace whether the player is accelerating, at full speed, or
-    // grazing a wall corner. Silent while not moving, so it never fires while stationary.
-    // game.CurrentStageNumber picks the Stage 1/2/3 footstep pool in SoundManager.PlayFootstep.
-    private void UpdateFootsteps()
+    public void PlayFootstepFromAnimation()
     {
-        float speed = CurrentFreeMoveSpeed;
-        if (speed <= 0.01f)
-        {
-            footstepDistance = 0f;
+        if (game == null || game.IsPaused || IsDead || CurrentFreeMoveSpeed <= 0.18f)
             return;
-        }
 
-        footstepDistance += speed * Time.fixedDeltaTime;
-        if (footstepDistance >= FootstepInterval)
-        {
-            footstepDistance = 0f;
-            SoundManager.Instance?.PlayFootstep(game.CurrentStageNumber);
-        }
+        SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase);
     }
 
     public override void Die()
@@ -195,8 +177,10 @@ public sealed class PlayerController : GridController
         {
             animator.applyRootMotion = false;
             animator.updateMode = AnimatorUpdateMode.Fixed;
-            animationBridge = gameObject.AddComponent<PlayerAnimationBridge>();
-            animationBridge.Initialize(animator);
+            animationBridge = animator.GetComponent<PlayerAnimationBridge>();
+            if (animationBridge == null)
+                animationBridge = animator.gameObject.AddComponent<PlayerAnimationBridge>();
+            animationBridge.Initialize(animator, this);
         }
     }
 

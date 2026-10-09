@@ -177,6 +177,7 @@ public static class StageLightingSmoke
             {
                 game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady) return;
+                if (game.IsPaused) return;
                 manager = game.GetComponent<StageManager>();
                 StageTheme.ThemeLighting lighting = manager.CurrentTheme.Lighting;
                 CheckThemeLighting(lighting, "Theme lighting applies on load");

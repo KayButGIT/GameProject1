@@ -100,6 +100,7 @@ public static class EnemyPlaySmoke
                     if (now > deadline) throw new Exception("Game startup timed out.");
                     return;
                 }
+                if (game.IsPaused) return;
                 enemies = UnityEngine.Object.FindObjectsByType<EnemyController>(FindObjectsSortMode.None);
                 Check(enemies.Length == 9, "Eight spawned enemies plus one scene-placed enemy expected.");
                 GameObject reference = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(EnemyAssetBuilder.PrefabFolder + "/Doria.prefab"));

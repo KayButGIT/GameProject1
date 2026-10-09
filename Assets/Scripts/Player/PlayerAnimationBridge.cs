@@ -14,6 +14,7 @@ public sealed class PlayerAnimationBridge : MonoBehaviour
     private const float MaxWalkCycleSpeed = 1.35f;
 
     private Animator animator;
+    private PlayerController player;
     private bool hasSpeed;
     private bool hasWalkCycleSpeed;
     private bool hasIsMoving;
@@ -22,10 +23,16 @@ public sealed class PlayerAnimationBridge : MonoBehaviour
 
     public bool HasAnimator => animator != null;
 
-    public void Initialize(Animator targetAnimator)
+    public void Initialize(Animator targetAnimator, PlayerController owner)
     {
         animator = targetAnimator;
+        player = owner;
         CacheParameters();
+    }
+    
+    public void OnFootContact()
+    {
+        player?.PlayFootstepFromAnimation();
     }
 
     public void SetMovement(float speed, float maxSpeed)

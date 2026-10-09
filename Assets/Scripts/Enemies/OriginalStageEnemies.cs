@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 
-// Enemy data from the original NES Bomberman ROM (MONSTER_TAB, EXIT_ENEMY_TAB and MAX_ENEMY).
-// Stages after the last one repeat it, like the last stage theme.
 public static class OriginalStageEnemies
 {
     public const int StageCount = 50;
@@ -16,8 +14,8 @@ public static class OriginalStageEnemies
         typeof(OnealEnemy),
         typeof(DahlEnemy),
         typeof(MinuoEnemy),
-        typeof(DoriaEnemy),
         typeof(OvapeEnemy),
+        typeof(DoriaEnemy),
         typeof(PassEnemy),
         typeof(PontanEnemy)
     };
@@ -87,9 +85,9 @@ public static class OriginalStageEnemies
         5, 4, 6, 5, 8, 4, 6, 5, 7, 8
     };
 
-    public static IEnumerable<(Type type, int count)> GetRoster(int stage)
+    public static IEnumerable<(Type type, int count)> GetRoster(int stage, int campaignLength = 0)
     {
-        int row = Row(stage);
+        int row = Row(ResolveReferenceStage(stage, campaignLength));
         for (int id = 1; id < TypesById.Length; id++)
         {
             int count = 0;
@@ -108,13 +106,31 @@ public static class OriginalStageEnemies
         }
     }
 
-    public static Type GetExitEnemy(int stage)
+    public static Type GetExitEnemy(int stage, int campaignLength = 0)
     {
-        return TypesById[ExitEnemies[Row(stage)]];
+        return TypesById[ExitEnemies[Row(ResolveReferenceStage(stage, campaignLength))]];
+    }
+    
+    public static int ResolveReferenceStage(int stage, int campaignLength)
+    {
+        stage = Math.Max(1, stage);
+
+        if (campaignLength <= 0)
+        {
+            if (stage <= StageCount) return stage;
+            return StageCount - 9 + ((stage - StageCount - 1) % 10);
+        }
+
+        if (campaignLength == 1) return 1;
+
+        stage = Math.Clamp(stage, 1, campaignLength);
+        double progress = (stage - 1d) / (campaignLength - 1d);
+        double scaledStage = 1d + (StageCount - 1d) * Math.Pow(progress, 1.4d);
+        return Math.Clamp((int)Math.Floor(scaledStage + 0.5d), 1, StageCount);
     }
 
-    private static int Row(int stage)
+    private static int Row(int referenceStage)
     {
-        return Math.Clamp(stage, 1, StageCount) - 1;
+        return Math.Clamp(referenceStage, 1, StageCount) - 1;
     }
 }

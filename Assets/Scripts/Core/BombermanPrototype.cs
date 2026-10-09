@@ -7,6 +7,9 @@ using UnityEngine.SceneManagement;
 [DefaultExecutionOrder(-100)]
 public sealed class BombermanPrototype : MonoBehaviour
 {
+    private const float TransitionFadeSeconds = 0.5f;
+    private const float StageCardHoldSeconds = 1f;
+
     private enum PlayerDeathCause
     {
         Bomb,
@@ -56,11 +59,11 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField, Min(1)] private int playerLives = 3;
     [Tooltip("Scene loaded after GAME OVER. It must be in Build Settings.")]
     [SerializeField] private string titleSceneName = "Title";
-    [Tooltip("Seconds the GAME OVER banner stays up before the title screen loads.")]
+    [Tooltip("Seconds the GAME OVER card stays fully visible before the title screen loads.")]
     [SerializeField, Min(0f)] private float gameOverDelay = 2.5f;
-    [Tooltip("Banner shown once the sequence's last stage is cleared.")]
+    [Tooltip("Text shown on the game-clear transition screen.")]
     [SerializeField] private string gameClearText = "ALL STAGES CLEAR";
-    [Tooltip("Seconds that banner stays up before the title screen loads.")]
+    [Tooltip("Seconds the game-clear card stays fully visible before the title screen loads.")]
     [SerializeField, Min(0f)] private float gameClearDelay = 4f;
     [SerializeField, Min(0f)] private float playerDeathAnimationTime = 0.85f;
     [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
@@ -100,12 +103,11 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Tooltip("Enemy prefab settings control movement and behavior.")]
     [SerializeField] private EnemyController[] enemyPrefabs;
     [Header("Exit Door")]
-    [Tooltip("How close the player must stand to the door center for Space to enter an open exit.")]
+    [Tooltip("How close the player must stand to the door center to enter an open exit.")]
     [SerializeField, Min(0.05f)] private float exitDoorEnterDistance = 0.4f;
     [Tooltip("A blast on the revealed exit releases the stage's exit enemy from the original table until this many are alive. Zero disables it.")]
     [SerializeField, Min(0)] private int exitDoorPopulationCap = 10;
     [SerializeField, Min(0f)] private float exitDoorSpawnDelay = 0.5f;
-    [SerializeField, Min(0f)] private float stageClearDelay = 2f;
     [Header("Stage Timer")]
     [Tooltip("Seconds per stage (200 in the original game). When time runs out, every enemy is replaced by Pontans. Zero disables the timer.")]
     [SerializeField, Min(0f)] private float stageTimeLimit = 200f;
@@ -122,6 +124,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private BombermanMaterials materials;
     private BombermanMap map;
     private PauseMenu pauseMenu;
+    private ScreenTransitionOverlay transitionOverlay;
     private Camera mainCamera;
     private Vector3 cameraBasePosition;
     private Vector3 cameraFollowVelocity;
@@ -129,6 +132,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private PlayerController player;
     private int activeBombs;
     private bool paused;
+    private bool transitionActive;
     private bool restarting;
     private StageManager stageManager;
     private GameObject stageRoot;
@@ -137,7 +141,6 @@ public sealed class BombermanPrototype : MonoBehaviour
     private GameObject sceneEnemyTemplates;
     private int sessionSeed;
     private bool firstStage = true;
-    private PauseMenu stageClearBanner;
     private System.Type exitWaveEnemyType;
     private int pendingExitWaves;
     private bool stageClearing;
@@ -146,12 +149,10 @@ public sealed class BombermanPrototype : MonoBehaviour
     private bool timeUp;
     private StageLighting stageLighting;
     private StageTheme.ThemeLighting currentLighting;
-    private PauseMenu gameOverBanner;
-    private PauseMenu gameClearBanner;
     private int livesLeft;
     private int score;
 
-    public bool IsPaused => paused;
+    public bool IsPaused => paused || transitionActive;
     public bool IsStageClearing => stageClearing;
     public bool HasLivingPlayer => player != null && !player.IsDead;
     public bool IsReady => map != null && player != null;
@@ -177,9 +178,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         materials = BombermanMaterials.Create();
         sessionSeed = randomSeed == 0 ? System.Environment.TickCount : randomSeed;
         pauseMenu = PauseMenu.Create();
-        stageClearBanner = PauseMenu.Create("Stage Clear Canvas", "STAGE CLEAR");
-        gameOverBanner = PauseMenu.Create("Game Over Canvas", "GAME OVER");
-        gameClearBanner = PauseMenu.Create("Game Clear Canvas", gameClearText);
+        transitionOverlay = ScreenTransitionOverlay.Create();
         stageHud = StageHud.Create();
         livesLeft = playerLives;
         score = 0;
@@ -197,20 +196,18 @@ public sealed class BombermanPrototype : MonoBehaviour
     internal void LoadStage(int stage, StageTheme theme)
     {
         StopAllCoroutines();
+        transitionActive = false;
         SetPaused(false);
+        transitionOverlay.Hide();
         restarting = false;
         stageClearing = false;
         pendingExitWaves = 0;
-        stageClearBanner.SetVisible(false);
-        gameOverBanner.SetVisible(false);
-        gameClearBanner.SetVisible(false);
         timeLeft = stageTimeLimit;
         timeUp = false;
         stageHud.SetVisible(true);
         stageHud.SetTimeVisible(stageTimeLimit > 0f);
         stageHud.SetTime(timeLeft);
         stageHud.SetScore(score);
-        stageHud.SetStage(stage);
         stageHud.SetLives(livesLeft);
         if (stageRoot != null)
         {
@@ -246,8 +243,10 @@ public sealed class BombermanPrototype : MonoBehaviour
             }
         }
         if (spawnEnemies) SpawnEnemies(stage);
-        exitWaveEnemyType = OriginalStageEnemies.GetExitEnemy(stage);
+        int campaignLength = stageManager != null ? stageManager.TotalStages : 0;
+        exitWaveEnemyType = OriginalStageEnemies.GetExitEnemy(stage, campaignLength);
         LogSpawnEvent($"Stage {stage} starts with {DescribeEnemies()}. Bombing the open exit releases {exitWaveEnemyType.Name}.");
+        StartCoroutine(StageIntroSequence(stage));
     }
 
     // Scenery is heavy, so it outlives the stage root and is rebuilt only when a stage asks for different scenery.
@@ -301,7 +300,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void Update()
     {
-        if (WasPressed(Key.Escape))
+        if (!transitionActive && WasPressed(Key.Escape))
         {
             SetPaused(!paused);
         }
@@ -317,7 +316,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void UpdateStageTimer()
     {
-        if (stageTimeLimit <= 0f || timeUp || paused || restarting || stageClearing || !HasLivingPlayer)
+        if (stageTimeLimit <= 0f || timeUp || IsPaused || restarting || stageClearing || !HasLivingPlayer)
         {
             return;
         }
@@ -460,7 +459,8 @@ public sealed class BombermanPrototype : MonoBehaviour
         if (useOriginalStageEnemies)
         {
             // Original rule: stage enemies start at least five columns from the player's corner.
-            foreach ((System.Type enemyType, int count) in OriginalStageEnemies.GetRoster(stage))
+            int campaignLength = stageManager != null ? stageManager.TotalStages : 0;
+            foreach ((System.Type enemyType, int count) in OriginalStageEnemies.GetRoster(stage, campaignLength))
                 SpawnEnemyGroup(enemyType, count, () => FindOriginalSpawnCell(5));
             return;
         }
@@ -660,7 +660,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     public void TryDropBomb()
     {
-        if (paused || stageClearing || player == null || player.IsDead)
+        if (IsPaused || stageClearing || player == null || player.IsDead)
         {
             return;
         }
@@ -707,7 +707,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private IEnumerator ExplodeAfterFuse(Bomb bomb)
     {
-        yield return new WaitForSeconds(bombFuseTime);
+        yield return WaitForGameplaySeconds(bombFuseTime);
         if (bomb == null)
         {
             yield break;
@@ -811,7 +811,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         // A pending wave keeps the exit locked until its enemies exist.
         pendingExitWaves++;
-        yield return new WaitForSeconds(exitDoorSpawnDelay);
+        yield return WaitForGameplaySeconds(exitDoorSpawnDelay);
         pendingExitWaves--;
         if (restarting)
         {
@@ -843,7 +843,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         int step = Mathf.Abs(cell.x - origin.x) + Mathf.Abs(cell.y - origin.y);
         GameObject blast = BlastEffects.CreateFire($"Explosion {cell.x},{cell.y}", map.CellToWorld(cell), step);
         blast.transform.SetParent(stageRoot.transform, true);
-        yield return new WaitForSeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
+        yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
         Destroy(blast);
     }
 
@@ -851,7 +851,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         GameObject debris = BlastEffects.CreateDebris($"Debris {cell.x},{cell.y}", map.CellToWorld(cell), blockMaterial, step);
         debris.transform.SetParent(stageRoot.transform, true);
-        yield return new WaitForSeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
+        yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
         Destroy(debris);
     }
 
@@ -907,7 +907,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     }
 
     // Adds to the running score and refreshes the HUD. Called for enemy kills (DamageActorsAt, per-type score),
-    // the stage-clear time bonus (StageClearSequence), and PowerUp pickups.
+    // the stage-clear time bonus (ClearStage), and PowerUp pickups.
     public void AddScore(int amount)
     {
         if (amount == 0) return;
@@ -917,7 +917,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void StartPlayerDeath(PlayerDeathCause cause)
     {
-        if (godMode || restarting || stageClearing || player == null || player.IsDead)
+        if (godMode || IsPaused || restarting || stageClearing || player == null || player.IsDead)
         {
             return;
         }
@@ -927,7 +927,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void KillPlayerIfEnemyTouches()
     {
-        if (paused || restarting || player == null || player.IsDead)
+        if (IsPaused || restarting || player == null || player.IsDead)
         {
             return;
         }
@@ -948,7 +948,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
     }
 
-    // The exit only opens once every enemy is dead, and the player clears the stage by stepping onto it.
+    // The exit only opens once every enemy is dead. Space enters it when the player is nearby.
     private void UpdateExitDoor()
     {
         ExitDoor exitDoor = map != null ? map.ExitDoor : null;
@@ -965,11 +965,10 @@ public sealed class BombermanPrototype : MonoBehaviour
         exitDoor.SetOpen(shouldOpen);
     }
 
-    // Space on an open exit clears the stage instead of dropping a bomb.
     private bool TryEnterExit()
     {
         ExitDoor exitDoor = map != null ? map.ExitDoor : null;
-        if (exitDoor == null || !exitDoor.IsRevealed || !exitDoor.IsOpen || restarting || player == null || player.IsDead)
+        if (exitDoor == null || !exitDoor.IsRevealed || !exitDoor.IsOpen || IsPaused || restarting || stageClearing || player == null || player.IsDead)
         {
             return false;
         }
@@ -981,11 +980,11 @@ public sealed class BombermanPrototype : MonoBehaviour
             return false;
         }
 
-        StartCoroutine(StageClearSequence());
+        ClearStage();
         return true;
     }
 
-    private IEnumerator StageClearSequence()
+    private void ClearStage()
     {
         stageClearing = true;
 
@@ -1003,14 +1002,11 @@ public sealed class BombermanPrototype : MonoBehaviour
             stageHud.SetLives(livesLeft);
         }
 
-        stageClearBanner.SetVisible(true);
-        yield return new WaitForSeconds(stageClearDelay);
         // A sequence ends after its last stage; without one the stages keep coming.
         if (stageManager.OnLastStage)
         {
-            stageClearBanner.SetVisible(false);
-            yield return GameClearSequence();
-            yield break;
+            StartCoroutine(GameClearSequence());
+            return;
         }
 
         stageManager.NextStage();
@@ -1019,20 +1015,22 @@ public sealed class BombermanPrototype : MonoBehaviour
     // The run is won, so the ending reads like GAME OVER without being one.
     private IEnumerator GameClearSequence()
     {
-        gameClearBanner.SetVisible(true);
         GameProgress.Clear();
         GameProgress.RequestedStage = 0;
         LogSpawnEvent($"Stage {stageManager.CurrentStage} of {stageManager.TotalStages} cleared. Returning to the title screen.");
-        yield return new WaitForSeconds(gameClearDelay);
+        yield return ShowEndingCard(gameClearText, gameClearDelay);
 
         // The smoke tests build scenes without the title, so those keep playing instead.
         if (Application.CanStreamedLevelBeLoaded(titleSceneName))
         {
+            Time.timeScale = 1f;
             SceneManager.LoadScene(titleSceneName);
             yield break;
         }
 
-        gameClearBanner.SetVisible(false);
+        transitionOverlay.Hide();
+        transitionActive = false;
+        Time.timeScale = 1f;
         livesLeft = playerLives;
         stageHud.SetLives(livesLeft);
         score = 0;
@@ -1078,20 +1076,22 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private IEnumerator GameOverSequence()
     {
-        gameOverBanner.SetVisible(true);
         GameProgress.Clear();
         GameProgress.RequestedStage = 0;
         LogSpawnEvent("Out of lives. Returning to the title screen.");
-        yield return new WaitForSeconds(gameOverDelay);
+        yield return ShowEndingCard("GAME OVER", gameOverDelay);
 
         // The smoke tests build scenes without the title, so those keep playing instead.
         if (Application.CanStreamedLevelBeLoaded(titleSceneName))
         {
+            Time.timeScale = 1f;
             SceneManager.LoadScene(titleSceneName);
             yield break;
         }
 
-        gameOverBanner.SetVisible(false);
+        transitionOverlay.Hide();
+        transitionActive = false;
+        Time.timeScale = 1f;
         livesLeft = playerLives;
         stageHud.SetLives(livesLeft);
         score = 0;
@@ -1099,10 +1099,58 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageManager.RestartStage();
     }
 
+    private IEnumerator StageIntroSequence(int stage)
+    {
+        transitionActive = true;
+        Time.timeScale = 0f;
+        transitionOverlay.Show($"STAGE {stage}", 1f);
+        yield return new WaitForSecondsRealtime(StageCardHoldSeconds);
+        yield return FadeTransition(1f, 0f);
+        transitionOverlay.Hide();
+        transitionActive = false;
+        Time.timeScale = paused ? 0f : 1f;
+    }
+
+    private IEnumerator ShowEndingCard(string message, float holdDuration)
+    {
+        transitionActive = true;
+        Time.timeScale = 0f;
+        transitionOverlay.Show(message, 0f);
+        yield return FadeTransition(0f, 1f);
+        yield return new WaitForSecondsRealtime(holdDuration);
+    }
+
+    private IEnumerator FadeTransition(float startAlpha, float targetAlpha)
+    {
+        float elapsed = 0f;
+        while (elapsed < TransitionFadeSeconds)
+        {
+            elapsed = Mathf.Min(TransitionFadeSeconds, elapsed + Time.unscaledDeltaTime);
+            float amount = elapsed / TransitionFadeSeconds;
+            transitionOverlay.SetAlpha(Mathf.Lerp(startAlpha, targetAlpha, amount));
+            yield return null;
+        }
+
+        transitionOverlay.SetAlpha(targetAlpha);
+    }
+
+    private IEnumerator WaitForGameplaySeconds(float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            if (!IsPaused)
+            {
+                elapsed += Time.deltaTime;
+            }
+            yield return null;
+        }
+    }
+
     private void SetPaused(bool value)
     {
         paused = value;
-        Time.timeScale = paused ? 0f : 1f;
+        Time.timeScale = paused || transitionActive ? 0f : 1f;
         if (pauseMenu != null)
         {
             pauseMenu.SetVisible(paused);

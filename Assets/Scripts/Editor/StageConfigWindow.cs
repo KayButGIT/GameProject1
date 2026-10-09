@@ -18,6 +18,14 @@ public sealed class StageConfigWindow : EditorWindow
     /// <summary>True while this window draws the theme's own editor, which then hides its Open button.</summary>
     public static bool DrawingEmbedded { get; private set; }
 
+    public static StageSequence ResolveSequenceForSoundManager()
+    {
+        foreach (StageConfigWindow window in Resources.FindObjectsOfTypeAll<StageConfigWindow>())
+            if (window != null && window.sequence != null) return window.sequence;
+
+        return Remembered<StageSequence>(SequenceKey) ?? SceneSequence();
+    }
+
     public StageSequence Sequence => sequence;
     public StageTheme Theme => theme;
     public Editor ThemeEditor => themeEditor;

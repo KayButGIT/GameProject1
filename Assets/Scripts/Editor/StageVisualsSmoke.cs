@@ -127,8 +127,11 @@ public static class StageVisualsSmoke
                     if (item.menuItem.StartsWith("Tools/Bomberman/")) paths.Add(item.menuItem);
 
         paths.Sort();
-        Check(paths.Count == 1 && paths[0] == "Tools/Bomberman/Stage Config",
-            "Tools > Bomberman holds Stage Config alone, found: " + string.Join(", ", paths));
+        string[] expected = { "Tools/Bomberman/Stage Config", "Tools/Bomberman/Sound Manager" };
+        Check(paths.SequenceEqual(expected),
+            "Tools > Bomberman has Stage Config and Sound Manager, found: " + string.Join(", ", paths));
+        Check(AssetDatabase.LoadAssetAtPath<SoundManagerSettings>("Assets/Resources/BombermanSoundSettings.asset") != null,
+            "Sound Manager has a shared Resources settings asset");
     }
 
     // The window edits a theme picked from a sequence, without taking over the Inspector.
@@ -448,6 +451,7 @@ public static class StageVisualsSmoke
             if (EditorApplication.timeSinceStartup > watchdog) throw new Exception("Stage visuals smoke timed out.");
             BombermanPrototype game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
             if (game == null || !game.IsReady) return;
+            if (game.IsPaused) return;
             concretes = LoadConcretes();
             Transform map = GameObject.Find("Generated Bomberman Map").transform;
             string signature = Signature(map);
