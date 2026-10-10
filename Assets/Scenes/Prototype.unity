@@ -323,10 +323,10 @@ MonoBehaviour:
   bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}
   maxBombs: 1
   blastRange: 1
-  bombFuseTime: 0
+  bombFuseTime: 2
   bombReleasePadding: 0.65
   playerCanDieFromBomb: 1
-  godMode: 1
+  godMode: 0
   playerLives: 2
   titleSceneName: Title
   gameOverDelay: 2.5
@@ -369,7 +369,7 @@ MonoBehaviour:
   exitDoorEnterDistance: 0.4
   exitDoorPopulationCap: 10
   exitDoorSpawnDelay: 1
-  stageTimeLimit: 300
+  stageTimeLimit: 200
   cameraOrthographicSize: 5.7
   cameraHeight: 18
   cameraPitchAngle: 55

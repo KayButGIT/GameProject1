@@ -56,7 +56,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Tooltip("God mode: the player survives bombs, enemies, and the time-out Pontans.")]
     [SerializeField] private bool godMode;
     [Tooltip("Deaths allowed before the game ends, as in the original game.")]
-    [SerializeField, Min(1)] private int playerLives = 3;
+    [SerializeField, Min(0)] private int playerLives = 3;
     [Tooltip("Scene loaded after GAME OVER. It must be in Build Settings.")]
     [SerializeField] private string titleSceneName = "Title";
     [Tooltip("Seconds the GAME OVER card stays fully visible before the title screen loads.")]
@@ -1065,7 +1065,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         Time.timeScale = 1f;
         livesLeft--;
         stageHud.SetLives(livesLeft);
-        if (livesLeft > 0)
+        if (livesLeft > -1)
         {
             stageManager.RestartStage();
             yield break;
