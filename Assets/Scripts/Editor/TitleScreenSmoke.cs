@@ -18,6 +18,7 @@ public static class TitleScreenSmoke
     private static int phase;
     private static double deadline, watchdog;
     private static bool failed;
+    private static bool startAnimationObserved;
 
     public static void Run()
     {
@@ -122,16 +123,29 @@ public static class TitleScreenSmoke
                 TitleMenu menu = Menu;
                 if (menu == null) return;
                 CheckSharedSoundManager();
-                soundManager.PlayTitleChoose();
-                soundManager.PlayTitleClick();
                 Check(ContinueButton != null && !ContinueButton.interactable, "Continue is disabled without a save");
                 Capture("TitleScreen.png");
                 menu.StartNewGame();
+                menu.StartNewGame();
+                Check(SceneManager.GetActiveScene().name == "Title", "Start waits for its selection animation before loading the game");
+                Check((bool)typeof(TitleMenu).GetField("actionPending", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu),
+                    "Repeated Start clicks are ignored during the selection animation");
+                startAnimationObserved = false;
                 phase = 1;
                 deadline = EditorApplication.timeSinceStartup + 30;
             }
             else if (phase == 1)
             {
+                if (!startAnimationObserved)
+                {
+                    Animator animator = UnityEngine.Object.FindFirstObjectByType<Animator>();
+                    Check(Menu != null && SceneManager.GetActiveScene().name == "Title"
+                        && animator != null && (animator.IsInTransition(0)
+                            || animator.GetCurrentAnimatorStateInfo(0).IsName("TitlescreenSelection")),
+                        "Start plays the selection animation before changing scenes");
+                    startAnimationObserved = true;
+                }
+
                 BombermanPrototype game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady)
                 {
@@ -160,6 +174,10 @@ public static class TitleScreenSmoke
                 Check(ContinueButton.GetComponentInChildren<Text>().text == "Continue (Stage 3)", "Continue shows the saved stage");
                 CheckSharedSoundManager();
                 menu.ContinueGame();
+                menu.ContinueGame();
+                Check(SceneManager.GetActiveScene().name == "Title", "Continue waits for its selection animation before loading the game");
+                Check((bool)typeof(TitleMenu).GetField("actionPending", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu),
+                    "Repeated Continue clicks are ignored during the selection animation");
                 phase = 3;
                 deadline = EditorApplication.timeSinceStartup + 30;
             }
@@ -206,8 +224,10 @@ public static class TitleScreenSmoke
         Check(ReferenceEquals(SoundManager.Instance, soundManager), "The same SoundManager persists across scenes");
         Check(UnityEngine.Object.FindObjectsByType<SoundManager>(FindObjectsSortMode.None).Length == 1,
             "Exactly one SoundManager exists without a scene component");
-        Check(soundManager.Settings.ovapeDeath is { Length: > 0 } && soundManager.Settings.titleHover == null
-            && soundManager.Settings.titleSelected == null, "Shared settings preserve Ovape death audio and silent unassigned title clips");
+        Check(soundManager.Settings.ovapeDeath is { Length: > 0 }
+            && soundManager.Settings.titleHover != null && soundManager.Settings.titleSelected != null
+            && soundManager.Settings.titleHover != soundManager.Settings.titleSelected,
+            "Shared settings use separate assigned title hover and selection sounds");
     }
 
     private static void Finish(int code)

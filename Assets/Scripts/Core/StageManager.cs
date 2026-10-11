@@ -48,5 +48,9 @@ public sealed class StageManager : MonoBehaviour
         if (CurrentStage < int.MaxValue) LoadStage(CurrentStage + 1);
     }
 
-    public void RestartStage() => LoadStage(CurrentStage);
+    public void RestartStage(bool randomizeLayout = false)
+    {
+        if (randomizeLayout) game?.RandomizeRestartLayout();
+        LoadStage(CurrentStage);
+    }
 }

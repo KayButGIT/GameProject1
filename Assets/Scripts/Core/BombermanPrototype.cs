@@ -140,6 +140,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     private StageTheme.SceneryVisual builtScenery;
     private GameObject sceneEnemyTemplates;
     private int sessionSeed;
+    private int restartLayoutSeed;
+    private bool hasRestartLayoutSeed;
     private bool firstStage = true;
     private System.Type exitWaveEnemyType;
     private int pendingExitWaves;
@@ -221,7 +223,10 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageRoot = new GameObject($"Stage {stage}");
         stageRoot.transform.SetParent(transform, false);
         ApplyScenery(theme);
-        map = new BombermanMap(width, height, destructibleDensity, GetStageSeed(sessionSeed, stage), materials, theme, stageRoot.transform);
+        int layoutSeed = hasRestartLayoutSeed ? restartLayoutSeed : GetStageSeed(sessionSeed, stage);
+        hasRestartLayoutSeed = false;
+        SoundManager.Instance?.ResetExitOpenForStage();
+        map = new BombermanMap(width, height, destructibleDensity, layoutSeed, materials, theme, stageRoot.transform);
         ConfigureCamera();
         currentLighting = theme != null ? theme.Lighting : null;
         stageLighting.Apply(currentLighting, mainCamera);
@@ -298,6 +303,18 @@ public sealed class BombermanPrototype : MonoBehaviour
         return unchecked(session + (stage - 1) * 486187739);
     }
 
+    internal void RandomizeRestartLayout()
+    {
+        restartLayoutSeed = CreateRandomSeed();
+        hasRestartLayoutSeed = true;
+    }
+
+    private static int CreateRandomSeed()
+    {
+        int seed = System.Guid.NewGuid().GetHashCode();
+        return seed == 0 ? 1 : seed;
+    }
+
     private void Update()
     {
         if (!transitionActive && WasPressed(Key.Escape))
@@ -330,20 +347,86 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
     }
 
-    // Like the original game, running out of time removes every enemy and fills the stage with Pontans.
+    // Like the original game, running out of time turns the remaining enemies into Pontans and
+    // fills the stage to the timeout population without replacing existing Pontans.
     private void SpawnTimeOutPontans()
     {
+        int pontanCount = 0;
+        List<GridController> enemies = new();
         foreach (GridController actor in actors)
         {
-            if (actor != null && !actor.IsPlayer)
+            if (actor == null || actor.IsPlayer || actor.IsDead) continue;
+            enemies.Add(actor);
+            if (actor is PontanEnemy) pontanCount++;
+        }
+
+        EnemyController pontanPrefab = FindEnemyPrefab(typeof(PontanEnemy));
+        foreach (GridController actor in enemies)
+        {
+            if (actor is PontanEnemy) continue;
+            Vector3 position = actor.transform.position;
+            actors.Remove(actor);
+            Destroy(actor.gameObject);
+            if (pontanPrefab == null) continue;
+            EnemyController pontan = Instantiate(pontanPrefab, position, Quaternion.identity);
+            pontan.name = $"{pontanPrefab.name} (Time Up)";
+            RegisterEnemy(pontan);
+            pontanCount++;
+        }
+
+        int additionalPontans = Mathf.Max(0, OriginalStageEnemies.MaxEnemies - pontanCount);
+        SpawnAdditionalTimeOutPontans(additionalPontans);
+        LogSpawnEvent($"Time ran out. Remaining enemies became Pontans; population is at least {OriginalStageEnemies.MaxEnemies}.");
+    }
+
+    private void SpawnAdditionalTimeOutPontans(int count)
+    {
+        if (count <= 0) return;
+        EnemyController prefab = FindEnemyPrefab(typeof(PontanEnemy));
+        if (prefab == null)
+        {
+            Debug.LogError($"Assign the {nameof(PontanEnemy)} prefab to Enemy Prefabs on {name}.", this);
+            return;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            if (!TryFindTimeOutSpawnCell(out Vector2Int cell))
             {
-                Destroy(actor.gameObject);
+                Debug.LogWarning("No safe empty cell is available for an additional time-out Pontan.", this);
+                return;
+            }
+
+            EnemyController pontan = Instantiate(prefab, map.CellToWorld(cell), Quaternion.identity);
+            pontan.name = $"{prefab.name} (Time Up)";
+            RegisterEnemy(pontan);
+        }
+    }
+
+    private bool TryFindTimeOutSpawnCell(out Vector2Int result)
+    {
+        List<Vector2Int> candidates = new();
+        Vector2Int playerCell = player != null ? player.Cell : new Vector2Int(1, 1);
+        float minimumPlayerDistance = Mathf.Max(2f, enemyPlayerHitDistance + 1f);
+        for (int x = 1; x < width - 1; x++)
+        {
+            for (int y = 1; y < height - 1; y++)
+            {
+                Vector2Int cell = new(x, y);
+                if (!IsWalkable(cell) || IsActorAt(cell)) continue;
+                if (Vector2.Distance(cell, playerCell) < minimumPlayerDistance) continue;
+                candidates.Add(cell);
             }
         }
 
-        actors.RemoveAll(actor => actor == null || !actor.IsPlayer);
-        SpawnEnemyGroup(typeof(PontanEnemy), OriginalStageEnemies.MaxEnemies, () => FindOriginalSpawnCell(1));
-        LogSpawnEvent($"Time ran out. Every enemy was replaced by {OriginalStageEnemies.MaxEnemies} Pontans.");
+        if (candidates.Count == 0)
+        {
+            result = default;
+            return false;
+        }
+
+        result = candidates[Random.Range(0, candidates.Count)];
+        return true;
     }
 
     private void LateUpdate()
@@ -1067,7 +1150,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageHud.SetLives(livesLeft);
         if (livesLeft > -1)
         {
-            stageManager.RestartStage();
+            stageManager.RestartStage(randomizeLayout: true);
             yield break;
         }
 

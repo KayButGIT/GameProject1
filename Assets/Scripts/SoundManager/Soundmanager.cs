@@ -18,6 +18,7 @@ public sealed class SoundManager : MonoBehaviour
     private float sfxVolume = 1f;
     private AudioSource sfxSource;
     private AudioSource footstepSource;
+    private bool exitOpenPlayedThisStage;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStaticState()
@@ -106,7 +107,14 @@ public sealed class SoundManager : MonoBehaviour
     public void PlayPowerUpPickup() => PlayOneShot(settings != null ? settings.powerUpPickup : null, settings != null ? settings.powerUpPickupVolume : 0f);
     public void PlayPlaceBomb() => PlayOneShot(settings != null ? settings.placeBomb : null, settings != null ? settings.placeBombVolume : 0f);
     public void PlayBombExplode() => PlayOneShot(settings != null ? settings.bombExplode : null, settings != null ? settings.bombExplodeVolume : 0f);
-    public void PlayExitOpen() => PlayOneShot(settings != null ? settings.exitOpen : null, settings != null ? settings.exitOpenVolume : 0f);
+    public void ResetExitOpenForStage() => exitOpenPlayedThisStage = false;
+
+    public void PlayExitOpen()
+    {
+        if (exitOpenPlayedThisStage) return;
+        exitOpenPlayedThisStage = true;
+        PlayOneShot(settings != null ? settings.exitOpen : null, settings != null ? settings.exitOpenVolume : 0f);
+    }
     public void PlayPlayerDeath() => PlayOneShot(settings != null ? settings.playerDeath : null, settings != null ? settings.playerDeathVolume : 0f);
     // Method names kept so TitleButtonSfx.cs needs no change: "Choose" = hover, "Click" = selected.
     public void PlayTitleChoose() => PlayOneShot(settings != null ? settings.titleHover : null, settings != null ? settings.titleHoverVolume : 0f);

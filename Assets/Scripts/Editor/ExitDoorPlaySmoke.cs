@@ -73,6 +73,7 @@ public static class ExitDoorPlaySmoke
     }
     private static BombermanMap Map => (BombermanMap)typeof(BombermanPrototype).GetField("map", Private).GetValue(game);
     private static int PendingWaves => (int)typeof(BombermanPrototype).GetField("pendingExitWaves", Private).GetValue(game);
+    private static bool ExitOpenPlayed => (bool)typeof(SoundManager).GetField("exitOpenPlayedThisStage", Private).GetValue(SoundManager.Instance);
     // Coroutine methods need starting, not just invoking.
     private static void StartRoutine(string name)
     {
@@ -106,6 +107,7 @@ public static class ExitDoorPlaySmoke
                 Check(Map.GetCellKind(doorCell) == CellKind.Destructible && !Map.ExitDoor.IsRevealed && !Map.ExitDoor.gameObject.activeSelf, "Exit hidden under a breakable block");
                 manager.RestartStage();
                 Check(Map.ExitDoor.Cell == doorCell && !Map.ExitDoor.IsRevealed, "Restart keeps the exit cell");
+                Check(!ExitOpenPlayed, "Loading a stage resets the exit-open one-shot guard");
                 Check(game.IsPaused && Time.timeScale == 0f && TransitionCard("STAGE 1"), "Stage restart shows its black stage card and pauses gameplay");
                 // Keep the only starting enemy alive and outside every blast and contact check.
                 EnemyController valcom = All<EnemyController>().Single();
@@ -155,9 +157,27 @@ public static class ExitDoorPlaySmoke
             else if (phase == 3 && EditorApplication.timeSinceStartup >= deadline)
             {
                 Check(Map.ExitDoor.IsOpen, "Exit opens after the last enemy dies");
+                Check(ExitOpenPlayed, "Clearing enemies consumes the stage's exit-open sound");
                 scoreBeforeTransition = game.Score;
                 livesBeforeTransition = (int)typeof(BombermanPrototype).GetField("livesLeft", Private).GetValue(game);
                 typeof(BombermanPrototype).GetField("timeLeft", Private).SetValue(game, 3f);
+                Call("Explode", doorCell);
+                Check(PendingWaves == 1, "Bombing the open exit still starts an enemy wave");
+                phase = 15;
+            }
+            else if (phase == 15 && PendingWaves == 0)
+            {
+                Check(!Map.ExitDoor.IsOpen, "The new exit wave locks the door again");
+                Check(ExitOpenPlayed, "The exit-open sound guard stays consumed during the wave");
+                EnemyController[] living = All<EnemyController>().Where(e => !e.IsDead).ToArray();
+                Check(living.Length == 10, "The reopened exit wave fills the stage to 10 enemies");
+                foreach (EnemyController enemy in living) enemy.Die();
+                phase = 16;
+                deadline = EditorApplication.timeSinceStartup + 0.1;
+            }
+            else if (phase == 16 && EditorApplication.timeSinceStartup >= deadline)
+            {
+                Check(Map.ExitDoor.IsOpen && ExitOpenPlayed, "Reopening after the wave does not reset or replay the stage cue");
                 Teleport(doorCell);
                 phase = 4;
                 deadline = EditorApplication.timeSinceStartup + 0.1;
@@ -167,6 +187,7 @@ public static class ExitDoorPlaySmoke
                 Check(manager.CurrentStage == 1 && !game.IsStageClearing && game.HasLivingPlayer, "Standing on an open exit alone does not advance");
                 game.TryDropBomb();
                 Check(manager.CurrentStage == 2 && !game.IsStageClearing && game.HasLivingPlayer, "Space on the open exit loads the next stage");
+                Check(!ExitOpenPlayed, "Loading the next stage resets the exit-open one-shot guard");
                 Check(All<Bomb>().Length == 0 && game.IsPaused && TransitionCard("STAGE 2"), "Exit entry drops no bomb and shows the next stage card");
                 Check(game.Score > scoreBeforeTransition, "Stage-clear time bonus is awarded");
                 Check((int)typeof(BombermanPrototype).GetField("livesLeft", Private).GetValue(game) == livesBeforeTransition + 1, "Stage-clear life bonus is awarded");
