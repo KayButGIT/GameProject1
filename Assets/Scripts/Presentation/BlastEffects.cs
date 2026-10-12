@@ -100,7 +100,7 @@ public static class BlastEffects
 
         ParticleSystem chunks = CreateSystem(root.transform, "Chunks", new Vector3(0f, 0.4f, 0f), blockMaterial, delay);
         ParticleSystem.MainModule main = chunks.main;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1f);
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.4f);
         main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 4f);
         main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.18f);
         main.startRotation3D = true;
@@ -108,9 +108,9 @@ public static class BlastEffects
         main.startRotationY = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         main.startRotationZ = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         main.gravityModifier = 2.5f;
-        SetBurst(chunks, 12);
+        SetBurst(chunks, 18);
         SetHemisphere(chunks, 0.3f);
-        SetSize(chunks, new Keyframe(0f, 1f), new Keyframe(0.7f, 1f), new Keyframe(1f, 0f));
+        SetSize(chunks, new Keyframe(0f, 1.25f), new Keyframe(0.7f, 1.25f), new Keyframe(1.25f, 0f));
         ParticleSystem.RotationOverLifetimeModule rotation = chunks.rotationOverLifetime;
         rotation.enabled = true;
         rotation.separateAxes = true;
