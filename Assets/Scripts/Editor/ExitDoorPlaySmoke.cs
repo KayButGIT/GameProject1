@@ -74,6 +74,7 @@ public static class ExitDoorPlaySmoke
     private static BombermanMap Map => (BombermanMap)typeof(BombermanPrototype).GetField("map", Private).GetValue(game);
     private static int PendingWaves => (int)typeof(BombermanPrototype).GetField("pendingExitWaves", Private).GetValue(game);
     private static bool ExitOpenPlayed => (bool)typeof(SoundManager).GetField("exitOpenPlayedThisStage", Private).GetValue(SoundManager.Instance);
+    private static bool ExitHighlightVisible => Map.ExitDoor.transform.Find("Exit Highlight").gameObject.activeSelf;
     // Coroutine methods need starting, not just invoking.
     private static void StartRoutine(string name)
     {
@@ -105,6 +106,7 @@ public static class ExitDoorPlaySmoke
                 manager = game.GetComponent<StageManager>();
                 doorCell = Map.ExitDoor.Cell;
                 Check(Map.GetCellKind(doorCell) == CellKind.Destructible && !Map.ExitDoor.IsRevealed && !Map.ExitDoor.gameObject.activeSelf, "Exit hidden under a breakable block");
+                Check(!ExitHighlightVisible, "Hidden exit highlight starts inactive");
                 manager.RestartStage();
                 Check(Map.ExitDoor.Cell == doorCell && !Map.ExitDoor.IsRevealed, "Restart keeps the exit cell");
                 Check(!ExitOpenPlayed, "Loading a stage resets the exit-open one-shot guard");
@@ -120,6 +122,7 @@ public static class ExitDoorPlaySmoke
                     .First();
                 Call("Explode", neighbor);
                 Check(Map.ExitDoor.IsRevealed && Map.ExitDoor.gameObject.activeSelf && Map.IsWalkable(doorCell), "Blast uncovers the exit");
+                Check(!ExitHighlightVisible, "Revealed but locked exit has no highlight");
                 Check(PendingWaves == 0, "Uncovering blast releases no enemies");
                 Teleport(doorCell);
                 phase = 10;
@@ -157,6 +160,7 @@ public static class ExitDoorPlaySmoke
             else if (phase == 3 && EditorApplication.timeSinceStartup >= deadline)
             {
                 Check(Map.ExitDoor.IsOpen, "Exit opens after the last enemy dies");
+                Check(ExitHighlightVisible, "Clearing enemies shows the exit highlight");
                 Check(ExitOpenPlayed, "Clearing enemies consumes the stage's exit-open sound");
                 scoreBeforeTransition = game.Score;
                 livesBeforeTransition = (int)typeof(BombermanPrototype).GetField("livesLeft", Private).GetValue(game);
@@ -168,6 +172,7 @@ public static class ExitDoorPlaySmoke
             else if (phase == 15 && PendingWaves == 0)
             {
                 Check(!Map.ExitDoor.IsOpen, "The new exit wave locks the door again");
+                Check(!ExitHighlightVisible, "Exit wave hides the highlight while locked");
                 Check(ExitOpenPlayed, "The exit-open sound guard stays consumed during the wave");
                 EnemyController[] living = All<EnemyController>().Where(e => !e.IsDead).ToArray();
                 Check(living.Length == 10, "The reopened exit wave fills the stage to 10 enemies");
@@ -178,6 +183,7 @@ public static class ExitDoorPlaySmoke
             else if (phase == 16 && EditorApplication.timeSinceStartup >= deadline)
             {
                 Check(Map.ExitDoor.IsOpen && ExitOpenPlayed, "Reopening after the wave does not reset or replay the stage cue");
+                Check(ExitHighlightVisible, "Clearing the exit wave restores the highlight");
                 Teleport(doorCell);
                 phase = 4;
                 deadline = EditorApplication.timeSinceStartup + 0.1;
@@ -201,6 +207,7 @@ public static class ExitDoorPlaySmoke
                 typeof(BombermanPrototype).GetField("destructibleDensity", Private).SetValue(game, 0f);
                 manager.LoadStage(1);
                 Check(Map.ExitDoor.Cell == new Vector2Int(7, 5) && Map.ExitDoor.IsRevealed, "Open layout shows the exit in the far corner");
+                Check(Map.ExitDoor.gameObject.activeSelf && !ExitHighlightVisible, "Visible-from-start exit stays unhighlighted while locked");
                 typeof(BombermanPrototype).GetField("livesLeft", Private).SetValue(game, 1);
                 phase = 11;
                 deadline = EditorApplication.timeSinceStartup + 1.6;
