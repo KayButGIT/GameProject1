@@ -68,6 +68,7 @@ public static class ExplosionEffectsSmoke
             {
                 game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady) return;
+                if (game.IsPaused) return;
                 BombermanMap map = Map;
                 (origin, destroyedCell) = Enumerable.Range(1, 7).SelectMany(x => Enumerable.Range(1, 5).Select(y => new Vector2Int(x, y)))
                     .Where(cell => map.GetCellKind(cell) == CellKind.Empty)

@@ -20,6 +20,8 @@ public static class StagePlaySmoke
     {
         if (!Application.isBatchMode) throw new InvalidOperationException("Run in an isolated batch project.");
         StageExampleBuilder.Build();
+        Check(UnityEngine.Object.FindObjectsByType<SoundManager>(FindObjectsSortMode.None).Length == 0,
+            "Prototype smoke starts without a scene SoundManager");
         StageSequence sequence = AssetDatabase.LoadAssetAtPath<StageSequence>(StageExampleBuilder.Folder + "/ExampleSequence.asset");
         int[] stages = { 1, 10, 11, 30, 31, 60, 61, int.MaxValue };
         int[] phases = { 0, 0, 1, 1, 2, 2, 2, 2 };
@@ -78,6 +80,7 @@ public static class StagePlaySmoke
         if (!condition) throw new Exception("Stage smoke: " + message);
     }
     private static BombermanMap Map => (BombermanMap)typeof(BombermanPrototype).GetField("map", Private).GetValue(game);
+    private static string TransitionText => GameObject.Find("Transition Canvas")?.GetComponentInChildren<UnityEngine.UI.Text>(true)?.text;
     private static void Call(string name, params object[] args) => typeof(BombermanPrototype).GetMethod(name, Private).Invoke(game, args);
     private static string Layout() => string.Join(",", Enumerable.Range(0, 63).Select(i => Map.GetCellKind(new Vector2Int(i / 7, i % 7)).ToString()));
     private static T[] All<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
@@ -93,6 +96,9 @@ public static class StagePlaySmoke
             {
                 game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady) return;
+                Check(SoundManager.Instance != null && SoundManager.Instance.Settings != null
+                    && UnityEngine.Object.FindObjectsByType<SoundManager>(FindObjectsSortMode.None).Length == 1,
+                    "Direct gameplay startup bootstraps exactly one shared SoundManager");
                 manager = game.GetComponent<StageManager>();
                 Check(manager.CurrentStage == 1 && manager.CurrentTheme != null && manager.CurrentTheme.name == "Brick", "Initial stage");
                 Check(All<EnemyController>().Length == 1, "Placed enemy registration");
@@ -108,17 +114,25 @@ public static class StagePlaySmoke
                 manager.LoadStage(11);
                 Check(manager.CurrentTheme.name == "Concrete", "Theme transition");
                 layout = Layout();
+                Check(game.IsPaused && TransitionText == "STAGE 11", "Loading a stage shows its stage card and freezes play");
+                phase = 10;
+                deadline = EditorApplication.timeSinceStartup + 1.6;
+            }
+            else if (phase == 10 && EditorApplication.timeSinceStartup >= deadline)
+            {
+                Check(!game.IsPaused, "Stage card fades out before gameplay resumes");
                 game.TryDropBomb();
                 Check(All<Bomb>().Length == 1, "Bomb created");
                 Call("Explode", new Vector2Int(1, 2));
                 Call("SetPaused", true);
                 manager.RestartStage();
-                Check(!game.IsPaused && Time.timeScale == 1f && Layout() == layout, "Restart seed and pause reset");
+                Check(game.IsPaused && Time.timeScale == 0f && TransitionText == "STAGE 11" && Layout() == layout, "Restart resets pause and shows the same-stage card");
                 phase = 1;
-                deadline = Time.timeAsDouble + 2.3;
+                deadline = EditorApplication.timeSinceStartup + 1.6;
             }
-            else if (phase == 1 && Time.timeAsDouble >= deadline)
+            else if (phase == 1 && EditorApplication.timeSinceStartup >= deadline)
             {
+                Check(!game.IsPaused, "Restart stage card finishes");
                 Check(All<Bomb>().Length == 0 && All<PlayerController>().Length == 1 && All<EnemyController>().Length == 1, "No leftover bombs or duplicate actors");
                 Check(All<Transform>().Count(t => t.name == "Generated Bomberman Map") == 1, "Single map");
                 Check(All<Transform>().Count(t => t.name == "Pause Canvas") == 1, "Single pause UI");
@@ -127,11 +141,11 @@ public static class StagePlaySmoke
                 Type cause = typeof(BombermanPrototype).GetNestedType("PlayerDeathCause", BindingFlags.NonPublic);
                 Call("StartPlayerDeath", Enum.Parse(cause, "Bomb"));
                 phase = 2;
-                deadline = Time.timeAsDouble + 1.0;
+                deadline = EditorApplication.timeSinceStartup + 0.4;
             }
-            else if (phase == 2 && Time.timeAsDouble >= deadline)
+            else if (phase == 2 && EditorApplication.timeSinceStartup >= deadline)
             {
-                Check(manager.CurrentStage == 11 && game.HasLivingPlayer && Layout() == layout, "Death restarts current stage");
+                Check(manager.CurrentStage == 11 && game.HasLivingPlayer && game.IsPaused && TransitionText == "STAGE 11" && Layout() == layout, "Death restarts current stage with its intro card");
                 manager.LoadStage(61);
                 Check(manager.CurrentTheme.name == "Snow", "Last theme persists");
                 Check(All<CellObject>().All(c => c.GetComponent<Renderer>().enabled), "Missing visual slots use primitives");

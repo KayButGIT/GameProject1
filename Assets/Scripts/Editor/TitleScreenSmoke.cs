@@ -14,9 +14,11 @@ public static class TitleScreenSmoke
 {
     private const string Running = "Bomberman.TitleScreenSmoke";
     private const string SavedStageKey = "Bomberman.TitleScreenSmoke.SavedStage";
+    private static SoundManager soundManager;
     private static int phase;
     private static double deadline, watchdog;
     private static bool failed;
+    private static bool startAnimationObserved;
 
     public static void Run()
     {
@@ -27,6 +29,8 @@ public static class TitleScreenSmoke
         Check(buildScenes.Length == 2 && buildScenes[0] == TitleSceneBuilder.ScenePath && buildScenes[1] == TitleSceneBuilder.GameScenePath, "Both scenes are in Build Settings");
 
         Scene scene = EditorSceneManager.OpenScene(TitleSceneBuilder.ScenePath, OpenSceneMode.Single);
+        Check(UnityEngine.Object.FindObjectsByType<SoundManager>(FindObjectsSortMode.None).Length == 0,
+            "Title scene does not contain a SoundManager component");
         Check(UnityEngine.Object.FindFirstObjectByType<Canvas>() != null, "Title scene has a canvas");
         EventSystem eventSystem = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
         Check(eventSystem != null && eventSystem.GetComponent<InputSystemUIInputModule>() != null, "Event System uses the Input System module");
@@ -118,14 +122,30 @@ public static class TitleScreenSmoke
             {
                 TitleMenu menu = Menu;
                 if (menu == null) return;
+                CheckSharedSoundManager();
                 Check(ContinueButton != null && !ContinueButton.interactable, "Continue is disabled without a save");
                 Capture("TitleScreen.png");
                 menu.StartNewGame();
+                menu.StartNewGame();
+                Check(SceneManager.GetActiveScene().name == "Title", "Start waits for its selection animation before loading the game");
+                Check((bool)typeof(TitleMenu).GetField("actionPending", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu),
+                    "Repeated Start clicks are ignored during the selection animation");
+                startAnimationObserved = false;
                 phase = 1;
                 deadline = EditorApplication.timeSinceStartup + 30;
             }
             else if (phase == 1)
             {
+                if (!startAnimationObserved)
+                {
+                    Animator animator = UnityEngine.Object.FindFirstObjectByType<Animator>();
+                    Check(Menu != null && SceneManager.GetActiveScene().name == "Title"
+                        && animator != null && (animator.IsInTransition(0)
+                            || animator.GetCurrentAnimatorStateInfo(0).IsName("TitlescreenSelection")),
+                        "Start plays the selection animation before changing scenes");
+                    startAnimationObserved = true;
+                }
+
                 BombermanPrototype game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady)
                 {
@@ -134,8 +154,10 @@ public static class TitleScreenSmoke
                 }
 
                 Check(Stage.CurrentStage == 1, "Start begins at stage 1");
+                CheckSharedSoundManager();
                 Stage.LoadStage(3);
                 Check(GameProgress.HasSave && GameProgress.SavedStage == 3, "Reaching a stage saves it");
+                Time.timeScale = 1f;
                 SceneManager.LoadScene(System.IO.Path.GetFileNameWithoutExtension(TitleSceneBuilder.ScenePath));
                 phase = 2;
                 deadline = EditorApplication.timeSinceStartup + 30;
@@ -150,7 +172,12 @@ public static class TitleScreenSmoke
                 }
 
                 Check(ContinueButton.GetComponentInChildren<Text>().text == "Continue (Stage 3)", "Continue shows the saved stage");
+                CheckSharedSoundManager();
                 menu.ContinueGame();
+                menu.ContinueGame();
+                Check(SceneManager.GetActiveScene().name == "Title", "Continue waits for its selection animation before loading the game");
+                Check((bool)typeof(TitleMenu).GetField("actionPending", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(menu),
+                    "Repeated Continue clicks are ignored during the selection animation");
                 phase = 3;
                 deadline = EditorApplication.timeSinceStartup + 30;
             }
@@ -164,6 +191,7 @@ public static class TitleScreenSmoke
                 }
 
                 Check(Stage.CurrentStage == 3, "Continue resumes the saved stage");
+                CheckSharedSoundManager();
                 // The last life is spent, so the game must end and return to the title.
                 typeof(BombermanPrototype).GetField("livesLeft", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(game, 1);
                 typeof(BombermanPrototype).GetMethod("StartPlayerDeath", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -181,11 +209,25 @@ public static class TitleScreenSmoke
                 }
 
                 Check(!GameProgress.HasSave && ContinueButton != null && !ContinueButton.interactable, "Game over clears the save and disables Continue");
+                CheckSharedSoundManager();
                 Debug.Log("TITLE_SCREEN_SMOKE_PASS: scene built, build settings, canvas, input module, button wiring, continue disabled, start at stage 1, progress saved, continue label, resume saved stage, game over to title.");
                 Finish(0);
             }
         }
         catch (Exception exception) { Debug.LogException(exception); Finish(1); }
+    }
+
+    private static void CheckSharedSoundManager()
+    {
+        if (soundManager == null) soundManager = SoundManager.Instance;
+        Check(soundManager != null && soundManager.Settings != null, "Runtime bootstrap loads the shared sound settings");
+        Check(ReferenceEquals(SoundManager.Instance, soundManager), "The same SoundManager persists across scenes");
+        Check(UnityEngine.Object.FindObjectsByType<SoundManager>(FindObjectsSortMode.None).Length == 1,
+            "Exactly one SoundManager exists without a scene component");
+        Check(soundManager.Settings.ovapeDeath is { Length: > 0 }
+            && soundManager.Settings.titleHover != null && soundManager.Settings.titleSelected != null
+            && soundManager.Settings.titleHover != soundManager.Settings.titleSelected,
+            "Shared settings use separate assigned title hover and selection sounds");
     }
 
     private static void Finish(int code)

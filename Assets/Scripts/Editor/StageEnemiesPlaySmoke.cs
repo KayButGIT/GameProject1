@@ -66,8 +66,20 @@ public static class StageEnemiesPlaySmoke
 
     private static void CheckFinalStageRoster(string message)
     {
-        Check(Living.Length == 10 && Count<DoriaEnemy>() == 2 && Count<OvapeEnemy>() == 1 && Count<PassEnemy>() == 5 && Count<PontanEnemy>() == 2, message);
+        Check(Living.Length == 10 && Count<OvapeEnemy>() == 2 && Count<DoriaEnemy>() == 1 && Count<PassEnemy>() == 5 && Count<PontanEnemy>() == 2, message);
         Check((Type)Field("exitWaveEnemyType") == typeof(PontanEnemy), message + " exit enemy");
+    }
+
+    private static void CheckDifficultyMapping()
+    {
+        Check(OriginalStageEnemies.ResolveReferenceStage(1, 1) == 1, "One-stage campaign uses NES Stage 1");
+        Check(OriginalStageEnemies.ResolveReferenceStage(1, 30) == 1, "Finite campaign begins at NES Stage 1");
+        Check(OriginalStageEnemies.ResolveReferenceStage(15, 30) == 19, "30-stage campaign eases into the reference curve");
+        Check(OriginalStageEnemies.ResolveReferenceStage(30, 30) == 50, "Finite campaign ends at NES Stage 50");
+        Check(OriginalStageEnemies.ResolveReferenceStage(50, 50) == 50, "50-stage campaign maps its end to NES Stage 50");
+        Check(OriginalStageEnemies.ResolveReferenceStage(50, 0) == 50, "Endless campaign preserves the original first 50 stages");
+        for (int stage = 51; stage <= 60; stage++)
+            Check(OriginalStageEnemies.ResolveReferenceStage(stage, 0) == stage - 10, "Endless campaign cycles NES Stages 41-50");
     }
 
     private static void Tick()
@@ -81,6 +93,7 @@ public static class StageEnemiesPlaySmoke
             {
                 game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady) return;
+                CheckDifficultyMapping();
                 manager = game.GetComponent<StageManager>();
                 EnemyController[] enemies = Living;
                 Check(enemies.Length == 6 && enemies.All(e => e is ValcomEnemy), "Stage 1 spawns six Valcoms");
@@ -89,28 +102,30 @@ public static class StageEnemiesPlaySmoke
                 Check(HudText == "TIME 200", "HUD shows the stage time");
                 Check((Type)Field("exitWaveEnemyType") == typeof(OnealEnemy), "Stage 1 exit enemy");
                 manager.LoadStage(35);
-                Check(Living.Length == 9 && Count<DahlEnemy>() == 2 && Count<MinuoEnemy>() == 1 && Count<DoriaEnemy>() == 1 && Count<OvapeEnemy>() == 3 && Count<PassEnemy>() == 2, "Stage 35 roster skips the empty slot");
+                Check(Living.Length == 9 && Count<DahlEnemy>() == 2 && Count<MinuoEnemy>() == 1 && Count<OvapeEnemy>() == 1 && Count<DoriaEnemy>() == 3 && Count<PassEnemy>() == 2, "Stage 35 roster skips the empty slot");
+                Check((Type)Field("exitWaveEnemyType") == typeof(DoriaEnemy), "Stage 35 exit enemy");
                 manager.LoadStage(50);
                 CheckFinalStageRoster("Stage 50 roster");
                 manager.LoadStage(51);
-                CheckFinalStageRoster("Later stages repeat stage 50");
+                Check(Living.Length == 10 && Count<DahlEnemy>() == 1 && Count<MinuoEnemy>() == 1 && Count<OvapeEnemy>() == 1 && Count<DoriaEnemy>() == 3 && Count<PassEnemy>() == 4, "Endless Stage 51 cycles to NES Stage 41");
+                Check((Type)Field("exitWaveEnemyType") == typeof(OvapeEnemy), "Endless Stage 51 exit enemy cycles to NES Stage 41");
                 typeof(BombermanPrototype).GetField("stageTimeLimit", Private).SetValue(game, 0.3f);
                 manager.LoadStage(1);
                 phase = 1;
-                deadline = Time.timeAsDouble + 3.0;
+                deadline = EditorApplication.timeSinceStartup + 3.0;
             }
             else if (phase == 1)
             {
                 if (!(bool)Field("timeUp"))
                 {
-                    Check(Time.timeAsDouble < deadline, "Stage timer runs out");
+                    Check(EditorApplication.timeSinceStartup < deadline, "Stage timer runs out");
                     return;
                 }
                 EnemyController[] pontans = Living;
                 Check(pontans.Length == 10 && pontans.All(e => e is PontanEnemy), "Time-out replaces every enemy with ten Pontans");
                 Check(pontans.All(e => (e.Cell.x >= 3 || e.Cell.y >= 3) && Map.GetCellKind(e.Cell) == CellKind.Empty), "Time-out Pontans avoid walls and the start corner");
                 Check(HudText == "TIME 0", "HUD shows zero after time-out");
-                Debug.Log("STAGE_ENEMIES_SMOKE_PASS: stage 1 roster, spawn cells, HUD, exit enemy table, empty slots, stage 50 roster, repeat after 50, time-out Pontans.");
+                Debug.Log("STAGE_ENEMIES_SMOKE_PASS: stage scaling, endless cycle, corrected Doria/Ovape IDs, stage rosters, spawn cells, HUD, exit enemies, time-out Pontans.");
                 Finish(0);
             }
         }

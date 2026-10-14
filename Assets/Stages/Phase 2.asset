@@ -1,0 +1,133 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd67b7f5d93e4f6dadb1eb0042e00e33, type: 3}
+  m_Name: Phase 2
+  m_EditorClassIdentifier: Assembly-CSharp::StageTheme
+  BorderBlock:
+    Variants:
+    - Prefab: {fileID: 976757468337996637, guid: ce6cecfb74cb5d44491a2916ca1f408d, type: 3}
+      Position: {x: 0, y: -0.4, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    - Prefab: {fileID: 5202575052292297135, guid: 2ca1c0a3e8fb35a4198c98a3c570955c, type: 3}
+      Position: {x: 0, y: -0.4, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    - Prefab: {fileID: 140246124697680923, guid: 5575addc7547e3f448aed202ca09d6dd, type: 3}
+      Position: {x: 0, y: -0.4, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    RandomYRotation: 1
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: 0, y: 0, z: 0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
+  SolidBlock:
+    Variants:
+    - Prefab: {fileID: 5038932341948878665, guid: 418b863765364b545b01cd6e746a5653, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    - Prefab: {fileID: 737507076291200426, guid: b14ad4b5ecbd8c54cb62a13ca18ed0e0, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    RandomYRotation: 1
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: -0, y: -0.5, z: -0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
+  BreakableBlock:
+    Variants:
+    - Prefab: {fileID: 290076337168863626, guid: 4af504233fa2a904fbc449e1dc62f2bc, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 1
+    - Prefab: {fileID: 5866983876600683715, guid: b18b63d941f65af419ec7f8786158316, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 1
+    - Prefab: {fileID: 3459035116329193686, guid: 3622a3db3c49e1240acd481398762521, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 1
+    RandomYRotation: 0
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: -0, y: -0.5, z: -0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 0.99999976, y: 1, z: 0.99999976}
+  Floor:
+    Variants:
+    - Prefab: {fileID: 7927828499857218296, guid: 7e8bf07ff2c7ad941b063c342a967b99, type: 3}
+      Position: {x: 0, y: -0.92, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    - Prefab: {fileID: 7927828499857218296, guid: 330830f89a2f554429acf08c818819f0, type: 3}
+      Position: {x: 0, y: -0.92, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    RandomYRotation: 1
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: 0, y: 0, z: 0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
+  ExitDoor:
+    Variants:
+    - Prefab: {fileID: 8743523121571242144, guid: adea77a98b267e546bf5c98374770e51, type: 3}
+      Position: {x: 0, y: 0, z: 0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 1, y: 1, z: 1}
+      Weight: 1
+    RandomYRotation: 0
+    legacyPrefab: {fileID: 0}
+    legacyPosition: {x: 0, y: 0, z: 0}
+    legacyRotation: {x: 0, y: 0, z: 0}
+    legacyScale: {x: 1, y: 1, z: 1}
+  Border:
+    Prefab: {fileID: 8654465921699099453, guid: d6c8b2ef7dcfa1347b5799344ba21be4, type: 3}
+    Offset: {x: 0, y: -0.08, z: 0}
+    Rotation: {x: 0, y: 0, z: 0}
+    AutoFit: 1
+    ExtraScale: {x: 1.04, y: 1.1, z: 1.1}
+  Scenery:
+    Prefab: {fileID: 1146845005328507934, guid: 2ceef3ca8d20b3349ba04d81aeb0e2a7, type: 3}
+    Offset: {x: 10.98, y: 0, z: -3.18}
+    Rotation: {x: 0, y: 0, z: 0}
+    Scale: {x: 1, y: 1, z: 1}
+    CenterOnArena: 0
+  Lighting:
+    Enabled: 1
+    SunPrefab: {fileID: 6002527405507834751, guid: ce6ecf0b7bb40e6408393da0834e1caf, type: 3}
+    SunColor: {r: 1, g: 0.863105, b: 0.5801887, a: 1}
+    SunIntensity: 1.35
+    SunRotation: {x: 50, y: 150, z: 0}
+    ShadowStrength: 0.8
+    AmbientSky: {r: 0.6688323, g: 0.74204844, b: 0.8490566, a: 1}
+    AmbientEquator: {r: 1, g: 0.8358384, b: 0.6367924, a: 1}
+    AmbientGround: {r: 0.46226418, g: 0.38726756, b: 0.22022964, a: 1}
+    Background: {r: 0.08, g: 0.1, b: 0.13, a: 1}
+    Skybox: {fileID: 0}
+    AmbientFromSkybox: 1
+    SkyboxAmbientIntensity: 1
+    PostProcessing: {fileID: 11400000, guid: 5c54e19d1b73d534ab850de2f8d98839, type: 2}
+    ExplosionColor: {r: 1, g: 0.6, b: 0.2, a: 1}
+    ExplosionIntensity: 8

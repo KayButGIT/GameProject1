@@ -316,6 +316,7 @@ MonoBehaviour:
             }
             else if (phase == 5 && game.IsReady)
             {
+                if (game.IsPaused) return;
                 const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
                 BombermanMap map = (BombermanMap)typeof(BombermanPrototype).GetField("map", flags).GetValue(game);
                 Transform floor = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).First(t => t.name == "Floor 1,1");
