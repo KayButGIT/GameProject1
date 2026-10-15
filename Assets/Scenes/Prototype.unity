@@ -345,6 +345,25 @@ MonoBehaviour:
   pontanScore: 8000
   timeBonusPerSecond: 10
   stageClearLifeBonus: 1
+  spawnPowerUps: 1
+  stagePowerUps: 0100000000000000
+  powerUpPrefabs:
+  - {fileID: 3587204841249301346, guid: dd46b015941cb8b4097c177ca0587ec5, type: 3}
+  - {fileID: 1552387361238952842, guid: 5e954adc508643f46a9eef7190437910, type: 3}
+  - {fileID: 8182587346995959366, guid: 311e4909e64773c46ad9507390f13330, type: 3}
+  - {fileID: 7568207278003374533, guid: c39249371d1b6654aba36d151da32596, type: 3}
+  - {fileID: 6591028826482923856, guid: a8b12803ae828d74eb52915bce5216bb, type: 3}
+  - {fileID: 6284137980912165837, guid: ecc9d94e653f6f64f8d592cbc546a806, type: 3}
+  - {fileID: 1424338060197482519, guid: 424e36ee73e23724c901f974304d567b, type: 3}
+  - {fileID: 4994833498307324450, guid: d3ca1203c0dc20a4ab066d7eb22afad8, type: 3}
+  powerUpPickupDistance: 0.55
+  powerUpScore: 50
+  keepPowerUpsOnDeath: 1
+  maxBombLimit: 8
+  blastRangeLimit: 8
+  speedUpLimit: 3
+  speedUpStep: 0.8
+  mysteryDuration: 30
   spawnEnemies: 1
   useOriginalStageEnemies: 1
   onealCount: 0
