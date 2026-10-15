@@ -50,7 +50,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Clipping: 0
+    - _Clipping: 0.335
     - _Edge: 0.14
     - _Power: 3.61
     - _QueueControl: 0
