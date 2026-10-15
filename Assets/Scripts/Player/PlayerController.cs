@@ -19,12 +19,18 @@ public sealed class PlayerController : GridController
     private Vector2 moveInput;
     private float blinkTimer = BlinkInterval;
     private float blinkDurationTimer;
+    private Renderer[] flashRenderers;
+    private bool[] flashRendererStates;
 
     private const float BlinkInterval = 3f;
     private const float BlinkDuration = 0.14f;
     private const float InputAcceleration = 12f;
     private const float InputDeceleration = 18f;
     public override bool IsPlayer => true;
+
+    // Wall Pass power-up: walk through breakable blocks. BombermanPrototype turns it on and off.
+    public bool WallPass { get; set; }
+    public override bool CanPassDestructibleWalls => WallPass;
 
     public static PlayerController Create(
         string actorName,
@@ -102,6 +108,28 @@ public sealed class PlayerController : GridController
             return;
 
         SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase);
+    }
+
+    // Mystery power-up: blinks the whole model. Showing it again restores each renderer's own enabled state.
+    public void SetFlashVisible(bool visible)
+    {
+        if (flashRenderers == null)
+        {
+            flashRenderers = GetComponentsInChildren<Renderer>();
+            flashRendererStates = new bool[flashRenderers.Length];
+            for (int i = 0; i < flashRenderers.Length; i++)
+            {
+                flashRendererStates[i] = flashRenderers[i] != null && flashRenderers[i].enabled;
+            }
+        }
+
+        for (int i = 0; i < flashRenderers.Length; i++)
+        {
+            if (flashRenderers[i] != null)
+            {
+                flashRenderers[i].enabled = visible && flashRendererStates[i];
+            }
+        }
     }
 
     public override void Die()

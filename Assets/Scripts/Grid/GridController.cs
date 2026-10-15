@@ -182,7 +182,10 @@ public abstract class GridController : MonoBehaviour
 
     private bool IsMovementBlocked(Vector2Int cell)
     {
-        return !freeMoveMap.IsWalkable(cell)
+        // Wall Pass: a mover that can pass destructible walls also walks through breakable blocks.
+        bool walkable = freeMoveMap.IsWalkable(cell)
+            || (CanPassDestructibleWalls && freeMoveMap.GetCellKind(cell) == CellKind.Destructible);
+        return !walkable
             || (extraMovementBlocker != null && extraMovementBlocker(cell));
     }
 
