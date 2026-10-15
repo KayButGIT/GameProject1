@@ -75,6 +75,37 @@ public static class ExitDoorPlaySmoke
     private static int PendingWaves => (int)typeof(BombermanPrototype).GetField("pendingExitWaves", Private).GetValue(game);
     private static bool ExitOpenPlayed => (bool)typeof(SoundManager).GetField("exitOpenPlayedThisStage", Private).GetValue(SoundManager.Instance);
     private static bool ExitHighlightVisible => Map.ExitDoor.transform.Find("Exit Highlight").gameObject.activeSelf;
+    private static float ExitHighlightIntensity => Map.ExitDoor.transform.Find("Exit Highlight").GetComponentInChildren<Renderer>().sharedMaterial.GetFloat("_Intensity");
+    private static void AdvanceExitHighlight(float deltaTime) => typeof(ExitDoor).GetMethod("AdvanceHighlightPulse", Private).Invoke(Map.ExitDoor, new object[] { deltaTime });
+
+    private static void CheckThemeOutlineColor(Color color)
+    {
+        StageTheme theme = ScriptableObject.CreateInstance<StageTheme>();
+        theme.ExitOutlineColor = color;
+        GameObject root = new("Exit Outline Config Check");
+        root.SetActive(false);
+        BombermanMaterials materials = (BombermanMaterials)typeof(BombermanPrototype).GetField("materials", Private).GetValue(game);
+        BombermanMap testMap = new(5, 5, 0f, 123, materials, theme, root.transform);
+        testMap.Generate();
+        Material outline = testMap.ExitDoor.transform.Find("Exit Highlight").GetComponentInChildren<Renderer>(true).sharedMaterial;
+        Check(outline.GetColor("_OutlineColor") == color, $"Stage theme outline color {color} reaches its door");
+        UnityEngine.Object.Destroy(root);
+        UnityEngine.Object.Destroy(theme);
+    }
+
+    private static void CheckThemeOutlineColorConfiguration()
+    {
+        UnityEngine.Random.State randomState = UnityEngine.Random.state;
+        try
+        {
+            CheckThemeOutlineColor(Color.white);
+            CheckThemeOutlineColor(new Color(0.2f, 0.75f, 1f, 1f));
+        }
+        finally
+        {
+            UnityEngine.Random.state = randomState;
+        }
+    }
     // Coroutine methods need starting, not just invoking.
     private static void StartRoutine(string name)
     {
@@ -103,6 +134,7 @@ public static class ExitDoorPlaySmoke
             {
                 game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady) return;
+                CheckThemeOutlineColorConfiguration();
                 manager = game.GetComponent<StageManager>();
                 doorCell = Map.ExitDoor.Cell;
                 Check(Map.GetCellKind(doorCell) == CellKind.Destructible && !Map.ExitDoor.IsRevealed && !Map.ExitDoor.gameObject.activeSelf, "Exit hidden under a breakable block");
@@ -161,6 +193,9 @@ public static class ExitDoorPlaySmoke
             {
                 Check(Map.ExitDoor.IsOpen, "Exit opens after the last enemy dies");
                 Check(ExitHighlightVisible, "Clearing enemies shows the exit highlight");
+                float intensityBeforePulse = ExitHighlightIntensity;
+                AdvanceExitHighlight(0.625f);
+                Check(ExitHighlightIntensity > intensityBeforePulse, "Exit outline brightness pulses without changing geometry scale");
                 Check(ExitOpenPlayed, "Clearing enemies consumes the stage's exit-open sound");
                 scoreBeforeTransition = game.Score;
                 livesBeforeTransition = (int)typeof(BombermanPrototype).GetField("livesLeft", Private).GetValue(game);

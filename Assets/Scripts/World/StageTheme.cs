@@ -224,6 +224,8 @@ public sealed class StageTheme : ScriptableObject
     public VisualSlot BreakableBlock = new();
     public VisualSlot Floor = new();
     public VisualSlot ExitDoor = new();
+    [ColorUsage(true, true), Tooltip("Outline color used by the exit door when the stage is cleared.")]
+    public Color ExitOutlineColor = Color.white;
     [Tooltip("Model framing the arena. Leave the prefab empty to keep the built-in rails.")]
     public BorderVisual Border = new();
     [Tooltip("Background around the arena, centered on it. Built once and kept until a stage uses different scenery.")]

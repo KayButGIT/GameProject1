@@ -6,9 +6,12 @@ public sealed class ExitDoor : MonoBehaviour
 {
     private const float FadeSeconds = 0.5f;
     private const float HighlightPulseSeconds = 2.5f;
-    private const float HighlightMargin = 0.08f;
-    private const float HighlightBarThickness = 0.045f;
-    private const float HighlightPlaneOffset = 0.035f;
+    private const float OutlineWidth = 0.025f;
+    private const float OutlineMinimumIntensity = 0.25f;
+    private const float OutlineMaximumIntensity = 1.5f;
+    private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
+    private static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");
+    private static readonly int OutlineIntensityId = Shader.PropertyToID("_Intensity");
 
     private sealed class LockBarVisual
     {
@@ -36,6 +39,11 @@ public sealed class ExitDoor : MonoBehaviour
 
     public static ExitDoor Create(Vector2Int cell, Vector3 position, Transform parent, BombermanMaterials materials, StageTheme.VisualSlot themeVisual, System.Random random, bool revealed)
     {
+        return Create(cell, position, parent, materials, themeVisual, random, revealed, Color.white);
+    }
+
+    internal static ExitDoor Create(Vector2Int cell, Vector3 position, Transform parent, BombermanMaterials materials, StageTheme.VisualSlot themeVisual, System.Random random, bool revealed, Color outlineColor)
+    {
         GameObject root = new($"Exit Door {cell.x},{cell.y}");
         root.transform.SetParent(parent);
         root.transform.position = position;
@@ -56,8 +64,7 @@ public sealed class ExitDoor : MonoBehaviour
         // The position supplied by the map is the floor surface at this cell.
         GameObject holder = new("Door Visual");
         holder.transform.SetParent(root.transform, false);
-        Bounds highlightBounds = new(Vector3.zero, new Vector3(0.78f, 0.06f, 0.78f));
-        highlightBounds.center = new Vector3(0f, 0.035f, 0f);
+        GameObject highlightSource = slab;
         if (themeVisual != null && themeVisual.Attach(holder.transform, random))
         {
             door.placeholder.enabled = false;
@@ -66,12 +73,11 @@ public sealed class ExitDoor : MonoBehaviour
             {
                 float yOffset = 0.005f - bounds.min.y;
                 holder.transform.localPosition = new Vector3(0f, yOffset, 0f);
-                bounds.center += new Vector3(0f, yOffset, 0f);
-                highlightBounds = bounds;
             }
+            if (model != null) highlightSource = model.gameObject;
             door.InitializeLockBars(model);
         }
-        door.CreateHighlight(root.transform, highlightBounds);
+        door.CreateHighlight(root.transform, highlightSource, outlineColor);
 
         door.IsRevealed = revealed;
         root.SetActive(revealed);
@@ -115,79 +121,43 @@ public sealed class ExitDoor : MonoBehaviour
         AdvanceHighlightPulse(deltaTime);
     }
 
-    private void CreateHighlight(Transform parent, Bounds bounds)
+    private void CreateHighlight(Transform parent, GameObject source, Color outlineColor)
     {
         highlight = new GameObject("Exit Highlight");
         highlight.transform.SetParent(parent, false);
         highlightTransform = highlight.transform;
 
-        AddHighlightFrame(bounds);
-        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-        if (shader == null) shader = Shader.Find("Unlit/Color");
-        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null) shader = Shader.Find("Standard");
-        highlightMaterial = new Material(shader) { name = "Exit Highlight White" };
-        int colorProperty = highlightMaterial.HasProperty("_BaseColor")
-            ? Shader.PropertyToID("_BaseColor")
-            : Shader.PropertyToID("_Color");
-        highlightMaterial.SetColor(colorProperty, Color.white);
-        foreach (MeshRenderer renderer in highlight.GetComponentsInChildren<MeshRenderer>())
+        GameObject shell = Instantiate(source, highlight.transform);
+        shell.name = "Outline Shell";
+        foreach (Collider collider in shell.GetComponentsInChildren<Collider>(true))
+            BombermanMap.DestroyGenerated(collider);
+        foreach (Rigidbody body in shell.GetComponentsInChildren<Rigidbody>(true))
+            BombermanMap.DestroyGenerated(body);
+        foreach (MonoBehaviour behaviour in shell.GetComponentsInChildren<MonoBehaviour>(true))
+            BombermanMap.DestroyGenerated(behaviour);
+
+        Shader shader = Resources.Load<Shader>("ExitOutline");
+        if (shader == null) shader = Shader.Find("Bomberman/Exit Outline");
+        if (shader == null)
         {
-            renderer.sharedMaterial = highlightMaterial;
+            Debug.LogError("Exit outline shader is missing from Resources.", this);
+            highlight.SetActive(false);
+            return;
+        }
+        highlightMaterial = new Material(shader) { name = "Exit Highlight White" };
+        highlightMaterial.SetColor(OutlineColorId, outlineColor);
+        highlightMaterial.SetFloat(OutlineWidthId, OutlineWidth);
+        highlightMaterial.SetFloat(OutlineIntensityId, OutlineMinimumIntensity);
+        foreach (Renderer renderer in highlight.GetComponentsInChildren<Renderer>(true))
+        {
+            Material[] outlineMaterials = new Material[renderer.sharedMaterials.Length];
+            for (int i = 0; i < outlineMaterials.Length; i++) outlineMaterials[i] = highlightMaterial;
+            renderer.sharedMaterials = outlineMaterials;
+            renderer.enabled = true;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
         }
         highlight.SetActive(false);
-    }
-
-    private void AddHighlightFrame(Bounds bounds)
-    {
-        Vector3 center = bounds.center;
-        Vector3 size = bounds.size;
-        if (size.y > Mathf.Max(size.x, size.z) * 1.2f)
-        {
-            bool frameOnXY = size.z <= size.x;
-            float width = (frameOnXY ? size.x : size.z) + HighlightMargin * 2f;
-            float height = size.y + HighlightMargin * 2f;
-            Vector3 frameCenter = center;
-            if (frameOnXY) frameCenter.z = bounds.min.z - HighlightPlaneOffset;
-            else frameCenter.x = bounds.min.x - HighlightPlaneOffset;
-
-            if (frameOnXY)
-            {
-                AddHighlightBar("Top", frameCenter + Vector3.up * (height * 0.5f), new Vector3(width, HighlightBarThickness, HighlightBarThickness));
-                AddHighlightBar("Bottom", frameCenter - Vector3.up * (height * 0.5f), new Vector3(width, HighlightBarThickness, HighlightBarThickness));
-                AddHighlightBar("Left", frameCenter - Vector3.right * (width * 0.5f), new Vector3(HighlightBarThickness, height, HighlightBarThickness));
-                AddHighlightBar("Right", frameCenter + Vector3.right * (width * 0.5f), new Vector3(HighlightBarThickness, height, HighlightBarThickness));
-            }
-            else
-            {
-                AddHighlightBar("Top", frameCenter + Vector3.up * (height * 0.5f), new Vector3(HighlightBarThickness, HighlightBarThickness, width));
-                AddHighlightBar("Bottom", frameCenter - Vector3.up * (height * 0.5f), new Vector3(HighlightBarThickness, HighlightBarThickness, width));
-                AddHighlightBar("Left", frameCenter - Vector3.forward * (width * 0.5f), new Vector3(HighlightBarThickness, height, HighlightBarThickness));
-                AddHighlightBar("Right", frameCenter + Vector3.forward * (width * 0.5f), new Vector3(HighlightBarThickness, height, HighlightBarThickness));
-            }
-        }
-        else
-        {
-            float width = size.x + HighlightMargin * 2f;
-            float depth = size.z + HighlightMargin * 2f;
-            Vector3 frameCenter = new(center.x, bounds.max.y + HighlightPlaneOffset, center.z);
-            AddHighlightBar("Front", frameCenter - Vector3.forward * (depth * 0.5f), new Vector3(width, HighlightBarThickness, HighlightBarThickness));
-            AddHighlightBar("Back", frameCenter + Vector3.forward * (depth * 0.5f), new Vector3(width, HighlightBarThickness, HighlightBarThickness));
-            AddHighlightBar("Left", frameCenter - Vector3.right * (width * 0.5f), new Vector3(HighlightBarThickness, HighlightBarThickness, depth));
-            AddHighlightBar("Right", frameCenter + Vector3.right * (width * 0.5f), new Vector3(HighlightBarThickness, HighlightBarThickness, depth));
-        }
-    }
-
-    private void AddHighlightBar(string barName, Vector3 position, Vector3 scale)
-    {
-        GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        bar.name = barName;
-        bar.transform.SetParent(highlightTransform, false);
-        bar.transform.localPosition = position;
-        bar.transform.localScale = scale;
-        BombermanMap.DestroyGenerated(bar.GetComponent<Collider>());
     }
 
     private void RefreshHighlightVisibility()
@@ -198,12 +168,13 @@ public sealed class ExitDoor : MonoBehaviour
 
     private void AdvanceHighlightPulse(float deltaTime)
     {
-        if (highlight == null || !highlight.activeSelf) return;
+        if (highlight == null || highlightMaterial == null || !highlight.activeSelf) return;
 
         highlightPulseTime += deltaTime;
         float phase = highlightPulseTime / HighlightPulseSeconds * Mathf.PI * 2f;
-        float scale = 1f + 0.06f * Mathf.Sin(phase);
-        highlightTransform.localScale = new Vector3(scale, 1f, scale);
+        float pulse = (Mathf.Sin(phase) + 1f) * 0.5f;
+        float intensity = Mathf.Lerp(OutlineMinimumIntensity, OutlineMaximumIntensity, pulse);
+        highlightMaterial.SetFloat(OutlineIntensityId, intensity);
     }
 
     private void AdvanceLockBarFade(float deltaTime)

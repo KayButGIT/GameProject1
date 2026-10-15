@@ -190,7 +190,15 @@ public sealed class BombermanMap
         Vector2Int cell = hidden ? hidingCells[layoutRandom.Next(hidingCells.Count)] : new Vector2Int(width - 2, height - 2);
         Vector3 position = CellToWorld(cell);
         position.y = PrepareExitFloor(cell);
-        return ExitDoor.Create(cell, position, parent, materials, theme != null ? theme.ExitDoor : null, visualRandom, !hidden);
+        return ExitDoor.Create(
+            cell,
+            position,
+            parent,
+            materials,
+            theme != null ? theme.ExitDoor : null,
+            visualRandom,
+            !hidden,
+            theme != null ? theme.ExitOutlineColor : Color.white);
     }
 
     private float PrepareExitFloor(Vector2Int cell)
