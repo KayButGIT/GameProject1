@@ -4,7 +4,7 @@ Shader "Bomberman/Exit Outline"
     {
         _OutlineColor ("Outline Color", Color) = (1, 1, 1, 1)
         _OutlineWidth ("Outline Width", Range(0.001, 0.1)) = 0.025
-        _Intensity ("Intensity", Range(0, 3)) = 1
+        _Intensity ("Intensity", Range(0, 4)) = 1
     }
 
     SubShader
@@ -23,7 +23,7 @@ Shader "Bomberman/Exit Outline"
             Cull Front
             ZWrite Off
             ZTest LEqual
-            Blend SrcAlpha OneMinusSrcAlpha
+            Blend One One
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -57,7 +57,7 @@ Shader "Bomberman/Exit Outline"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                return half4(_OutlineColor.rgb * _Intensity, _OutlineColor.a);
+                return half4(_OutlineColor.rgb * (_Intensity * _OutlineColor.a), 0.0h);
             }
             ENDHLSL
         }

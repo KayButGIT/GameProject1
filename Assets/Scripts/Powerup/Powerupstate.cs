@@ -8,6 +8,10 @@ public sealed class PowerUpState
     public int bombUps;
     public int fireUps;
     public int speedUps;
+    // Permanent levels granted through demo cheats are removed on death; normal pickups persist.
+    public int cheatBombUps;
+    public int cheatFireUps;
+    public int cheatSpeedUps;
     public bool detonator;
     public bool bombPass;
     public bool wallPass;

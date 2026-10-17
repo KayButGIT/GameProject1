@@ -6,12 +6,14 @@ public sealed class ExitDoor : MonoBehaviour
 {
     private const float FadeSeconds = 0.5f;
     private const float HighlightPulseSeconds = 2.5f;
-    private const float OutlineWidth = 0.025f;
+    private const float FramePadding = 0.015f;
+    private const float FrameBeamWidth = 0.018f;
     private const float OutlineMinimumIntensity = 0.25f;
-    private const float OutlineMaximumIntensity = 1.5f;
+    // Keep the frame comfortably above both stage Bloom thresholds (0.75 and 0.9).
+    private const float OutlineMaximumIntensity = 3f;
     private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
-    private static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");
     private static readonly int OutlineIntensityId = Shader.PropertyToID("_Intensity");
+    private static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");
 
     private sealed class LockBarVisual
     {
@@ -25,8 +27,8 @@ public sealed class ExitDoor : MonoBehaviour
 
     private Renderer placeholder;
     private GameObject highlight;
-    private Transform highlightTransform;
     private Material highlightMaterial;
+    private Material frameMaterial;
     private Material lockedMaterial;
     private Material openMaterial;
     private readonly List<LockBarVisual> lockBars = new();
@@ -125,8 +127,32 @@ public sealed class ExitDoor : MonoBehaviour
     {
         highlight = new GameObject("Exit Highlight");
         highlight.transform.SetParent(parent, false);
-        highlightTransform = highlight.transform;
 
+        Shader outlineShader = Resources.Load<Shader>("ExitOutline");
+        if (outlineShader == null) outlineShader = Shader.Find("Bomberman/Exit Outline");
+        Shader frameShader = Resources.Load<Shader>("ExitGlowFrame");
+        if (frameShader == null) frameShader = Shader.Find("Bomberman/Exit Glow Frame");
+        if (outlineShader == null || frameShader == null)
+        {
+            Debug.LogError("Exit outline or glow frame shader is missing from Resources.", this);
+            highlight.SetActive(false);
+            return;
+        }
+        highlightMaterial = new Material(outlineShader) { name = "Exit Door Outline Glow" };
+        highlightMaterial.SetColor(OutlineColorId, outlineColor);
+        highlightMaterial.SetFloat(OutlineWidthId, 0.025f);
+        highlightMaterial.SetFloat(OutlineIntensityId, OutlineMinimumIntensity);
+        CreateOutlineShell(source, highlightMaterial);
+
+        frameMaterial = new Material(frameShader) { name = "Exit Door 3D Glow Frame" };
+        frameMaterial.SetColor(OutlineColorId, outlineColor);
+        frameMaterial.SetFloat(OutlineIntensityId, OutlineMinimumIntensity);
+        CreateGlowFrame(parent, source);
+        highlight.SetActive(false);
+    }
+
+    private void CreateOutlineShell(GameObject source, Material material)
+    {
         GameObject shell = Instantiate(source, highlight.transform);
         shell.name = "Outline Shell";
         foreach (Collider collider in shell.GetComponentsInChildren<Collider>(true))
@@ -136,28 +162,59 @@ public sealed class ExitDoor : MonoBehaviour
         foreach (MonoBehaviour behaviour in shell.GetComponentsInChildren<MonoBehaviour>(true))
             BombermanMap.DestroyGenerated(behaviour);
 
-        Shader shader = Resources.Load<Shader>("ExitOutline");
-        if (shader == null) shader = Shader.Find("Bomberman/Exit Outline");
-        if (shader == null)
-        {
-            Debug.LogError("Exit outline shader is missing from Resources.", this);
-            highlight.SetActive(false);
-            return;
-        }
-        highlightMaterial = new Material(shader) { name = "Exit Highlight White" };
-        highlightMaterial.SetColor(OutlineColorId, outlineColor);
-        highlightMaterial.SetFloat(OutlineWidthId, OutlineWidth);
-        highlightMaterial.SetFloat(OutlineIntensityId, OutlineMinimumIntensity);
-        foreach (Renderer renderer in highlight.GetComponentsInChildren<Renderer>(true))
+        foreach (Renderer renderer in shell.GetComponentsInChildren<Renderer>(true))
         {
             Material[] outlineMaterials = new Material[renderer.sharedMaterials.Length];
-            for (int i = 0; i < outlineMaterials.Length; i++) outlineMaterials[i] = highlightMaterial;
+            for (int i = 0; i < outlineMaterials.Length; i++) outlineMaterials[i] = material;
             renderer.sharedMaterials = outlineMaterials;
             renderer.enabled = true;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
         }
-        highlight.SetActive(false);
+    }
+
+    private void CreateGlowFrame(Transform parent, GameObject source)
+    {
+        if (!VisualBounds.TryMeasure(parent, source, out Bounds bounds))
+            bounds = new Bounds(new Vector3(0f, 0.3f, 0f), new Vector3(0.78f, 0.6f, 0.78f));
+        float frameHeight = Mathf.Max(bounds.size.y, Mathf.Max(bounds.size.x, bounds.size.z) * 1.15f);
+        float frameBottom = bounds.min.y - FramePadding;
+        bounds.min = new Vector3(bounds.min.x - FramePadding, frameBottom, bounds.min.z - FramePadding);
+        bounds.max = new Vector3(bounds.max.x + FramePadding, frameBottom + frameHeight + FramePadding * 2f, bounds.max.z + FramePadding);
+
+        Vector3 size = bounds.size;
+        Vector3 center = bounds.center;
+        float halfX = size.x * 0.5f;
+        float halfY = size.y * 0.5f;
+        float halfZ = size.z * 0.5f;
+        float beam = FrameBeamWidth;
+
+        // Twelve glowing edges create a 3D rectangular frame around the door.
+        for (int y = -1; y <= 1; y += 2)
+        for (int z = -1; z <= 1; z += 2)
+            AddFrameBeam("Horizontal Frame", center + new Vector3(0f, halfY * y, halfZ * z), new Vector3(size.x + beam, beam, beam));
+
+        for (int x = -1; x <= 1; x += 2)
+        for (int z = -1; z <= 1; z += 2)
+            AddFrameBeam("Vertical Frame", center + new Vector3(halfX * x, 0f, halfZ * z), new Vector3(beam, size.y + beam, beam));
+
+        for (int x = -1; x <= 1; x += 2)
+        for (int y = -1; y <= 1; y += 2)
+            AddFrameBeam("Depth Frame", center + new Vector3(halfX * x, halfY * y, 0f), new Vector3(beam, beam, size.z + beam));
+    }
+
+    private void AddFrameBeam(string beamName, Vector3 localPosition, Vector3 localScale)
+    {
+        GameObject beam = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        beam.name = beamName;
+        beam.transform.SetParent(highlight.transform, false);
+        beam.transform.localPosition = localPosition;
+        beam.transform.localScale = localScale;
+        BombermanMap.DestroyGenerated(beam.GetComponent<Collider>());
+        Renderer renderer = beam.GetComponent<Renderer>();
+        renderer.sharedMaterial = frameMaterial;
+        renderer.shadowCastingMode = ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
     }
 
     private void RefreshHighlightVisibility()
@@ -175,6 +232,7 @@ public sealed class ExitDoor : MonoBehaviour
         float pulse = (Mathf.Sin(phase) + 1f) * 0.5f;
         float intensity = Mathf.Lerp(OutlineMinimumIntensity, OutlineMaximumIntensity, pulse);
         highlightMaterial.SetFloat(OutlineIntensityId, intensity);
+        frameMaterial.SetFloat(OutlineIntensityId, intensity);
     }
 
     private void AdvanceLockBarFade(float deltaTime)
@@ -248,6 +306,7 @@ public sealed class ExitDoor : MonoBehaviour
     private void OnDestroy()
     {
         if (highlightMaterial != null) BombermanMap.DestroyGenerated(highlightMaterial);
+        if (frameMaterial != null) BombermanMap.DestroyGenerated(frameMaterial);
 
         foreach (LockBarVisual bar in lockBars)
             foreach (Material material in bar.FadeMaterials)

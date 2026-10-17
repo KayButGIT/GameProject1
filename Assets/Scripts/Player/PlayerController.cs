@@ -12,15 +12,16 @@ public sealed class PlayerController : GridController
     private int faceMaterialIndex = -1;
     private Material bodyNormalMaterial;
     private Material bodyBurntMaterial;
+    private Material bodyInvincibleMaterial;
     private Material faceNormalMaterial;
     private Material faceBlinkMaterial;
+    private Material faceInvincibleMaterial;
     private Material faceDeadMaterial;
     private Material faceDeadBurntMaterial;
     private Vector2 moveInput;
     private float blinkTimer = BlinkInterval;
     private float blinkDurationTimer;
-    private Renderer[] flashRenderers;
-    private bool[] flashRendererStates;
+    private bool invincibleVisualActive;
 
     private const float BlinkInterval = 3f;
     private const float BlinkDuration = 0.14f;
@@ -46,8 +47,10 @@ public sealed class PlayerController : GridController
         RuntimeAnimatorController animatorController,
         Material bodyNormalMaterial,
         Material bodyBurntMaterial,
+        Material bodyInvincibleMaterial,
         Material faceNormalMaterial,
         Material faceBlinkMaterial,
+        Material faceInvincibleMaterial,
         Material faceDeadMaterial,
         Material faceDeadBurntMaterial)
     {
@@ -60,8 +63,10 @@ public sealed class PlayerController : GridController
             animatorController,
             bodyNormalMaterial,
             bodyBurntMaterial,
+            bodyInvincibleMaterial,
             faceNormalMaterial,
             faceBlinkMaterial,
+            faceInvincibleMaterial,
             faceDeadMaterial,
             faceDeadBurntMaterial);
         return player;
@@ -110,25 +115,23 @@ public sealed class PlayerController : GridController
         SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase);
     }
 
-    // Mystery power-up: blinks the whole model. Showing it again restores each renderer's own enabled state.
-    public void SetFlashVisible(bool visible)
+    public void SetInvincibleMaterials(bool active)
     {
-        if (flashRenderers == null)
+        if (IsDead) return;
+        if (invincibleVisualActive == active) return;
+        invincibleVisualActive = active;
+        if (active)
         {
-            flashRenderers = GetComponentsInChildren<Renderer>();
-            flashRendererStates = new bool[flashRenderers.Length];
-            for (int i = 0; i < flashRenderers.Length; i++)
-            {
-                flashRendererStates[i] = flashRenderers[i] != null && flashRenderers[i].enabled;
-            }
+            if (BodyRenderer != null && bodyMaterialIndex >= 0 && bodyInvincibleMaterial != null)
+                SetRendererMaterial(BodyRenderer, bodyMaterialIndex, bodyInvincibleMaterial);
+            if (headRenderer != null && bodyInvincibleMaterial != null)
+                SetNonFaceHeadMaterials(bodyInvincibleMaterial);
+            if (faceRenderer != null && faceMaterialIndex >= 0 && faceInvincibleMaterial != null)
+                SetRendererMaterial(faceRenderer, faceMaterialIndex, faceInvincibleMaterial);
         }
-
-        for (int i = 0; i < flashRenderers.Length; i++)
+        else
         {
-            if (flashRenderers[i] != null)
-            {
-                flashRenderers[i].enabled = visible && flashRendererStates[i];
-            }
+            ApplyNormalMaterials();
         }
     }
 
@@ -152,15 +155,19 @@ public sealed class PlayerController : GridController
         RuntimeAnimatorController animatorController,
         Material bodyNormalMaterial,
         Material bodyBurntMaterial,
+        Material bodyInvincibleMaterial,
         Material faceNormalMaterial,
         Material faceBlinkMaterial,
+        Material faceInvincibleMaterial,
         Material faceDeadMaterial,
         Material faceDeadBurntMaterial)
     {
         this.bodyNormalMaterial = bodyNormalMaterial;
         this.bodyBurntMaterial = bodyBurntMaterial;
+        this.bodyInvincibleMaterial = bodyInvincibleMaterial;
         this.faceNormalMaterial = faceNormalMaterial;
         this.faceBlinkMaterial = faceBlinkMaterial;
+        this.faceInvincibleMaterial = faceInvincibleMaterial;
         this.faceDeadMaterial = faceDeadMaterial;
         this.faceDeadBurntMaterial = faceDeadBurntMaterial;
 
@@ -309,6 +316,15 @@ public sealed class PlayerController : GridController
     {
         if (faceRenderer == null || faceMaterialIndex < 0 || faceNormalMaterial == null || faceBlinkMaterial == null)
         {
+            return;
+        }
+
+        if (invincibleVisualActive)
+        {
+            blinkTimer = BlinkInterval;
+            blinkDurationTimer = 0f;
+            if (faceInvincibleMaterial != null)
+                SetRendererMaterial(faceRenderer, faceMaterialIndex, faceInvincibleMaterial);
             return;
         }
 

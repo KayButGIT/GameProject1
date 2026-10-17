@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StageSequence
   Phases:
   - Theme: {fileID: 11400000, guid: ae566dc4dce26e840b74b800dcbce87f, type: 2}
-    StageCount: 1
+    StageCount: 10
   - Theme: {fileID: 11400000, guid: 236325dc37e72354f8b13bac1d4accc6, type: 2}
-    StageCount: 1
+    StageCount: 10

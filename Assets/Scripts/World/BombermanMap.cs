@@ -98,6 +98,27 @@ public sealed class BombermanMap
         }
     }
 
+    public void HideGrassAt(Vector2Int cell)
+    {
+        SetGrassVisibleAt(cell, false);
+    }
+
+    public void ShowGrassAt(Vector2Int cell)
+    {
+        SetGrassVisibleAt(cell, true);
+    }
+
+    private void SetGrassVisibleAt(Vector2Int cell, bool visible)
+    {
+        if (!floors.TryGetValue(cell, out GameObject floor) || floor == null) return;
+
+        foreach (GrassBlock grass in floor.GetComponentsInChildren<GrassBlock>(true))
+        {
+            if (grass.GrassMesh != null && grass.GrassMesh.TryGetComponent(out Renderer blades))
+                blades.enabled = visible;
+        }
+    }
+
     // The material a block is drawn with: its theme model's when one is attached.
     public Material GetBlockMaterial(Vector2Int cell)
     {
@@ -204,9 +225,7 @@ public sealed class BombermanMap
     private float PrepareExitFloor(Vector2Int cell)
     {
         GameObject floor = floors[cell];
-        foreach (GrassBlock grass in floor.GetComponentsInChildren<GrassBlock>(true))
-            if (grass.GrassMesh != null && grass.GrassMesh.TryGetComponent(out Renderer blades))
-                blades.enabled = false;
+        HideGrassAt(cell);
 
         float surfaceY = floor.transform.position.y + floor.transform.localScale.y * 0.5f;
         bool measured = false;

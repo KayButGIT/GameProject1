@@ -30,22 +30,22 @@ public static class BlastEffects
         ParticleSystem.MainModule main = fireball.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.55f);
         main.startSpeed = new ParticleSystem.MinMaxCurve(0.4f, 1.2f);
-        main.startSize = center ? new ParticleSystem.MinMaxCurve(0.9f, 1.3f) : new ParticleSystem.MinMaxCurve(0.7f, 1f);
+        main.startSize = center ? new ParticleSystem.MinMaxCurve(1.1f, 1.5f) : new ParticleSystem.MinMaxCurve(0.9f, 1.2f);
         main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         main.gravityModifier = -0.15f;
-        SetBurst(fireball, center ? 10 : 6);
+        SetBurst(fireball, center ? 12 : 8);
         SetHemisphere(fireball, 0.25f);
         SetColor(fireball,
             new[] { Key(1f, 0.95f, 0.8f, 0f), Key(1f, 0.62f, 0.18f, 0.25f), Key(0.85f, 0.22f, 0.05f, 0.6f), Key(0.35f, 0.06f, 0.02f, 1f) },
             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.9f, 0.3f), new GradientAlphaKey(0.55f, 0.65f), new GradientAlphaKey(0f, 1f) });
-        SetSize(fireball, new Keyframe(0f, 0.5f), new Keyframe(0.3f, 1f), new Keyframe(1f, 1.15f));
+        SetSize(fireball, new Keyframe(0f, 0.7f), new Keyframe(0.3f, 1.15f), new Keyframe(1f, 1.3f));
         SetSpin(fireball, 1.5f);
 
         ParticleSystem glow = CreateSystem(root.transform, "Glow", new Vector3(0f, 0.4f, 0f), GlowMaterial, delay);
         main = glow.main;
         main.startLifetime = 0.18f;
         main.startSpeed = 0f;
-        main.startSize = center ? 2.2f : 1.2f;
+        main.startSize = center ? 2.5f : 1.5f;
         SetBurst(glow, 1);
         SetColor(glow, new[] { Key(1f, 1f, 1f, 0f), Key(1f, 1f, 1f, 1f) },
             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });

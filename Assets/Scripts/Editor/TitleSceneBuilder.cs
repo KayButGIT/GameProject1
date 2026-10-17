@@ -149,7 +149,7 @@ public static class TitleSceneBuilder
 
     private static void CreateHintText(Transform parent)
     {
-        Text text = CreateText(parent, "Hint Text", "Move: WASD or Arrows     Bomb: Space     Pause: Esc", 28, TextAnchor.MiddleCenter, new Color(0.72f, 0.74f, 0.8f));
+        Text text = CreateText(parent, "Hint Text", "Move: WASD or Arrows     Bomb: Space     Pause: Esc\nDetonator: B (after pickup)", 28, TextAnchor.MiddleCenter, new Color(0.72f, 0.74f, 0.8f));
         RectTransform rect = text.rectTransform;
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(1f, 0f);

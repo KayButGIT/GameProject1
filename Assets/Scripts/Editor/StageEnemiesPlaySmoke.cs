@@ -5,6 +5,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 
 public static class StageEnemiesPlaySmoke
 {
@@ -28,6 +29,11 @@ public static class StageEnemiesPlaySmoke
         settings.FindProperty("spawnEnemies").boolValue = true;
         settings.FindProperty("useOriginalStageEnemies").boolValue = true;
         settings.FindProperty("playerCanDieFromBomb").boolValue = false;
+        settings.FindProperty("playerBodyNormalMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Body_Normal.mat");
+        settings.FindProperty("playerBodyInvincibleMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Body_Invincible.mat");
+        settings.FindProperty("playerFaceNormalMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Face_Normal.mat");
+        settings.FindProperty("playerFaceBlinkMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Face_Blink.mat");
+        settings.FindProperty("playerFaceInvincibleMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Face_Invincible.mat");
         string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { EnemyAssetBuilder.PrefabFolder });
         SerializedProperty prefabs = settings.FindProperty("enemyPrefabs");
         prefabs.arraySize = guids.Length;
@@ -59,6 +65,8 @@ public static class StageEnemiesPlaySmoke
         if (!condition) throw new Exception("Stage enemies smoke: " + message);
     }
     private static object Field(string name) => typeof(BombermanPrototype).GetField(name, Private).GetValue(game);
+    private static void SetField(string name, object value) => typeof(BombermanPrototype).GetField(name, Private).SetValue(game, value);
+    private static object Invoke(string name, params object[] arguments) => typeof(BombermanPrototype).GetMethod(name, Private).Invoke(game, arguments);
     private static BombermanMap Map => (BombermanMap)Field("map");
     private static EnemyController[] Living => ((List<GridController>)Field("actors")).OfType<EnemyController>().Where(e => e != null && !e.IsDead).ToArray();
     private static int Count<T>() => Living.Count(e => e is T);
@@ -80,6 +88,186 @@ public static class StageEnemiesPlaySmoke
         Check(OriginalStageEnemies.ResolveReferenceStage(50, 0) == 50, "Endless campaign preserves the original first 50 stages");
         for (int stage = 51; stage <= 60; stage++)
             Check(OriginalStageEnemies.ResolveReferenceStage(stage, 0) == stage - 10, "Endless campaign cycles NES Stages 41-50");
+
+        Check(OriginalStagePowerUps.GetForStage(1) == PowerUpType.FireUp, "NES Stage 1 fixed Fire Up");
+        Check(OriginalStagePowerUps.GetForStage(26) == PowerUpType.Mystery, "NES Stage 26 fixed Mystery");
+        Check(OriginalStagePowerUps.GetForStage(50) == PowerUpType.Mystery, "NES Stage 50 fixed Mystery");
+        Check(OriginalStagePowerUps.GetForStage(30, 30) == PowerUpType.Mystery, "30-stage campaign maps its final pickup to NES Stage 50");
+        Check(OriginalStagePowerUps.GetForStage(51) == PowerUpType.Detonator, "Endless Stage 51 pickup cycles to NES Stage 41");
+
+        PowerUpType[] expected =
+        {
+            PowerUpType.FireUp, PowerUpType.BombUp, PowerUpType.Detonator, PowerUpType.SpeedUp, PowerUpType.BombUp,
+            PowerUpType.BombUp, PowerUpType.FireUp, PowerUpType.Detonator, PowerUpType.BombPass, PowerUpType.WallPass,
+            PowerUpType.BombUp, PowerUpType.BombUp, PowerUpType.Detonator, PowerUpType.BombPass, PowerUpType.FireUp,
+            PowerUpType.WallPass, PowerUpType.BombUp, PowerUpType.BombPass, PowerUpType.BombUp, PowerUpType.Detonator,
+            PowerUpType.BombPass, PowerUpType.Detonator, PowerUpType.BombUp, PowerUpType.Detonator, PowerUpType.BombPass,
+            PowerUpType.Mystery, PowerUpType.FireUp, PowerUpType.BombUp, PowerUpType.Detonator, PowerUpType.FlamePass,
+            PowerUpType.WallPass, PowerUpType.BombUp, PowerUpType.Detonator, PowerUpType.Mystery, PowerUpType.BombPass,
+            PowerUpType.FlamePass, PowerUpType.Detonator, PowerUpType.FireUp, PowerUpType.WallPass, PowerUpType.Mystery,
+            PowerUpType.Detonator, PowerUpType.WallPass, PowerUpType.BombPass, PowerUpType.Detonator, PowerUpType.Mystery,
+            PowerUpType.WallPass, PowerUpType.BombPass, PowerUpType.Detonator, PowerUpType.FlamePass, PowerUpType.Mystery
+        };
+        for (int stage = 1; stage <= expected.Length; stage++)
+            Check(OriginalStagePowerUps.GetForStage(stage) == expected[stage - 1], $"NES Stage {stage} fixed pickup matches original table");
+    }
+
+    private static void CheckPowerUpAndCheatRules()
+    {
+        Check(GameObject.Find("Open Cheat Menu") != null, "Optional HUD cheat button is created when enabled");
+        RectTransform panelRect = GameObject.Find("Cheat Panel").GetComponent<RectTransform>();
+        RectTransform titleRect = GameObject.Find("Cheat Menu Title").GetComponent<RectTransform>();
+        Check(panelRect.sizeDelta == new Vector2(700f, 700f), "Cheat panel fits the stage selector and power-up controls");
+        Check(Mathf.Approximately(titleRect.anchorMin.x, 0.5f) && Mathf.Approximately(titleRect.anchorMax.x, 0.5f),
+            "Cheat title is centered within the panel");
+        game.OpenCheatMenu();
+        Check(game.IsPaused && GameObject.Find("Cheat Panel").activeSelf, "Cheat button opens a pausing panel");
+        InputField stageInput = GameObject.Find("Stage Number Input").GetComponent<InputField>();
+        Check(stageInput.contentType == InputField.ContentType.IntegerNumber && GameObject.Find("Go To Stage Cheat") != null,
+            "Cheat panel provides a numeric stage field and Go button");
+        game.CloseCheatMenu();
+        Check(!game.IsPaused && !GameObject.Find("Cheat Panel").activeSelf, "Closing cheat panel restores gameplay");
+        Check(!game.CheatGoToStage(0, out _) && manager.CurrentStage == 1, "Stage selector rejects stage zero");
+        Check(game.CheatGoToStage(2, out _) && manager.CurrentStage == 2, "Stage selector loads the requested stage");
+        manager.LoadStage(1);
+
+        int scoreBeforeCheats = game.Score;
+        game.CheatGrantAllPowerUps();
+        Check(game.PowerUps.bombUps == 9 && game.PowerUps.fireUps == 4 && game.PowerUps.speedUps == 1,
+            "All Power-Ups fills permanent upgrades to NES caps");
+        Check(game.PowerUps.cheatBombUps == 9 && game.PowerUps.cheatFireUps == 4 && game.PowerUps.cheatSpeedUps == 1,
+            "All Power-Ups records which permanent levels came from the cheat");
+        Check(game.PowerUps.detonator && game.PowerUps.bombPass && game.PowerUps.wallPass && game.PowerUps.flamePass,
+            "All Power-Ups grants each special ability");
+        Check(game.Score == scoreBeforeCheats, "Cheat grants award no pickup score");
+        Invoke("ResetPowerUps");
+
+        int scoreBeforePickup = game.Score;
+        Invoke("ApplyPowerUp", PowerUpType.BombUp, true);
+        Check(game.Score == scoreBeforePickup + 1000, "Ordinary power-up pickup awards 1,000 points");
+        Invoke("ResetPowerUps");
+
+        for (int i = 0; i < 16; i++) Invoke("ApplyPowerUp", PowerUpType.BombUp, false);
+        for (int i = 0; i < 8; i++) Invoke("ApplyPowerUp", PowerUpType.FireUp, false);
+        for (int i = 0; i < 5; i++) Invoke("ApplyPowerUp", PowerUpType.SpeedUp, false);
+        Check((int)Field("maxBombs") == 10 && (int)Field("blastRange") == 5 && game.PowerUps.speedUps == 1,
+            "Repeated pickups stop at 10 bombs, range 5, and one Speed Up");
+        float baseSpeed = (float)Field("playerMoveSpeed");
+        float baseAcceleration = (float)Field("playerAcceleration");
+        float baseDeceleration = (float)Field("playerDeceleration");
+        Check(Mathf.Approximately((float)Invoke("GetPlayerMoveSpeed"), baseSpeed * 2f), "Speed Up doubles base movement speed");
+        Check(Mathf.Approximately(((PlayerController)Field("player")).MoveSpeed, baseSpeed * 2f), "Speed Up applies doubled movement speed to the player");
+        Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveAcceleration, baseAcceleration * 2f), "Speed Up scales acceleration so the boost ramps up at the same rate");
+        Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveDeceleration, baseDeceleration * 2f), "Speed Up scales deceleration so braking remains proportional");
+        Invoke("ResetPowerUps");
+        Check(Mathf.Approximately(((PlayerController)Field("player")).MoveSpeed, baseSpeed), "Reset restores base movement speed");
+        Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveAcceleration, baseAcceleration), "Reset restores base movement acceleration");
+        Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveDeceleration, baseDeceleration), "Reset restores base movement deceleration");
+
+        Invoke("ApplyPowerUp", PowerUpType.Detonator, false);
+        game.TryDropBomb();
+        Dictionary<Vector2Int, Bomb> placedBombs = (Dictionary<Vector2Int, Bomb>)Field("bombs");
+        Check(placedBombs.Count == 1, "Player can place a bomb with Detonator");
+        Bomb testBomb = placedBombs.Values.Single();
+        typeof(Bomb).GetField("blocksMovement", Private).SetValue(testBomb, true);
+        Check(game.IsBombBlockingCell(testBomb.Cell), "Bomb blocks the player before Bomb Pass");
+        Invoke("ApplyPowerUp", PowerUpType.BombPass, false);
+        Check(!game.IsBombBlockingCell(testBomb.Cell), "Bomb Pass lets the player walk through bombs");
+        Invoke("DetonateOldestBomb");
+        Check(testBomb.DetonateRequested, "Detonator triggers a placed bomb manually");
+
+        Invoke("ApplyPowerUp", PowerUpType.WallPass, false);
+        Check(((PlayerController)Field("player")).CanPassDestructibleWalls, "Wall Pass allows passage through destructible walls");
+        SetField("playerCanDieFromBomb", true);
+        Invoke("ApplyPowerUp", PowerUpType.FlamePass, false);
+        Invoke("DamageActorsAt", game.PlayerCell);
+        Check(game.HasLivingPlayer, "Flame Pass protects the player from their own bomb blast");
+        SetField("playerCanDieFromBomb", false);
+        Invoke("ResetPowerUps");
+
+        game.CheatGrantPowerUp(PowerUpType.Mystery);
+        Check(Mathf.Approximately((float)Field("mysteryTimeLeft"), 35f), "Mystery grants the original 35-second invincibility duration");
+        Check(game.IsInvincible, "Mystery protects against enemy contact and bomb damage");
+        PlayerController mysteryPlayer = (PlayerController)Field("player");
+        SetField("playerCanDieFromBomb", true);
+        Invoke("DamageActorsAt", game.PlayerCell);
+        Check(!mysteryPlayer.IsDead, "Mystery prevents bomb damage even when ordinary bombs are lethal");
+        EnemyController contactEnemy = Living.First();
+        Vector2Int previousEnemyCell = contactEnemy.Cell;
+        Vector3 previousEnemyPosition = contactEnemy.transform.position;
+        contactEnemy.Cell = game.PlayerCell;
+        contactEnemy.transform.position = mysteryPlayer.transform.position;
+        Invoke("KillPlayerIfEnemyTouches");
+        Check(!mysteryPlayer.IsDead, "Mystery prevents death on enemy contact");
+        contactEnemy.Cell = previousEnemyCell;
+        contactEnemy.transform.position = previousEnemyPosition;
+        Invoke("UpdatePowerUps");
+        Material bodyInvincible = (Material)typeof(PlayerController).GetField("bodyInvincibleMaterial", Private).GetValue(mysteryPlayer);
+        int bodyIndex = (int)typeof(PlayerController).GetField("bodyMaterialIndex", Private).GetValue(mysteryPlayer);
+        Material faceInvincible = (Material)typeof(PlayerController).GetField("faceInvincibleMaterial", Private).GetValue(mysteryPlayer);
+        int faceIndex = (int)typeof(PlayerController).GetField("faceMaterialIndex", Private).GetValue(mysteryPlayer);
+        Renderer faceRenderer = (Renderer)typeof(PlayerController).GetField("faceRenderer", Private).GetValue(mysteryPlayer);
+        Check(mysteryPlayer.BodyRenderer.enabled && mysteryPlayer.BodyRenderer.materials[bodyIndex] == bodyInvincible,
+            "Mystery applies the invincible body material without hiding the player");
+        Check(faceRenderer.materials[faceIndex] == faceInvincible, "Mystery applies the invincible face material without blinking");
+        SetField("mysteryTimeLeft", 0f);
+        Invoke("UpdatePowerUps");
+        Check(!game.IsInvincible, "Mystery protection ends when its timer expires");
+        Material bodyNormal = (Material)typeof(PlayerController).GetField("bodyNormalMaterial", Private).GetValue(mysteryPlayer);
+        Material faceNormal = (Material)typeof(PlayerController).GetField("faceNormalMaterial", Private).GetValue(mysteryPlayer);
+        Check(mysteryPlayer.BodyRenderer.materials[bodyIndex] == bodyNormal, "Mystery expiry restores the normal body material");
+        Check(faceRenderer.materials[faceIndex] == faceNormal, "Mystery expiry restores the normal face material");
+        SetField("playerCanDieFromBomb", false);
+        game.CheatGrantAllPowerUps();
+        Check((int)Field("maxBombs") == 10 && (int)Field("blastRange") == 5, "Grant All remains clamped to maxima");
+        game.SetGodMode(true);
+        Check(game.GodModeEnabled, "God Mode cheat enables god mode");
+        game.ToggleGodMode();
+        Check(!game.GodModeEnabled, "God Mode menu toggle disables god mode");
+        Invoke("ResetPowerUps");
+
+        PowerUpState state = game.PowerUps;
+        state.bombUps = 2;
+        state.fireUps = 3;
+        state.speedUps = 1;
+        state.detonator = state.bombPass = state.wallPass = state.flamePass = true;
+        SetField("mysteryTimeLeft", 10f);
+        Invoke("ResetTemporaryPowerUpsOnDeath");
+        Check(state.bombUps == 2 && state.fireUps == 3 && state.speedUps == 1,
+            "Death keeps permanent Bomb, Fire, and Speed upgrades");
+        Check(!state.detonator && !state.bombPass && !state.wallPass && !state.flamePass
+            && (float)Field("mysteryTimeLeft") == 0f, "Death clears temporary abilities and Mystery");
+        state.bombUps = 3;
+        state.fireUps = 3;
+        state.speedUps = 1;
+        state.cheatBombUps = 1;
+        state.cheatFireUps = 2;
+        state.cheatSpeedUps = 1;
+        SetField("maxBombs", (int)Field("baseMaxBombs") + state.bombUps);
+        SetField("blastRange", (int)Field("baseBlastRange") + state.fireUps);
+        state.detonator = state.bombPass = state.wallPass = state.flamePass = true;
+        SetField("mysteryTimeLeft", 10f);
+        Type deathCause = typeof(BombermanPrototype).GetNestedType("PlayerDeathCause", BindingFlags.NonPublic);
+        System.Collections.IEnumerator deathSequence = (System.Collections.IEnumerator)Invoke(
+            "PlayerDeathSequence", Enum.Parse(deathCause, "Enemy"));
+        Check(deathSequence.MoveNext(), "Death sequence starts");
+        Check(!state.detonator && !state.bombPass && !state.wallPass && !state.flamePass
+            && (float)Field("mysteryTimeLeft") == 0f, "Death sequence clears temporary power-ups immediately");
+        Check(state.bombUps == 2 && state.fireUps == 1 && state.speedUps == 0
+            && (int)Field("maxBombs") == (int)Field("baseMaxBombs") + 2
+            && (int)Field("blastRange") == (int)Field("baseBlastRange") + 1
+            && state.cheatBombUps == 0 && state.cheatFireUps == 0 && state.cheatSpeedUps == 0,
+            "Death removes permanent levels granted by cheats while keeping normal pickups");
+        manager.LoadStage(1);
+        SetField("powerUpState", new PowerUpState());
+        SetField("maxBombs", Field("baseMaxBombs"));
+        SetField("blastRange", Field("baseBlastRange"));
+        game.SetGodMode(false);
+
+        int stageBeforeSkip = manager.CurrentStage;
+        game.CheatSkipToNextStage();
+        Check(manager.CurrentStage == stageBeforeSkip + 1, "Next Stage cheat advances the stage");
+        manager.LoadStage(stageBeforeSkip);
     }
 
     private static void Tick()
@@ -93,14 +281,55 @@ public static class StageEnemiesPlaySmoke
             {
                 game = UnityEngine.Object.FindFirstObjectByType<BombermanPrototype>();
                 if (game == null || !game.IsReady) return;
+                if (game.IsPaused) return;
                 CheckDifficultyMapping();
                 manager = game.GetComponent<StageManager>();
                 EnemyController[] enemies = Living;
                 Check(enemies.Length == 6 && enemies.All(e => e is ValcomEnemy), "Stage 1 spawns six Valcoms");
                 Check(enemies.All(e => e.Cell.x >= 5 && Map.GetCellKind(e.Cell) == CellKind.Empty), "Stage enemies start on empty cells from column 5");
+                Check(enemies.All(e => Mathf.Abs(e.Cell.x - game.PlayerCell.x) + Mathf.Abs(e.Cell.y - game.PlayerCell.y) > 5),
+                    "Stage enemies start more than five tiles from the player");
                 Check(enemies.Select(e => e.Cell).Distinct().Count() == enemies.Length, "Stage enemies start on separate cells");
                 Check(HudText == "TIME 200", "HUD shows the stage time");
                 Check((Type)Field("exitWaveEnemyType") == typeof(OnealEnemy), "Stage 1 exit enemy");
+                CheckPowerUpAndCheatRules();
+                manager.LoadStage(1);
+                Vector2Int itemCell = (Vector2Int)Field("hiddenPowerUpCell");
+                Vector2Int blastOrigin = BombermanPrototype.Directions
+                    .Select(direction => itemCell + direction)
+                    .FirstOrDefault(cell => Map.IsWalkable(cell) && cell != game.PlayerCell
+                        && !Living.Any(enemy => enemy.Cell == cell));
+                Check(Map.IsWalkable(blastOrigin) && blastOrigin != game.PlayerCell
+                    && !Living.Any(enemy => enemy.Cell == blastOrigin), "Find an empty adjacent cell to reveal the hidden power-up");
+                Invoke("Explode", blastOrigin);
+                Check(((List<PowerUp>)Field("powerUps")).Count == 1, "Blast revealing a hidden power-up leaves it intact");
+                int survivingEnemiesBeforeWave = Living.Length;
+                Invoke("Explode", blastOrigin);
+                Check(((List<PowerUp>)Field("powerUps")).Count == 0, "Later blast destroys the revealed power-up");
+                Check(Living.Length <= survivingEnemiesBeforeWave, "Blast does not add enemies before the configured wave delay");
+                phase = 1;
+                deadline = EditorApplication.timeSinceStartup + 3.0;
+            }
+            else if (phase == 1)
+            {
+                if ((int)Field("pendingExitWaves") > 0) return;
+                Check(Living.Length == 10 && Count<OnealEnemy>() == 10 - Count<ValcomEnemy>(),
+                    "Bombed Stage 1 power-up spawns that stage's exit enemy up to the cap");
+                Check(Living.All(e => Mathf.Abs(e.Cell.x - game.PlayerCell.x) + Mathf.Abs(e.Cell.y - game.PlayerCell.y) > 5),
+                    "Power-up enemies spawn more than five tiles from the player");
+                Vector2Int exitCell = Map.ExitDoor.Cell;
+                if (Map.GetCellKind(exitCell) == CellKind.Destructible) Map.DestroyDestructibleAt(exitCell);
+                Check(Map.ExitDoor.IsRevealed, "Exit is visible before the exit blast test");
+                Invoke("Explode", exitCell);
+                phase = 2;
+                deadline = EditorApplication.timeSinceStartup + 3.0;
+            }
+            else if (phase == 2)
+            {
+                if ((int)Field("pendingExitWaves") > 0) return;
+                Check(Living.Length == 10, "Blast on the revealed exit cannot exceed the 10-enemy cap");
+                Check(Living.All(e => Mathf.Abs(e.Cell.x - game.PlayerCell.x) + Mathf.Abs(e.Cell.y - game.PlayerCell.y) > 5),
+                    "Exit enemies spawn more than five tiles from the player");
                 manager.LoadStage(35);
                 Check(Living.Length == 9 && Count<DahlEnemy>() == 2 && Count<MinuoEnemy>() == 1 && Count<OvapeEnemy>() == 1 && Count<DoriaEnemy>() == 3 && Count<PassEnemy>() == 2, "Stage 35 roster skips the empty slot");
                 Check((Type)Field("exitWaveEnemyType") == typeof(DoriaEnemy), "Stage 35 exit enemy");
@@ -111,10 +340,10 @@ public static class StageEnemiesPlaySmoke
                 Check((Type)Field("exitWaveEnemyType") == typeof(OvapeEnemy), "Endless Stage 51 exit enemy cycles to NES Stage 41");
                 typeof(BombermanPrototype).GetField("stageTimeLimit", Private).SetValue(game, 0.3f);
                 manager.LoadStage(1);
-                phase = 1;
+                phase = 3;
                 deadline = EditorApplication.timeSinceStartup + 3.0;
             }
-            else if (phase == 1)
+            else if (phase == 3)
             {
                 if (!(bool)Field("timeUp"))
                 {
@@ -123,9 +352,10 @@ public static class StageEnemiesPlaySmoke
                 }
                 EnemyController[] pontans = Living;
                 Check(pontans.Length == 10 && pontans.All(e => e is PontanEnemy), "Time-out replaces every enemy with ten Pontans");
-                Check(pontans.All(e => (e.Cell.x >= 3 || e.Cell.y >= 3) && Map.GetCellKind(e.Cell) == CellKind.Empty), "Time-out Pontans avoid walls and the start corner");
+                Check(pontans.All(e => Mathf.Abs(e.Cell.x - game.PlayerCell.x) + Mathf.Abs(e.Cell.y - game.PlayerCell.y) > 5
+                    && Map.GetCellKind(e.Cell) == CellKind.Empty), "Time-out Pontans spawn on walkable cells more than five Manhattan steps from the player");
                 Check(HudText == "TIME 0", "HUD shows zero after time-out");
-                Debug.Log("STAGE_ENEMIES_SMOKE_PASS: stage scaling, endless cycle, corrected Doria/Ovape IDs, stage rosters, spawn cells, HUD, exit enemies, time-out Pontans.");
+                Debug.Log("STAGE_ENEMIES_SMOKE_PASS: stage scaling, endless cycle, corrected enemy IDs, power-up table/caps/death/cheats, revealed-item blast waves, enemy caps, HUD, timeout distance.");
                 Finish(0);
             }
         }
