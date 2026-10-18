@@ -4,7 +4,7 @@ public sealed class Bomb : MonoBehaviour
 {
     public Vector2Int Cell;
 
-    // 1 for the first bomb placed on the stage, then counting up. The Detonator fires the lowest one first.
+    // 1 for the first bomb placed on the stage, then counting up.
     public int PlacedOrder;
     // Set by BombermanPrototype when the player presses the detonator key; the fuse coroutine then explodes the bomb.
     public bool DetonateRequested;

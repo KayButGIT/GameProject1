@@ -63,12 +63,16 @@ public sealed class CheatMenu
         closeButton.onClick.AddListener(game.CloseCheatMenu);
 
         Button nextStage = CreateButton(panelObject.transform, "Next Stage Cheat", "NEXT STAGE", new Vector2(0.5f, 1f),
-            new Vector2(-158f, -112f), new Vector2(300f, 58f), 25);
+            new Vector2(-230f, -112f), new Vector2(200f, 58f), 18);
         nextStage.onClick.AddListener(game.CheatSkipToNextStage);
 
         Button allPowerUps = CreateButton(panelObject.transform, "All Power Ups Cheat", "ALL POWER-UPS", new Vector2(0.5f, 1f),
-            new Vector2(158f, -112f), new Vector2(300f, 58f), 25);
+            new Vector2(0f, -112f), new Vector2(200f, 58f), 20);
         allPowerUps.onClick.AddListener(game.CheatGrantAllPowerUps);
+
+        Button revealPowerUp = CreateButton(panelObject.transform, "Reveal Power Up Location Cheat", "REVEAL POWER-UP", new Vector2(0.5f, 1f),
+            new Vector2(230f, -112f), new Vector2(200f, 58f), 18);
+        revealPowerUp.onClick.AddListener(() => game.CheatRevealPowerUpLocation());
 
         InputField stageNumber = CreateStageNumberInput(panelObject.transform);
         Button goToStage = CreateButton(panelObject.transform, "Go To Stage Cheat", "GO", new Vector2(0.5f, 1f),

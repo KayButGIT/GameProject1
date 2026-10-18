@@ -15,6 +15,9 @@ public static class StageEnemiesPlaySmoke
     private static StageManager manager;
     private static int phase;
     private static double deadline, watchdog;
+    private static double lastExitSpawnTime;
+    private static int lastExitEnemyCount;
+    private static int staggeredExitSpawnCount;
     private static bool failed;
 
     public static void Run()
@@ -125,10 +128,17 @@ public static class StageEnemiesPlaySmoke
         InputField stageInput = GameObject.Find("Stage Number Input").GetComponent<InputField>();
         Check(stageInput.contentType == InputField.ContentType.IntegerNumber && GameObject.Find("Go To Stage Cheat") != null,
             "Cheat panel provides a numeric stage field and Go button");
+        Check(GameObject.Find("Reveal Power Up Location Cheat") != null, "Cheat panel provides the reveal-location action");
         game.CloseCheatMenu();
         Check(!game.IsPaused && !GameObject.Find("Cheat Panel").activeSelf, "Closing cheat panel restores gameplay");
         Check(!game.CheatGoToStage(0, out _) && manager.CurrentStage == 1, "Stage selector rejects stage zero");
         Check(game.CheatGoToStage(2, out _) && manager.CurrentStage == 2, "Stage selector loads the requested stage");
+        manager.LoadStage(1);
+        int revealScore = game.Score;
+        Check(game.CheatRevealPowerUpLocation() && GameObject.Find("Cheat Hidden Power-up Marker") != null,
+            "Reveal cheat marks the hidden item's location");
+        Check((bool)Field("hasHiddenPowerUp") && ((List<PowerUp>)Field("powerUps")).Count == 0 && game.Score == revealScore,
+            "Reveal marker does not uncover or collect the item");
         manager.LoadStage(1);
 
         int scoreBeforeCheats = game.Score;
@@ -159,6 +169,18 @@ public static class StageEnemiesPlaySmoke
         Check(Mathf.Approximately(((PlayerController)Field("player")).MoveSpeed, baseSpeed * 2f), "Speed Up applies doubled movement speed to the player");
         Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveAcceleration, baseAcceleration * 2f), "Speed Up scales acceleration so the boost ramps up at the same rate");
         Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveDeceleration, baseDeceleration * 2f), "Speed Up scales deceleration so braking remains proportional");
+        SoundManager soundManager = SoundManager.Instance;
+        Check(soundManager != null, "Footstep test can use the shared SoundManager");
+        soundManager.PlayFootstep(game.CurrentStagePhase, 1f);
+        AudioSource footstepSource = (AudioSource)typeof(SoundManager).GetField("footstepSource", Private).GetValue(soundManager);
+        float normalFootstepPitch = footstepSource.pitch;
+        soundManager.PlayFootstep(game.CurrentStagePhase, 2f);
+        Check(footstepSource.pitch > normalFootstepPitch, "Speed multiplier raises footstep pitch while preserving pitch variation");
+        MethodInfo walkCycleMethod = typeof(PlayerAnimationBridge).GetMethod("CalculateWalkCycleSpeed", Private | BindingFlags.Static);
+        float normalWalkCycleSpeed = (float)walkCycleMethod.Invoke(null, new object[] { baseSpeed, baseSpeed, 1f });
+        float boostedWalkCycleSpeed = (float)walkCycleMethod.Invoke(null, new object[] { baseSpeed * 2f, baseSpeed * 2f, game.PlayerSpeedMultiplier });
+        Check(Mathf.Approximately(boostedWalkCycleSpeed, normalWalkCycleSpeed * 2f),
+            "Speed Up doubles animation footstep cadence to match player movement");
         Invoke("ResetPowerUps");
         Check(Mathf.Approximately(((PlayerController)Field("player")).MoveSpeed, baseSpeed), "Reset restores base movement speed");
         Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveAcceleration, baseAcceleration), "Reset restores base movement acceleration");
@@ -173,8 +195,26 @@ public static class StageEnemiesPlaySmoke
         Check(game.IsBombBlockingCell(testBomb.Cell), "Bomb blocks the player before Bomb Pass");
         Invoke("ApplyPowerUp", PowerUpType.BombPass, false);
         Check(!game.IsBombBlockingCell(testBomb.Cell), "Bomb Pass lets the player walk through bombs");
-        Invoke("DetonateOldestBomb");
-        Check(testBomb.DetonateRequested, "Detonator triggers a placed bomb manually");
+        Vector2Int secondBombCell = new(-1, -1);
+        for (int x = 1; x < 14 && secondBombCell.x < 0; x++)
+        for (int y = 1; y < 10; y++)
+        {
+            Vector2Int candidate = new(x, y);
+            if (Map.IsWalkable(candidate) && candidate != testBomb.Cell && !Living.Any(enemy => enemy.Cell == candidate))
+            {
+                secondBombCell = candidate;
+                break;
+            }
+        }
+        Check(secondBombCell.x >= 0, "Find an empty cell for a second detonator test bomb");
+        GameObject secondBombObject = new("Second Detonator Test Bomb");
+        secondBombObject.transform.SetParent(((GameObject)Field("stageRoot")).transform, true);
+        secondBombObject.transform.position = Map.CellToWorld(secondBombCell);
+        Bomb secondBomb = secondBombObject.AddComponent<Bomb>();
+        secondBomb.Initialize(secondBombCell, ((PlayerController)Field("player")).transform, 0f);
+        placedBombs.Add(secondBombCell, secondBomb);
+        Invoke("DetonateAllBombs");
+        Check(testBomb.DetonateRequested && secondBomb.DetonateRequested, "One Detonator press requests every placed bomb together");
 
         Invoke("ApplyPowerUp", PowerUpType.WallPass, false);
         Check(((PlayerController)Field("player")).CanPassDestructibleWalls, "Wall Pass allows passage through destructible walls");
@@ -303,33 +343,83 @@ public static class StageEnemiesPlaySmoke
                     && !Living.Any(enemy => enemy.Cell == blastOrigin), "Find an empty adjacent cell to reveal the hidden power-up");
                 Invoke("Explode", blastOrigin);
                 Check(((List<PowerUp>)Field("powerUps")).Count == 1, "Blast revealing a hidden power-up leaves it intact");
+                Transform powerUpVisual = ((List<PowerUp>)Field("powerUps"))[0].transform.Find("Visual");
+                Check(powerUpVisual.Find("Outline Shell") == null
+                    && powerUpVisual.Cast<Transform>().Count(child => child.name == "Square Outline Edge") == 4,
+                    "Power-up highlight is a flat four-edge square");
                 int survivingEnemiesBeforeWave = Living.Length;
                 Invoke("Explode", blastOrigin);
                 Check(((List<PowerUp>)Field("powerUps")).Count == 0, "Later blast destroys the revealed power-up");
-                Check(Living.Length <= survivingEnemiesBeforeWave, "Blast does not add enemies before the configured wave delay");
+                Check(Living.Length == survivingEnemiesBeforeWave && (int)Field("pendingExitWaves") == 0,
+                    "Blast destroying a power-up releases no enemies");
                 phase = 1;
                 deadline = EditorApplication.timeSinceStartup + 3.0;
             }
             else if (phase == 1)
             {
-                if ((int)Field("pendingExitWaves") > 0) return;
-                Check(Living.Length == 10 && Count<OnealEnemy>() == 10 - Count<ValcomEnemy>(),
-                    "Bombed Stage 1 power-up spawns that stage's exit enemy up to the cap");
-                Check(Living.All(e => Mathf.Abs(e.Cell.x - game.PlayerCell.x) + Mathf.Abs(e.Cell.y - game.PlayerCell.y) > 5),
-                    "Power-up enemies spawn more than five tiles from the player");
+                Check(Living.Length == 6 && (int)Field("pendingExitWaves") == 0,
+                    "Destroyed power-up leaves the enemy count unchanged");
+                List<GridController> actors = (List<GridController>)Field("actors");
+                foreach (EnemyController enemy in Living)
+                {
+                    actors.Remove(enemy);
+                    UnityEngine.Object.Destroy(enemy.gameObject);
+                }
                 Vector2Int exitCell = Map.ExitDoor.Cell;
                 if (Map.GetCellKind(exitCell) == CellKind.Destructible) Map.DestroyDestructibleAt(exitCell);
                 Check(Map.ExitDoor.IsRevealed, "Exit is visible before the exit blast test");
+                Vector2Int nearbyPlayerCell = BombermanPrototype.Directions
+                    .Select(direction => exitCell + direction)
+                    .FirstOrDefault(cell => Map.IsWalkable(cell));
+                Check(Map.IsWalkable(nearbyPlayerCell), "Find a player cell close enough to bomb the door");
+                PlayerController testPlayer = (PlayerController)Field("player");
+                testPlayer.Cell = nearbyPlayerCell;
+                testPlayer.transform.position = Map.CellToWorld(nearbyPlayerCell);
                 Invoke("Explode", exitCell);
+                lastExitEnemyCount = Living.Length;
+                lastExitSpawnTime = -1d;
+                staggeredExitSpawnCount = 0;
                 phase = 2;
                 deadline = EditorApplication.timeSinceStartup + 3.0;
             }
             else if (phase == 2)
             {
+                int currentExitEnemyCount = Living.Length;
+                if (currentExitEnemyCount > lastExitEnemyCount)
+                {
+                    Check(currentExitEnemyCount == lastExitEnemyCount + 1, "Exit wave adds at most one enemy between spawn intervals");
+                    double now = EditorApplication.timeSinceStartup;
+                    if (lastExitSpawnTime >= 0d)
+                        Check(now - lastExitSpawnTime >= 0.45d, "Exit enemies are staggered by about half a second");
+                    lastExitSpawnTime = now;
+                    staggeredExitSpawnCount++;
+                    lastExitEnemyCount = currentExitEnemyCount;
+                }
                 if ((int)Field("pendingExitWaves") > 0) return;
-                Check(Living.Length == 10, "Blast on the revealed exit cannot exceed the 10-enemy cap");
-                Check(Living.All(e => Mathf.Abs(e.Cell.x - game.PlayerCell.x) + Mathf.Abs(e.Cell.y - game.PlayerCell.y) > 5),
-                    "Exit enemies spawn more than five tiles from the player");
+                Check(Living.Length == 3 && Living.Count(e => e.name.Contains("(Exit)")) == 3,
+                    "First revealed-exit hit releases three enemies");
+                Check((int)Field("exitDoorHitCount") == 1, "First door hit is recorded for incremental spawn counts");
+                Check(staggeredExitSpawnCount == 3, "All three exit enemies were observed as separate spawns");
+                Vector3 playerPosition = ((PlayerController)Field("player")).transform.position;
+                Check(Living.All(e => (e.transform.position - playerPosition).sqrMagnitude >= 0.81f),
+                    "Exit wave completes while the player stays near the door without overlapping");
+                Check(Living.Select(e => e.Cell).Distinct().Count() == Living.Length,
+                    "Exit enemies do not stack on the same cell");
+                Invoke("Explode", Map.ExitDoor.Cell);
+                lastExitEnemyCount = Living.Length;
+                phase = 3;
+                deadline = EditorApplication.timeSinceStartup + 4.0;
+            }
+            else if (phase == 3)
+            {
+                if ((int)Field("pendingExitWaves") > 0)
+                {
+                    Check(EditorApplication.timeSinceStartup < deadline, "Staggered exit wave completes");
+                    return;
+                }
+                Check(Living.Length == lastExitEnemyCount + 1 && Living.Count(e => e.name.Contains("(Exit)")) == Living.Length,
+                    "Each repeated exit hit releases exactly one more enemy");
+                Check((int)Field("exitDoorHitCount") == 2, "Repeated door hit increments the door-hit count");
                 manager.LoadStage(35);
                 Check(Living.Length == 9 && Count<DahlEnemy>() == 2 && Count<MinuoEnemy>() == 1 && Count<OvapeEnemy>() == 1 && Count<DoriaEnemy>() == 3 && Count<PassEnemy>() == 2, "Stage 35 roster skips the empty slot");
                 Check((Type)Field("exitWaveEnemyType") == typeof(DoriaEnemy), "Stage 35 exit enemy");
@@ -340,10 +430,10 @@ public static class StageEnemiesPlaySmoke
                 Check((Type)Field("exitWaveEnemyType") == typeof(OvapeEnemy), "Endless Stage 51 exit enemy cycles to NES Stage 41");
                 typeof(BombermanPrototype).GetField("stageTimeLimit", Private).SetValue(game, 0.3f);
                 manager.LoadStage(1);
-                phase = 3;
+                phase = 4;
                 deadline = EditorApplication.timeSinceStartup + 3.0;
             }
-            else if (phase == 3)
+            else if (phase == 4)
             {
                 if (!(bool)Field("timeUp"))
                 {

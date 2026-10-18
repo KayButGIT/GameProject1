@@ -35,7 +35,7 @@ public sealed class PlayerAnimationBridge : MonoBehaviour
         player?.PlayFootstepFromAnimation();
     }
 
-    public void SetMovement(float speed, float maxSpeed)
+    public void SetMovement(float speed, float maxSpeed, float walkCycleMultiplier = 1f)
     {
         if (animator == null)
         {
@@ -49,8 +49,7 @@ public sealed class PlayerAnimationBridge : MonoBehaviour
 
         if (hasWalkCycleSpeed)
         {
-            float speedRatio = maxSpeed > 0.001f ? Mathf.Clamp01(speed / maxSpeed) : 0f;
-            float walkCycleSpeed = Mathf.Lerp(MinWalkCycleSpeed, MaxWalkCycleSpeed, speedRatio);
+            float walkCycleSpeed = CalculateWalkCycleSpeed(speed, maxSpeed, walkCycleMultiplier);
             animator.SetFloat(WalkCycleSpeedHash, walkCycleSpeed, WalkCycleDampTime, Time.deltaTime);
         }
 
@@ -115,5 +114,11 @@ public sealed class PlayerAnimationBridge : MonoBehaviour
                 hasDie = true;
             }
         }
+    }
+
+    private static float CalculateWalkCycleSpeed(float speed, float maxSpeed, float multiplier)
+    {
+        float speedRatio = maxSpeed > 0.001f ? Mathf.Clamp01(speed / maxSpeed) : 0f;
+        return Mathf.Lerp(MinWalkCycleSpeed, MaxWalkCycleSpeed, speedRatio) * Mathf.Max(0.01f, multiplier);
     }
 }

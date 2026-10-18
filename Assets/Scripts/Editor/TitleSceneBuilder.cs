@@ -143,19 +143,22 @@ public static class TitleSceneBuilder
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
-        rect.offsetMin = new Vector2(0f, -240f);
-        rect.offsetMax = new Vector2(0f, -70f);
+        rect.offsetMin = new Vector2(0f, -220f);
+        rect.offsetMax = new Vector2(0f, -55f);
     }
 
     private static void CreateHintText(Transform parent)
     {
-        Text text = CreateText(parent, "Hint Text", "Move: WASD or Arrows     Bomb: Space     Pause: Esc\nDetonator: B (after pickup)", 28, TextAnchor.MiddleCenter, new Color(0.72f, 0.74f, 0.8f));
+        Text text = CreateText(parent, "Hint Text", "Move: WASD or Arrows     Bomb: Space     Pause: Esc\nDetonator: X (after pickup)", 28, TextAnchor.MiddleCenter, new Color(0.72f, 0.74f, 0.8f));
+        text.resizeTextForBestFit = true;
+        text.resizeTextMinSize = 18;
+        text.resizeTextMaxSize = 28;
         RectTransform rect = text.rectTransform;
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(1f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        rect.offsetMin = new Vector2(0f, 40f);
-        rect.offsetMax = new Vector2(0f, 100f);
+        rect.offsetMin = new Vector2(50f, 35f);
+        rect.offsetMax = new Vector2(-50f, 115f);
     }
 
     // Menu sits on the left half, so the title model stays visible on the right.

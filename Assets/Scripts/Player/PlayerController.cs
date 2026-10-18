@@ -104,7 +104,7 @@ public sealed class PlayerController : GridController
         }
 
         MoveFreely(moveInput, map, game.IsBombBlockingCell);
-        animationBridge?.SetMovement(CurrentFreeMoveSpeed, MoveSpeed);
+        animationBridge?.SetMovement(CurrentFreeMoveSpeed, MoveSpeed, game.PlayerSpeedMultiplier);
     }
 
     public void PlayFootstepFromAnimation()
@@ -112,7 +112,7 @@ public sealed class PlayerController : GridController
         if (game == null || game.IsPaused || IsDead || CurrentFreeMoveSpeed <= 0.18f)
             return;
 
-        SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase);
+        SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase, game.PlayerSpeedMultiplier);
     }
 
     public void SetInvincibleMaterials(bool active)
