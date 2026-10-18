@@ -4,6 +4,7 @@ using System.Collections.Generic;
 public static class OriginalStageEnemies
 {
     public const int StageCount = 50;
+    public const int StageEnemyCap = 15;
     public const int MaxEnemies = 10;
 
     // ROM enemy ids; 0 is an empty slot.

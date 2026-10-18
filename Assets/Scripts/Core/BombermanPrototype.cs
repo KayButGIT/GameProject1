@@ -173,6 +173,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     private int pendingExitWaves;
     private bool exitWaveSpawning;
     private readonly Queue<int> exitWaveSpawnCounts = new();
+    private readonly Queue<Vector2Int> powerUpEnemySpawnCells = new();
+    private bool powerUpEnemySpawning;
+    private int pendingPowerUpEnemySpawns;
     private int exitDoorHitCount;
     private bool stageClearing;
     private StageHud stageHud;
@@ -271,6 +274,9 @@ public sealed class BombermanPrototype : MonoBehaviour
         pendingExitWaves = 0;
         exitWaveSpawning = false;
         exitWaveSpawnCounts.Clear();
+        powerUpEnemySpawnCells.Clear();
+        powerUpEnemySpawning = false;
+        pendingPowerUpEnemySpawns = 0;
         exitDoorHitCount = 0;
         timeLeft = stageTimeLimit;
         timeUp = false;
@@ -645,7 +651,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private void SpawnEnemyGroup(System.Type enemyType, int count, System.Func<Vector2Int> findCell)
     {
         if (count <= 0) return;
-        count = Mathf.Min(count, Mathf.Max(0, OriginalStageEnemies.MaxEnemies - CountLivingEnemies()));
+        count = Mathf.Min(count, Mathf.Max(0, OriginalStageEnemies.StageEnemyCap - CountLivingEnemies()));
         if (count == 0) return;
         EnemyController prefab = FindEnemyPrefab(enemyType);
         if (prefab == null)
@@ -693,9 +699,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     public void RegisterEnemy(EnemyController enemy)
     {
         if (!IsReady || enemy == null || actors.Contains(enemy)) return;
-        if (CountLivingEnemies() >= OriginalStageEnemies.MaxEnemies)
+        if (CountLivingEnemies() >= OriginalStageEnemies.StageEnemyCap)
         {
-            Debug.LogWarning($"The stage already has {OriginalStageEnemies.MaxEnemies} living enemies; ignoring {enemy.name}.", this);
+            Debug.LogWarning($"The stage already has {OriginalStageEnemies.StageEnemyCap} living enemies; ignoring {enemy.name}.", this);
             enemy.gameObject.SetActive(false);
             return;
         }
@@ -1035,7 +1041,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         if (exitWasRevealed && exitDoorPopulationCap > 0 && blastCells.Contains(exitDoor.Cell))
         {
             int requestedAmount = 3 + exitDoorHitCount;
-            int amount = Mathf.Min(requestedAmount, Mathf.Clamp(exitDoorPopulationCap, 0, OriginalStageEnemies.MaxEnemies));
+            int amount = Mathf.Min(requestedAmount, Mathf.Clamp(exitDoorPopulationCap, 0, OriginalStageEnemies.StageEnemyCap));
             exitDoorHitCount++;
             LogSpawnEvent($"Blast from {origin} hit the open exit at {exitDoor.Cell}. Queued {amount} enemy/enemies ({exitDoorHitCount} door hit(s)).");
             exitWaveSpawnCounts.Enqueue(amount);
@@ -1054,9 +1060,65 @@ public sealed class BombermanPrototype : MonoBehaviour
             if (item == null || !blastCells.Contains(item.Cell)) continue;
             Vector2Int cell = item.Cell;
             powerUps.Remove(item);
+            map.ShowGrassAt(cell);
             Destroy(item.gameObject);
-            LogSpawnEvent($"Blast destroyed the {item.Type} power-up at {cell}. No enemies released.");
+            LogSpawnEvent($"Blast destroyed the {item.Type} power-up at {cell}. Queued one {exitWaveEnemyType.Name}.");
+            powerUpEnemySpawnCells.Enqueue(cell);
+            pendingPowerUpEnemySpawns++;
+            if (!powerUpEnemySpawning)
+            {
+                StartCoroutine(SpawnPowerUpEnemies());
+            }
         }
+    }
+
+    private IEnumerator SpawnPowerUpEnemies()
+    {
+        powerUpEnemySpawning = true;
+        while (powerUpEnemySpawnCells.Count > 0 && !restarting && map != null)
+        {
+            Vector2Int spawnCell = powerUpEnemySpawnCells.Dequeue();
+            yield return WaitForGameplaySeconds(exitDoorSpawnDelay);
+            if (restarting || map == null) break;
+
+            if (CountLivingEnemies() < OriginalStageEnemies.StageEnemyCap)
+            {
+                EnemyController prefab = FindEnemyPrefab(exitWaveEnemyType);
+                if (prefab == null)
+                {
+                    Debug.LogError($"Assign the {exitWaveEnemyType.Name} prefab to Enemy Prefabs on {name}.", this);
+                }
+                else
+                {
+                    while (!restarting && map != null && CountLivingEnemies() < OriginalStageEnemies.StageEnemyCap
+                        && !IsSafeExitSpawnCell(spawnCell))
+                    {
+                        yield return null;
+                    }
+
+                    if (!restarting && map != null && CountLivingEnemies() < OriginalStageEnemies.StageEnemyCap)
+                    {
+                        EnemyController enemy = Instantiate(prefab, map.CellToWorld(spawnCell), Quaternion.identity);
+                        enemy.name = $"{prefab.name} (Power-up)";
+                        enemy.Cell = spawnCell;
+                        enemy.transform.SetParent(stageRoot.transform, true);
+                        actors.Add(enemy);
+                        enemy.Initialize(this);
+                        LogSpawnEvent($"Destroyed power-up released {prefab.name} at {spawnCell}.");
+                    }
+                }
+            }
+            else
+            {
+                LogSpawnEvent($"Destroyed power-up at {spawnCell} released no enemy because the stage cap is full.");
+            }
+
+            pendingPowerUpEnemySpawns--;
+            if (powerUpEnemySpawnCells.Count > 0) yield return WaitForGameplaySeconds(0.5f);
+        }
+
+        pendingPowerUpEnemySpawns = 0;
+        powerUpEnemySpawning = false;
     }
 
     private void LogSpawnEvent(string message)
@@ -1105,6 +1167,9 @@ public sealed class BombermanPrototype : MonoBehaviour
             int released = 0;
             for (int i = 0; i < amount; i++)
             {
+                // Exit waves use the same stage-wide cap as every other spawn path.
+                // Any part of this hit that does not fit is discarded.
+                if (CountLivingEnemies() >= OriginalStageEnemies.StageEnemyCap) break;
                 while (!restarting && map != null && !IsSafeExitSpawnCell(spawnCell))
                 {
                     yield return null;

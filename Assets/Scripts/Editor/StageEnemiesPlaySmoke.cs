@@ -74,6 +74,13 @@ public static class StageEnemiesPlaySmoke
     private static EnemyController[] Living => ((List<GridController>)Field("actors")).OfType<EnemyController>().Where(e => e != null && !e.IsDead).ToArray();
     private static int Count<T>() => Living.Count(e => e is T);
     private static string HudText => GameObject.Find("Stage HUD Canvas").GetComponentInChildren<UnityEngine.UI.Text>().text;
+    private static bool GrassVisibleAt(Vector2Int cell)
+    {
+        Dictionary<Vector2Int, GameObject> floors = (Dictionary<Vector2Int, GameObject>)typeof(BombermanMap)
+            .GetField("floors", Private).GetValue(Map);
+        return floors[cell].GetComponentsInChildren<GrassBlock>(true)
+            .Any(grass => grass.GrassMesh != null && grass.GrassMesh.TryGetComponent(out Renderer renderer) && renderer.enabled);
+    }
 
     private static void CheckFinalStageRoster(string message)
     {
@@ -360,15 +367,17 @@ public static class StageEnemiesPlaySmoke
                 int survivingEnemiesBeforeWave = Living.Length;
                 Invoke("Explode", blastOrigin);
                 Check(((List<PowerUp>)Field("powerUps")).Count == 0, "Later blast destroys the revealed power-up");
-                Check(Living.Length == survivingEnemiesBeforeWave && (int)Field("pendingExitWaves") == 0,
-                    "Blast destroying a power-up releases no enemies");
+                Check(GrassVisibleAt(itemCell), "Grass is restored when a revealed power-up is destroyed by a blast");
+                Check(Living.Length == survivingEnemiesBeforeWave && (int)Field("pendingPowerUpEnemySpawns") == 1,
+                    "Blast queues one enemy from the destroyed power-up");
                 phase = 1;
                 deadline = EditorApplication.timeSinceStartup + 3.0;
             }
             else if (phase == 1)
             {
-                Check(Living.Length == 6 && (int)Field("pendingExitWaves") == 0,
-                    "Destroyed power-up leaves the enemy count unchanged");
+                Check(Living.Length == 7 && Living.Count(e => e.name.Contains("(Power-up)")) == 1
+                    && (int)Field("pendingPowerUpEnemySpawns") == 0,
+                    "Destroyed power-up releases one stage-appropriate enemy");
                 List<GridController> actors = (List<GridController>)Field("actors");
                 foreach (EnemyController enemy in Living)
                 {
@@ -445,6 +454,34 @@ public static class StageEnemiesPlaySmoke
                 Check(Living.Length == lastExitEnemyCount + 5 && Living.Count(e => e.name.Contains("(Exit)")) == Living.Length,
                     "Third exit hit releases a five-enemy wave");
                 Check((int)Field("exitDoorHitCount") == 3, "Third door hit increments the wave size again");
+                Invoke("SpawnEnemyGroup", typeof(PontanEnemy), 2, (Func<Vector2Int>)(() => (Vector2Int)Invoke("FindEnemySpawnCell")));
+                Check(Living.Length == 14, "Regular spawn fills the stage to fourteen enemies");
+                Invoke("Explode", Map.ExitDoor.Cell);
+                lastExitEnemyCount = Living.Length;
+                phase = 6;
+                deadline = EditorApplication.timeSinceStartup + 5.0;
+            }
+            else if (phase == 6)
+            {
+                if ((int)Field("pendingExitWaves") > 0)
+                {
+                    Check(EditorApplication.timeSinceStartup < deadline, "Capped partial exit wave completes");
+                    return;
+                }
+                Check(Living.Length == 15 && Living.Count(e => e.name.Contains("(Exit)")) == 13,
+                    "Exit wave releases only the one enemy that fits under the stage cap");
+                Invoke("Explode", Map.ExitDoor.Cell);
+                phase = 7;
+                deadline = EditorApplication.timeSinceStartup + 3.0;
+            }
+            else if (phase == 7)
+            {
+                if ((int)Field("pendingExitWaves") > 0)
+                {
+                    Check(EditorApplication.timeSinceStartup < deadline, "Full-cap exit hit finishes");
+                    return;
+                }
+                Check(Living.Length == 15, "Exit hit at the full stage cap releases no enemies");
                 manager.LoadStage(35);
                 Check(Living.Length == 9 && Count<DahlEnemy>() == 2 && Count<MinuoEnemy>() == 1 && Count<OvapeEnemy>() == 1 && Count<DoriaEnemy>() == 3 && Count<PassEnemy>() == 2, "Stage 35 roster skips the empty slot");
                 Check((Type)Field("exitWaveEnemyType") == typeof(DoriaEnemy), "Stage 35 exit enemy");
