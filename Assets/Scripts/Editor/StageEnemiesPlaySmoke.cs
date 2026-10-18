@@ -293,11 +293,11 @@ public static class StageEnemiesPlaySmoke
         Check(deathSequence.MoveNext(), "Death sequence starts");
         Check(!state.detonator && !state.bombPass && !state.wallPass && !state.flamePass
             && (float)Field("mysteryTimeLeft") == 0f, "Death sequence clears temporary power-ups immediately");
-        Check(state.bombUps == 2 && state.fireUps == 1 && state.speedUps == 0
-            && (int)Field("maxBombs") == (int)Field("baseMaxBombs") + 2
-            && (int)Field("blastRange") == (int)Field("baseBlastRange") + 1
-            && state.cheatBombUps == 0 && state.cheatFireUps == 0 && state.cheatSpeedUps == 0,
-            "Death removes permanent levels granted by cheats while keeping normal pickups");
+        Check(state.bombUps == 3 && state.fireUps == 3 && state.speedUps == 0
+            && (int)Field("maxBombs") == (int)Field("baseMaxBombs") + 3
+            && (int)Field("blastRange") == (int)Field("baseBlastRange") + 3
+            && state.cheatBombUps == 1 && state.cheatFireUps == 2 && state.cheatSpeedUps == 0,
+            "Death preserves Bomb Up and Fire Up even when granted by cheats");
         manager.LoadStage(1);
         SetField("powerUpState", new PowerUpState());
         SetField("maxBombs", Field("baseMaxBombs"));
