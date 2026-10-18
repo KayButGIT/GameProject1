@@ -129,10 +129,20 @@ public static class StageEnemiesPlaySmoke
         Check(stageInput.contentType == InputField.ContentType.IntegerNumber && GameObject.Find("Go To Stage Cheat") != null,
             "Cheat panel provides a numeric stage field and Go button");
         Check(GameObject.Find("Reveal Power Up Location Cheat") != null, "Cheat panel provides the reveal-location action");
+        Check(GameObject.Find("Reveal Exit Door Cheat") != null, "Cheat panel provides the reveal-exit action");
         game.CloseCheatMenu();
         Check(!game.IsPaused && !GameObject.Find("Cheat Panel").activeSelf, "Closing cheat panel restores gameplay");
         Check(!game.CheatGoToStage(0, out _) && manager.CurrentStage == 1, "Stage selector rejects stage zero");
         Check(game.CheatGoToStage(2, out _) && manager.CurrentStage == 2, "Stage selector loads the requested stage");
+        manager.LoadStage(1);
+        Check(!Map.ExitDoor.IsRevealed, "Exit starts hidden before the reveal-cheat test");
+        int exitRevealEnemyCount = Living.Length;
+        int exitRevealScore = game.Score;
+        Vector2Int exitCell = Map.ExitDoor.Cell;
+        Check(game.CheatRevealExitDoor() && Map.ExitDoor.IsRevealed && Map.GetCellKind(exitCell) == CellKind.Empty,
+            "Reveal Exit Door cheat uncovers the exit without a blast");
+        Check(Living.Length == exitRevealEnemyCount && game.Score == exitRevealScore,
+            "Reveal Exit Door cheat releases no enemies and awards no score");
         manager.LoadStage(1);
         int revealScore = game.Score;
         Check(game.CheatRevealPowerUpLocation() && GameObject.Find("Cheat Hidden Power-up Marker") != null,
@@ -171,11 +181,11 @@ public static class StageEnemiesPlaySmoke
         Check(Mathf.Approximately(((PlayerController)Field("player")).FreeMoveDeceleration, baseDeceleration * 2f), "Speed Up scales deceleration so braking remains proportional");
         SoundManager soundManager = SoundManager.Instance;
         Check(soundManager != null, "Footstep test can use the shared SoundManager");
-        soundManager.PlayFootstep(game.CurrentStagePhase, 1f);
+        soundManager.PlayFootstep(game.CurrentStagePhase);
         AudioSource footstepSource = (AudioSource)typeof(SoundManager).GetField("footstepSource", Private).GetValue(soundManager);
-        float normalFootstepPitch = footstepSource.pitch;
-        soundManager.PlayFootstep(game.CurrentStagePhase, 2f);
-        Check(footstepSource.pitch > normalFootstepPitch, "Speed multiplier raises footstep pitch while preserving pitch variation");
+        Vector2 footstepPitchRange = soundManager.Settings.footstepPitchRange;
+        Check(footstepSource.pitch >= footstepPitchRange.x && footstepSource.pitch <= footstepPitchRange.y,
+            "Speed Up keeps footstep pitch within its unchanged random range");
         MethodInfo walkCycleMethod = typeof(PlayerAnimationBridge).GetMethod("CalculateWalkCycleSpeed", Private | BindingFlags.Static);
         float normalWalkCycleSpeed = (float)walkCycleMethod.Invoke(null, new object[] { baseSpeed, baseSpeed, 1f });
         float boostedWalkCycleSpeed = (float)walkCycleMethod.Invoke(null, new object[] { baseSpeed * 2f, baseSpeed * 2f, game.PlayerSpeedMultiplier });
@@ -417,9 +427,24 @@ public static class StageEnemiesPlaySmoke
                     Check(EditorApplication.timeSinceStartup < deadline, "Staggered exit wave completes");
                     return;
                 }
-                Check(Living.Length == lastExitEnemyCount + 1 && Living.Count(e => e.name.Contains("(Exit)")) == Living.Length,
-                    "Each repeated exit hit releases exactly one more enemy");
-                Check((int)Field("exitDoorHitCount") == 2, "Repeated door hit increments the door-hit count");
+                Check(Living.Length == lastExitEnemyCount + 4 && Living.Count(e => e.name.Contains("(Exit)")) == Living.Length,
+                    "Second exit hit releases a four-enemy wave");
+                Check((int)Field("exitDoorHitCount") == 2, "Second door hit increments the wave size");
+                Invoke("Explode", Map.ExitDoor.Cell);
+                lastExitEnemyCount = Living.Length;
+                phase = 4;
+                deadline = EditorApplication.timeSinceStartup + 6.0;
+            }
+            else if (phase == 4)
+            {
+                if ((int)Field("pendingExitWaves") > 0)
+                {
+                    Check(EditorApplication.timeSinceStartup < deadline, "Third staggered exit wave completes");
+                    return;
+                }
+                Check(Living.Length == lastExitEnemyCount + 5 && Living.Count(e => e.name.Contains("(Exit)")) == Living.Length,
+                    "Third exit hit releases a five-enemy wave");
+                Check((int)Field("exitDoorHitCount") == 3, "Third door hit increments the wave size again");
                 manager.LoadStage(35);
                 Check(Living.Length == 9 && Count<DahlEnemy>() == 2 && Count<MinuoEnemy>() == 1 && Count<OvapeEnemy>() == 1 && Count<DoriaEnemy>() == 3 && Count<PassEnemy>() == 2, "Stage 35 roster skips the empty slot");
                 Check((Type)Field("exitWaveEnemyType") == typeof(DoriaEnemy), "Stage 35 exit enemy");
@@ -430,10 +455,10 @@ public static class StageEnemiesPlaySmoke
                 Check((Type)Field("exitWaveEnemyType") == typeof(OvapeEnemy), "Endless Stage 51 exit enemy cycles to NES Stage 41");
                 typeof(BombermanPrototype).GetField("stageTimeLimit", Private).SetValue(game, 0.3f);
                 manager.LoadStage(1);
-                phase = 4;
+                phase = 5;
                 deadline = EditorApplication.timeSinceStartup + 3.0;
             }
-            else if (phase == 4)
+            else if (phase == 5)
             {
                 if (!(bool)Field("timeUp"))
                 {

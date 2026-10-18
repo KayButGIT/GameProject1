@@ -112,7 +112,7 @@ public sealed class PlayerController : GridController
         if (game == null || game.IsPaused || IsDead || CurrentFreeMoveSpeed <= 0.18f)
             return;
 
-        SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase, game.PlayerSpeedMultiplier);
+        SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase);
     }
 
     public void SetInvincibleMaterials(bool active)

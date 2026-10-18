@@ -74,11 +74,15 @@ public sealed class CheatMenu
             new Vector2(230f, -112f), new Vector2(200f, 58f), 18);
         revealPowerUp.onClick.AddListener(() => game.CheatRevealPowerUpLocation());
 
+        Button revealExitDoor = CreateButton(panelObject.transform, "Reveal Exit Door Cheat", "REVEAL EXIT DOOR", new Vector2(0.5f, 1f),
+            new Vector2(-230f, -184f), new Vector2(200f, 52f), 18);
+        revealExitDoor.onClick.AddListener(() => game.CheatRevealExitDoor());
+
         InputField stageNumber = CreateStageNumberInput(panelObject.transform);
         Button goToStage = CreateButton(panelObject.transform, "Go To Stage Cheat", "GO", new Vector2(0.5f, 1f),
-            new Vector2(192f, -184f), new Vector2(150f, 52f), 24);
+            new Vector2(192f, -252f), new Vector2(150f, 52f), 24);
         Text stageFeedback = CreateText(panelObject.transform, "Stage Number Feedback", string.Empty, new Vector2(0.5f, 1f),
-            new Vector2(0f, -222f), new Vector2(570f, 26f), 16, FontStyle.Normal, TextAnchor.MiddleCenter);
+            new Vector2(0f, -290f), new Vector2(570f, 26f), 16, FontStyle.Normal, TextAnchor.MiddleCenter);
         stageFeedback.color = new Color(1f, 0.62f, 0.62f);
         goToStage.onClick.AddListener(() =>
         {
@@ -95,7 +99,7 @@ public sealed class CheatMenu
         });
 
         Button godMode = CreateButton(panelObject.transform, "God Mode Cheat", "GOD MODE: OFF", new Vector2(0.5f, 1f),
-            new Vector2(0f, -264f), new Vector2(620f, 54f), 24);
+            new Vector2(0f, -332f), new Vector2(620f, 54f), 24);
         godMode.onClick.AddListener(() =>
         {
             game.ToggleGodMode();
@@ -109,7 +113,7 @@ public sealed class CheatMenu
             int row = i / 2;
             string label = LabelFor(types[i]);
             Button powerUpButton = CreateButton(panelObject.transform, $"Cheat {label}", label,
-                new Vector2(0.5f, 1f), new Vector2(column == 0 ? -158f : 158f, -338f - row * 68f),
+                new Vector2(0.5f, 1f), new Vector2(column == 0 ? -158f : 158f, -406f - row * 68f),
                 new Vector2(300f, 54f), 23);
             PowerUpType type = types[i];
             powerUpButton.onClick.AddListener(() => game.CheatGrantPowerUp(type));
@@ -137,7 +141,7 @@ public sealed class CheatMenu
         RectTransform rect = inputObject.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-80f, -184f);
+        rect.anchoredPosition = new Vector2(-80f, -252f);
         rect.sizeDelta = new Vector2(360f, 52f);
 
         Image background = inputObject.AddComponent<Image>();

@@ -43,7 +43,7 @@ public static class TitleScreenSmoke
         VerticalLayoutGroup layout = UnityEngine.Object.FindFirstObjectByType<VerticalLayoutGroup>();
         Check(layout != null && layout.childControlWidth && layout.childControlHeight, "Button column controls child size");
         Text hint = GameObject.Find("Hint Text")?.GetComponent<Text>();
-        Check(hint != null && hint.text.Contains("Detonator: X") && hint.resizeTextForBestFit,
+        Check(hint != null && hint.text.Contains("Detonator: X") && !hint.text.Contains("\\n") && hint.resizeTextForBestFit,
             "Title controls show the X Detonator binding and fit the hint area");
         LayoutElement buttonSize = UnityEngine.Object.FindObjectsByType<Button>(FindObjectsSortMode.None)
             .First(b => b.name == "Start Button").GetComponent<LayoutElement>();

@@ -145,7 +145,7 @@ public sealed class SoundManager : MonoBehaviour
     }
 
     // Sequence phases are 1-based. Every stage assigned to a phase uses that phase's footstep pool.
-    public void PlayFootstep(int stagePhase, float speedMultiplier = 1f)
+    public void PlayFootstep(int stagePhase)
     {
         if (settings == null || settings.footstepPhases == null || settings.footstepPhases.Count == 0) return;
 
@@ -170,7 +170,7 @@ public sealed class SoundManager : MonoBehaviour
             return;
         }
 
-        footstepSource.pitch = Random.Range(settings.footstepPitchRange.x, settings.footstepPitchRange.y) * Mathf.Max(0.01f, speedMultiplier);
+        footstepSource.pitch = Random.Range(settings.footstepPitchRange.x, settings.footstepPitchRange.y);
         footstepSource.PlayOneShot(clip, sfxVolume * volume);
     }
 }

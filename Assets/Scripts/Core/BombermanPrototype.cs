@@ -128,7 +128,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Header("Exit Door")]
     [Tooltip("How close the player must stand to the door center to enter an open exit.")]
     [SerializeField, Min(0.05f)] private float exitDoorEnterDistance = 0.4f;
-    [Tooltip("Maximum exit enemies released by door blasts. First hit releases three and later hits release one; zero disables releases.")]
+    [Tooltip("Maximum enemies in an exit-door wave. Each hit increases the next wave by one, starting at three; zero disables releases.")]
     [SerializeField, Min(0)] private int exitDoorPopulationCap = 10;
     [SerializeField, Min(0f)] private float exitDoorSpawnDelay = 0.5f;
     [Header("Stage Timer")]
@@ -1034,7 +1034,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         if (exitWasRevealed && exitDoorPopulationCap > 0 && blastCells.Contains(exitDoor.Cell))
         {
-            int requestedAmount = exitDoorHitCount == 0 ? 3 : 1;
+            int requestedAmount = 3 + exitDoorHitCount;
             int amount = Mathf.Min(requestedAmount, Mathf.Clamp(exitDoorPopulationCap, 0, OriginalStageEnemies.MaxEnemies));
             exitDoorHitCount++;
             LogSpawnEvent($"Blast from {origin} hit the open exit at {exitDoor.Cell}. Queued {amount} enemy/enemies ({exitDoorHitCount} door hit(s)).");
@@ -1555,6 +1555,19 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
         LogSpawnEvent($"Cheat marked the hidden power-up location at {hiddenPowerUpCell}.");
         return true;
+    }
+
+    public bool CheatRevealExitDoor()
+    {
+        if (map == null || transitionActive || restarting || stageClearing) return false;
+        ExitDoor exitDoor = map.ExitDoor;
+        if (exitDoor == null) return false;
+        if (exitDoor.IsRevealed) return true;
+
+        map.DestroyDestructibleAt(exitDoor.Cell);
+        exitDoor.Reveal();
+        LogSpawnEvent($"Cheat revealed the exit door at {exitDoor.Cell}. No enemies released.");
+        return exitDoor.IsRevealed;
     }
 
     // Score for one kill, by enemy type. Unknown types give 0.
