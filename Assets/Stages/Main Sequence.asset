@@ -17,3 +17,5 @@ MonoBehaviour:
     StageCount: 10
   - Theme: {fileID: 11400000, guid: 236325dc37e72354f8b13bac1d4accc6, type: 2}
     StageCount: 10
+  - Theme: {fileID: 11400000, guid: 1ff9bf8843d88fd458c33d31e89ae5d8, type: 2}
+    StageCount: 10
