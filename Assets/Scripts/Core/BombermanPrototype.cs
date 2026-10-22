@@ -43,8 +43,10 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private RuntimeAnimatorController playerAnimatorController;
     [SerializeField] private Material playerBodyNormalMaterial;
     [SerializeField] private Material playerBodyBurntMaterial;
+    [SerializeField] private Material playerBodyInvincibleMaterial;
     [SerializeField] private Material playerFaceNormalMaterial;
     [SerializeField] private Material playerFaceBlinkMaterial;
+    [SerializeField] private Material playerFaceInvincibleMaterial;
     [SerializeField] private Material playerFaceDeadMaterial;
     [SerializeField] private Material playerFaceDeadBurntMaterial;
     [SerializeField] private GameObject bombModelPrefab;
@@ -52,7 +54,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private int blastRange = 1;
     [SerializeField] private float bombFuseTime = 2f;
     [SerializeField, Min(0f)] private float bombReleasePadding = 0.65f;
-    [SerializeField] private bool playerCanDieFromBomb = false;
+    [Tooltip("Bomb blasts can hurt Bomberman unless Flame Pass or Mystery protects him.")]
+    [SerializeField] private bool playerCanDieFromBomb = true;
     [Tooltip("God mode: the player survives bombs, enemies, and the time-out Pontans.")]
     [SerializeField] private bool godMode;
     [Tooltip("Deaths allowed before the game ends, as in the original game.")]
@@ -84,6 +87,26 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Tooltip("Lives added when a stage is cleared successfully.")]
     [SerializeField, Min(0)] private int stageClearLifeBonus = 1;
 
+    [Header("Power-ups")]
+    [Tooltip("Hide one power-up under a random breakable block on every stage.")]
+    [SerializeField] private bool spawnPowerUps = true;
+    [Tooltip("Optional stage-by-stage override. Leave empty to use the original 50-stage power-up table.")]
+    [SerializeField] private PowerUpType[] stagePowerUps;
+    [SerializeField] private bool showCheatMenuButton = true;
+    [Tooltip("Optional models, in PowerUpType order (Bomb Up, Fire Up, Speed Up, Detonator, Bomb Pass, Wall Pass, Flame Pass, Mystery). Empty slots use the built-in marker.")]
+    [SerializeField] private GameObject[] powerUpPrefabs;
+    [Tooltip("How close the player must be to an item to pick it up.")]
+    [SerializeField, Min(0.05f)] private float powerUpPickupDistance = 0.55f;
+    [SerializeField, Min(0)] private int powerUpScore = 1000;
+    [Tooltip("Maximum total bombs the player can place at once, including the starting bomb.")]
+    [SerializeField, Min(1)] private int maxBombLimit = 10;
+    [Tooltip("Longest blast range Fire Up can reach.")]
+    [SerializeField, Min(1)] private int blastRangeLimit = 5;
+    [Tooltip("How many Speed Ups can stack.")]
+    [SerializeField, Min(0)] private int speedUpLimit = 1;
+    [Tooltip("Seconds of invincibility from the Mystery power-up.")]
+    [SerializeField, Min(0f)] private float mysteryDuration = 35f;
+
     [Header("Enemies")]
     [SerializeField] private bool spawnEnemies = false;
     [Tooltip("Spawn each stage's enemies from the original game's table. Turn off to use the counts below.")]
@@ -105,7 +128,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Header("Exit Door")]
     [Tooltip("How close the player must stand to the door center to enter an open exit.")]
     [SerializeField, Min(0.05f)] private float exitDoorEnterDistance = 0.4f;
-    [Tooltip("A blast on the revealed exit releases the stage's exit enemy from the original table until this many are alive. Zero disables it.")]
+    [Tooltip("Maximum enemies in an exit-door wave. Each hit increases the next wave by one, starting at three; zero disables releases.")]
     [SerializeField, Min(0)] private int exitDoorPopulationCap = 10;
     [SerializeField, Min(0f)] private float exitDoorSpawnDelay = 0.5f;
     [Header("Stage Timer")]
@@ -124,6 +147,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private BombermanMaterials materials;
     private BombermanMap map;
     private PauseMenu pauseMenu;
+    private CheatMenu cheatMenu;
     private ScreenTransitionOverlay transitionOverlay;
     private Camera mainCamera;
     private Vector3 cameraBasePosition;
@@ -132,6 +156,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     private PlayerController player;
     private int activeBombs;
     private bool paused;
+    private bool cheatMenuOpen;
+    private bool wasPausedBeforeCheatMenu;
     private bool transitionActive;
     private bool restarting;
     private StageManager stageManager;
@@ -145,6 +171,12 @@ public sealed class BombermanPrototype : MonoBehaviour
     private bool firstStage = true;
     private System.Type exitWaveEnemyType;
     private int pendingExitWaves;
+    private bool exitWaveSpawning;
+    private readonly Queue<int> exitWaveSpawnCounts = new();
+    private readonly Queue<Vector2Int> powerUpEnemySpawnCells = new();
+    private bool powerUpEnemySpawning;
+    private int pendingPowerUpEnemySpawns;
+    private int exitDoorHitCount;
     private bool stageClearing;
     private StageHud stageHud;
     private float timeLeft;
@@ -153,20 +185,42 @@ public sealed class BombermanPrototype : MonoBehaviour
     private StageTheme.ThemeLighting currentLighting;
     private int livesLeft;
     private int score;
+    private PowerUpState powerUpState = new();
+    private readonly List<PowerUp> powerUps = new();
+    private int baseMaxBombs;
+    private int baseBlastRange;
+    private int bombSequence;
+    private float mysteryTimeLeft;
+    private bool hasHiddenPowerUp;
+    private Vector2Int hiddenPowerUpCell;
+    private PowerUpType hiddenPowerUpType;
+    private GameObject hiddenPowerUpMarker;
+    private Material hiddenPowerUpMarkerMaterial;
 
     public bool IsPaused => paused || transitionActive;
     public bool IsStageClearing => stageClearing;
     public bool HasLivingPlayer => player != null && !player.IsDead;
     public bool IsReady => map != null && player != null;
+    public bool IsLastStage => stageManager != null && stageManager.OnLastStage;
+    public bool GodModeEnabled => godMode;
     public Vector2Int PlayerCell => player != null ? player.Cell : Vector2Int.zero;
     public int Score => score;
+    public PowerUpState PowerUps => powerUpState;
+    public bool IsInvincible => godMode || mysteryTimeLeft > 0f;
     public int CurrentStageNumber => stageManager != null ? stageManager.CurrentStage : 1;
+    public float PlayerSpeedMultiplier => powerUpState.speedUps > 0 ? 2f : 1f;
     // 1-based map/theme phase from the Stage Sequence (1, 2, 3...). Footsteps follow this, not the raw
     // stage number, so every stage on the same map uses the same walking sound. 1 when there is no sequence.
     public int CurrentStagePhase => stageManager != null ? Mathf.Max(1, stageManager.CurrentPhase) : 1;
 
     public bool IsBombBlockingCell(Vector2Int cell)
     {
+        // Bomb Pass: the player walks through bombs.
+        if (powerUpState.bombPass)
+        {
+            return false;
+        }
+
         return bombs.TryGetValue(cell, out Bomb bomb)
             && bomb != null
             && bomb.BlocksMovement;
@@ -177,9 +231,17 @@ public sealed class BombermanPrototype : MonoBehaviour
         width = Mathf.Max(5, width | 1);
         height = Mathf.Max(5, height | 1);
 
+        maxBombLimit = Mathf.Clamp(maxBombLimit, 1, 10);
+        blastRangeLimit = Mathf.Clamp(blastRangeLimit, 1, 5);
+        speedUpLimit = Mathf.Clamp(speedUpLimit, 0, 1);
+        maxBombs = Mathf.Clamp(maxBombs, 1, maxBombLimit);
+        blastRange = Mathf.Clamp(blastRange, 1, blastRangeLimit);
+        baseMaxBombs = maxBombs;
+        baseBlastRange = blastRange;
         materials = BombermanMaterials.Create();
         sessionSeed = randomSeed == 0 ? System.Environment.TickCount : randomSeed;
         pauseMenu = PauseMenu.Create();
+        cheatMenu = CheatMenu.Create(this, showCheatMenuButton);
         transitionOverlay = ScreenTransitionOverlay.Create();
         stageHud = StageHud.Create();
         livesLeft = playerLives;
@@ -192,18 +254,30 @@ public sealed class BombermanPrototype : MonoBehaviour
             Instantiate(enemy.gameObject, sceneEnemyTemplates.transform, true);
         stageManager = GetComponent<StageManager>();
         if (stageManager == null) stageManager = gameObject.AddComponent<StageManager>();
+        RestoreSavedRun();
         stageManager.Initialize(this);
     }
 
     internal void LoadStage(int stage, StageTheme theme)
     {
         StopAllCoroutines();
+        if (cheatMenuOpen)
+        {
+            cheatMenuOpen = false;
+            cheatMenu.SetVisible(false);
+        }
         transitionActive = false;
         SetPaused(false);
         transitionOverlay.Hide();
         restarting = false;
         stageClearing = false;
         pendingExitWaves = 0;
+        exitWaveSpawning = false;
+        exitWaveSpawnCounts.Clear();
+        powerUpEnemySpawnCells.Clear();
+        powerUpEnemySpawning = false;
+        pendingPowerUpEnemySpawns = 0;
+        exitDoorHitCount = 0;
         timeLeft = stageTimeLimit;
         timeUp = false;
         stageHud.SetVisible(true);
@@ -211,6 +285,16 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageHud.SetTime(timeLeft);
         stageHud.SetScore(score);
         stageHud.SetLives(livesLeft);
+        mysteryTimeLeft = 0f;
+        powerUps.Clear();
+        hasHiddenPowerUp = false;
+        if (hiddenPowerUpMarker != null) Destroy(hiddenPowerUpMarker);
+        hiddenPowerUpMarker = null;
+        if (hiddenPowerUpMarkerMaterial != null) Destroy(hiddenPowerUpMarkerMaterial);
+        hiddenPowerUpMarkerMaterial = null;
+        bombSequence = 0;
+        // Continue on the title screen restarts this stage with the score, lives, and power-ups saved here.
+        GameProgress.SaveRun(stage, score, livesLeft, powerUpState);
         if (stageRoot != null)
         {
             stageRoot.SetActive(false);
@@ -231,6 +315,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         currentLighting = theme != null ? theme.Lighting : null;
         stageLighting.Apply(currentLighting, mainCamera);
         map.Generate();
+        PlanHiddenPowerUp(stage, layoutSeed);
         SpawnPlayer();
         if (firstStage)
         {
@@ -319,7 +404,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         if (!transitionActive && WasPressed(Key.Escape))
         {
-            SetPaused(!paused);
+            if (cheatMenuOpen) CloseCheatMenu();
+            else SetPaused(!paused);
         }
 
         // Theme lighting edits in the Inspector show immediately while playing in the Editor.
@@ -329,6 +415,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         UpdateStageTimer();
+        UpdatePowerUps();
     }
 
     private void UpdateStageTimer()
@@ -347,74 +434,58 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
     }
 
-    // Like the original game, running out of time turns the remaining enemies into Pontans and
-    // fills the stage to the timeout population without replacing existing Pontans.
+    // Time-out repopulates the stage with Pontans, but keeps every new Pontan away from the player.
     private void SpawnTimeOutPontans()
     {
-        int pontanCount = 0;
-        List<GridController> enemies = new();
-        foreach (GridController actor in actors)
-        {
-            if (actor == null || actor.IsPlayer || actor.IsDead) continue;
-            enemies.Add(actor);
-            if (actor is PontanEnemy) pontanCount++;
-        }
-
         EnemyController pontanPrefab = FindEnemyPrefab(typeof(PontanEnemy));
-        foreach (GridController actor in enemies)
-        {
-            if (actor is PontanEnemy) continue;
-            Vector3 position = actor.transform.position;
-            actors.Remove(actor);
-            Destroy(actor.gameObject);
-            if (pontanPrefab == null) continue;
-            EnemyController pontan = Instantiate(pontanPrefab, position, Quaternion.identity);
-            pontan.name = $"{pontanPrefab.name} (Time Up)";
-            RegisterEnemy(pontan);
-            pontanCount++;
-        }
-
-        int additionalPontans = Mathf.Max(0, OriginalStageEnemies.MaxEnemies - pontanCount);
-        SpawnAdditionalTimeOutPontans(additionalPontans);
-        LogSpawnEvent($"Time ran out. Remaining enemies became Pontans; population is at least {OriginalStageEnemies.MaxEnemies}.");
-    }
-
-    private void SpawnAdditionalTimeOutPontans(int count)
-    {
-        if (count <= 0) return;
-        EnemyController prefab = FindEnemyPrefab(typeof(PontanEnemy));
-        if (prefab == null)
+        if (pontanPrefab == null)
         {
             Debug.LogError($"Assign the {nameof(PontanEnemy)} prefab to Enemy Prefabs on {name}.", this);
             return;
         }
 
-        for (int i = 0; i < count; i++)
+        List<GridController> enemies = new();
+        foreach (GridController actor in actors)
+        {
+            if (actor == null || actor.IsPlayer || actor.IsDead) continue;
+            enemies.Add(actor);
+        }
+
+        foreach (GridController actor in enemies)
+        {
+            actors.Remove(actor);
+            Destroy(actor.gameObject);
+        }
+
+        int spawned = 0;
+        for (; spawned < OriginalStageEnemies.MaxEnemies; spawned++)
         {
             if (!TryFindTimeOutSpawnCell(out Vector2Int cell))
             {
-                Debug.LogWarning("No safe empty cell is available for an additional time-out Pontan.", this);
-                return;
+                Debug.LogWarning($"Only {spawned} time-out Pontans could be placed more than five tiles from the player.", this);
+                break;
             }
 
-            EnemyController pontan = Instantiate(prefab, map.CellToWorld(cell), Quaternion.identity);
-            pontan.name = $"{prefab.name} (Time Up)";
+            EnemyController pontan = Instantiate(pontanPrefab, map.CellToWorld(cell), Quaternion.identity);
+            pontan.name = $"{pontanPrefab.name} (Time Up)";
             RegisterEnemy(pontan);
         }
+
+        LogSpawnEvent($"Time ran out. Spawned {spawned} Pontans more than five tiles from the player.");
     }
 
     private bool TryFindTimeOutSpawnCell(out Vector2Int result)
     {
         List<Vector2Int> candidates = new();
         Vector2Int playerCell = player != null ? player.Cell : new Vector2Int(1, 1);
-        float minimumPlayerDistance = Mathf.Max(2f, enemyPlayerHitDistance + 1f);
         for (int x = 1; x < width - 1; x++)
         {
             for (int y = 1; y < height - 1; y++)
             {
                 Vector2Int cell = new(x, y);
                 if (!IsWalkable(cell) || IsActorAt(cell)) continue;
-                if (Vector2.Distance(cell, playerCell) < minimumPlayerDistance) continue;
+                int manhattanDistance = Mathf.Abs(cell.x - playerCell.x) + Mathf.Abs(cell.y - playerCell.y);
+                if (manhattanDistance <= 5) continue;
                 candidates.Add(cell);
             }
         }
@@ -432,6 +503,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private void LateUpdate()
     {
         UpdateCameraFollow();
+        CollectPowerUps();
         KillPlayerIfEnemyTouches();
         UpdateExitDoor();
     }
@@ -524,17 +596,35 @@ public sealed class BombermanPrototype : MonoBehaviour
             playerAnimatorController,
             playerBodyNormalMaterial,
             playerBodyBurntMaterial,
+            playerBodyInvincibleMaterial,
             playerFaceNormalMaterial,
             playerFaceBlinkMaterial,
+            playerFaceInvincibleMaterial,
             playerFaceDeadMaterial,
             playerFaceDeadBurntMaterial);
-        player.MoveSpeed = playerMoveSpeed;
-        player.FreeMoveAcceleration = playerAcceleration;
-        player.FreeMoveDeceleration = playerDeceleration;
+        player.MoveSpeed = GetPlayerMoveSpeed();
+        player.WallPass = powerUpState.wallPass;
+        player.FreeMoveAcceleration = GetPlayerMoveAcceleration();
+        player.FreeMoveDeceleration = GetPlayerMoveDeceleration();
         player.FreeMoveTurnSpeed = playerTurnSpeed;
         player.Initialize(this);
         player.transform.SetParent(stageRoot.transform, true);
         actors.Add(player);
+    }
+
+    private float GetPlayerMoveSpeed()
+    {
+        return playerMoveSpeed * (powerUpState.speedUps > 0 ? 2f : 1f);
+    }
+
+    private float GetPlayerMoveAcceleration()
+    {
+        return playerAcceleration * (powerUpState.speedUps > 0 ? 2f : 1f);
+    }
+
+    private float GetPlayerMoveDeceleration()
+    {
+        return playerDeceleration * (powerUpState.speedUps > 0 ? 2f : 1f);
     }
 
     private void SpawnEnemies(int stage)
@@ -561,6 +651,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     private void SpawnEnemyGroup(System.Type enemyType, int count, System.Func<Vector2Int> findCell)
     {
         if (count <= 0) return;
+        count = Mathf.Min(count, Mathf.Max(0, OriginalStageEnemies.StageEnemyCap - CountLivingEnemies()));
+        if (count == 0) return;
         EnemyController prefab = FindEnemyPrefab(enemyType);
         if (prefab == null)
         {
@@ -569,7 +661,14 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
         for (int i = 0; i < count; i++)
         {
-            EnemyController enemy = Instantiate(prefab, map.CellToWorld(findCell()), Quaternion.identity);
+            Vector2Int cell = findCell();
+            if (!IsSafeEnemySpawnCell(cell))
+            {
+                Debug.LogWarning($"Stopped spawning {enemyType.Name}: no unoccupied cell more than five tiles from the player is available.", this);
+                break;
+            }
+
+            EnemyController enemy = Instantiate(prefab, map.CellToWorld(cell), Quaternion.identity);
             enemy.name = $"{prefab.name} {i + 1}";
             RegisterEnemy(enemy);
         }
@@ -600,7 +699,26 @@ public sealed class BombermanPrototype : MonoBehaviour
     public void RegisterEnemy(EnemyController enemy)
     {
         if (!IsReady || enemy == null || actors.Contains(enemy)) return;
-        enemy.Cell = map.WorldToCell(enemy.transform.position);
+        if (CountLivingEnemies() >= OriginalStageEnemies.StageEnemyCap)
+        {
+            Debug.LogWarning($"The stage already has {OriginalStageEnemies.StageEnemyCap} living enemies; ignoring {enemy.name}.", this);
+            enemy.gameObject.SetActive(false);
+            return;
+        }
+        Vector2Int cell = map.WorldToCell(enemy.transform.position);
+        if (!IsSafeEnemySpawnCell(cell))
+        {
+            if (!TryFindSafeEnemySpawnCell(cell, out Vector2Int safeCell))
+            {
+                Debug.LogWarning($"Could not spawn {enemy.name}: no unoccupied cell more than five tiles from the player is available.", this);
+                enemy.gameObject.SetActive(false);
+                return;
+            }
+
+            cell = safeCell;
+        }
+
+        enemy.Cell = cell;
         enemy.transform.position = map.CellToWorld(enemy.Cell);
         enemy.transform.SetParent(stageRoot.transform, true);
         actors.Add(enemy);
@@ -644,7 +762,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         return map.ExitDoor != null && map.ExitDoor.IsRevealed && map.ExitDoor.Cell == cell;
     }
 
-    // Original RAND_COORDS rule: a random empty cell outside the player's starting corner.
+    // Original RAND_COORDS rule with a safety radius around the current player position.
     private Vector2Int FindOriginalSpawnCell(int minColumn)
     {
         for (int attempts = 0; attempts < 200; attempts++)
@@ -656,7 +774,7 @@ public sealed class BombermanPrototype : MonoBehaviour
             }
         }
 
-        // Small or crowded maps take any free cell outside the corner.
+        // Small or crowded maps may use any remaining safe cell outside the starting corner.
         for (int x = width - 2; x >= 1; x--)
         {
             for (int y = height - 2; y >= 1; y--)
@@ -669,25 +787,70 @@ public sealed class BombermanPrototype : MonoBehaviour
             }
         }
 
-        return new Vector2Int(width - 2, height - 2);
+        return new Vector2Int(-1, -1);
     }
 
     private bool IsOriginalSpawnCell(Vector2Int cell)
     {
-        return IsWalkable(cell) && !IsActorAt(cell) && (cell.x >= 3 || cell.y >= 3);
+        return IsSafeEnemySpawnCell(cell) && (cell.x >= 3 || cell.y >= 3);
     }
     private Vector2Int FindEnemySpawnCell()
     {
         for (int attempts = 0; attempts < 200; attempts++)
         {
             Vector2Int cell = new(Random.Range(width / 2, width - 2), Random.Range(1, height - 1));
-            if (IsWalkable(cell) && !IsActorAt(cell) && Vector2Int.Distance(cell, new Vector2Int(1, 1)) > 8f)
+            if (IsSafeEnemySpawnCell(cell) && Vector2Int.Distance(cell, new Vector2Int(1, 1)) > 8f)
             {
                 return cell;
             }
         }
 
-        return new Vector2Int(width - 2, height - 2);
+        for (int x = width - 2; x >= 1; x--)
+        {
+            for (int y = height - 2; y >= 1; y--)
+            {
+                Vector2Int cell = new(x, y);
+                if (IsSafeEnemySpawnCell(cell)) return cell;
+            }
+        }
+
+        return new Vector2Int(-1, -1);
+    }
+
+    private bool IsSafeEnemySpawnCell(Vector2Int cell)
+    {
+        if (!IsWalkable(cell) || IsActorAt(cell)) return false;
+        Vector2Int playerCell = player != null ? player.Cell : new Vector2Int(1, 1);
+        int distance = Mathf.Abs(cell.x - playerCell.x) + Mathf.Abs(cell.y - playerCell.y);
+        return distance > 5;
+    }
+
+    private bool TryFindSafeEnemySpawnCell(Vector2Int preferredCell, out Vector2Int result)
+    {
+        if (IsSafeEnemySpawnCell(preferredCell))
+        {
+            result = preferredCell;
+            return true;
+        }
+
+        List<Vector2Int> candidates = new();
+        for (int x = 1; x < width - 1; x++)
+        {
+            for (int y = 1; y < height - 1; y++)
+            {
+                Vector2Int cell = new(x, y);
+                if (IsSafeEnemySpawnCell(cell)) candidates.Add(cell);
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            result = default;
+            return false;
+        }
+
+        result = candidates[Random.Range(0, candidates.Count)];
+        return true;
     }
 
     public void TryMoveActor(GridController controller, Vector2Int direction)
@@ -782,6 +945,7 @@ public sealed class BombermanPrototype : MonoBehaviour
             bomb = bombObject.AddComponent<Bomb>();
         }
         bomb.Initialize(bombCell, player.transform, playerColliderRadius + bombReleasePadding);
+        bomb.PlacedOrder = ++bombSequence;
         bombs[bomb.Cell] = bomb;
         activeBombs++;
         SoundManager.Instance?.PlayPlaceBomb();
@@ -790,7 +954,18 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private IEnumerator ExplodeAfterFuse(Bomb bomb)
     {
-        yield return WaitForGameplaySeconds(bombFuseTime);
+        // Without the Detonator the fuse burns for bombFuseTime. With it, a bomb waits for the detonator key.
+        float fuseElapsed = 0f;
+        while (bomb != null && !bomb.DetonateRequested && (powerUpState.detonator || fuseElapsed < bombFuseTime))
+        {
+            if (!IsPaused)
+            {
+                fuseElapsed += Time.deltaTime;
+            }
+
+            yield return null;
+        }
+
         if (bomb == null)
         {
             yield break;
@@ -806,6 +981,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private void Explode(Vector2Int origin)
     {
         ExitDoor exitDoor = map.ExitDoor;
+        HashSet<PowerUp> powerUpsPresentBeforeBlast = new(powerUps);
         // Only an exit that was already visible reacts; the blast that uncovers it does not.
         bool exitWasRevealed = exitDoor != null && exitDoor.IsRevealed;
         List<Vector2Int> blastCells = new() { origin };
@@ -833,6 +1009,7 @@ public sealed class BombermanPrototype : MonoBehaviour
                     }
 
                     map.DestroyDestructibleAt(cell);
+                    RevealPowerUp(cell);
                     StartCoroutine(ShowDebris(cell, debrisMaterial, step));
                     break;
                 }
@@ -844,6 +1021,8 @@ public sealed class BombermanPrototype : MonoBehaviour
                 }
             }
         }
+
+        DestroyPowerUpsCaughtInBlast(blastCells, powerUpsPresentBeforeBlast);
 
         StageTheme.ThemeLighting lighting = StageLighting.Resolve(currentLighting);
         ExplosionFlash.Create(map.CellToWorld(origin) + Vector3.up, lighting.ExplosionColor, lighting.ExplosionIntensity, blastRange + 1.5f, stageRoot.transform);
@@ -861,9 +1040,85 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         if (exitWasRevealed && exitDoorPopulationCap > 0 && blastCells.Contains(exitDoor.Cell))
         {
-            LogSpawnEvent($"Blast from {origin} hit the open exit at {exitDoor.Cell}. Enemies come out in {exitDoorSpawnDelay:0.##}s.");
-            StartCoroutine(SpawnExitWave());
+            int requestedAmount = 3 + exitDoorHitCount;
+            int amount = Mathf.Min(requestedAmount, Mathf.Clamp(exitDoorPopulationCap, 0, OriginalStageEnemies.StageEnemyCap));
+            exitDoorHitCount++;
+            LogSpawnEvent($"Blast from {origin} hit the open exit at {exitDoor.Cell}. Queued {amount} enemy/enemies ({exitDoorHitCount} door hit(s)).");
+            exitWaveSpawnCounts.Enqueue(amount);
+            pendingExitWaves++;
+            if (!exitWaveSpawning)
+            {
+                StartCoroutine(SpawnExitWaves(exitDoor.Cell));
+            }
         }
+    }
+
+    private void DestroyPowerUpsCaughtInBlast(List<Vector2Int> blastCells, HashSet<PowerUp> existedBeforeBlast)
+    {
+        foreach (PowerUp item in existedBeforeBlast)
+        {
+            if (item == null || !blastCells.Contains(item.Cell)) continue;
+            Vector2Int cell = item.Cell;
+            powerUps.Remove(item);
+            map.ShowGrassAt(cell);
+            Destroy(item.gameObject);
+            LogSpawnEvent($"Blast destroyed the {item.Type} power-up at {cell}. Queued one {exitWaveEnemyType.Name}.");
+            powerUpEnemySpawnCells.Enqueue(cell);
+            pendingPowerUpEnemySpawns++;
+            if (!powerUpEnemySpawning)
+            {
+                StartCoroutine(SpawnPowerUpEnemies());
+            }
+        }
+    }
+
+    private IEnumerator SpawnPowerUpEnemies()
+    {
+        powerUpEnemySpawning = true;
+        while (powerUpEnemySpawnCells.Count > 0 && !restarting && map != null)
+        {
+            Vector2Int spawnCell = powerUpEnemySpawnCells.Dequeue();
+            yield return WaitForGameplaySeconds(exitDoorSpawnDelay);
+            if (restarting || map == null) break;
+
+            if (CountLivingEnemies() < OriginalStageEnemies.StageEnemyCap)
+            {
+                EnemyController prefab = FindEnemyPrefab(exitWaveEnemyType);
+                if (prefab == null)
+                {
+                    Debug.LogError($"Assign the {exitWaveEnemyType.Name} prefab to Enemy Prefabs on {name}.", this);
+                }
+                else
+                {
+                    while (!restarting && map != null && CountLivingEnemies() < OriginalStageEnemies.StageEnemyCap
+                        && !IsSafeExitSpawnCell(spawnCell))
+                    {
+                        yield return null;
+                    }
+
+                    if (!restarting && map != null && CountLivingEnemies() < OriginalStageEnemies.StageEnemyCap)
+                    {
+                        EnemyController enemy = Instantiate(prefab, map.CellToWorld(spawnCell), Quaternion.identity);
+                        enemy.name = $"{prefab.name} (Power-up)";
+                        enemy.Cell = spawnCell;
+                        enemy.transform.SetParent(stageRoot.transform, true);
+                        actors.Add(enemy);
+                        enemy.Initialize(this);
+                        LogSpawnEvent($"Destroyed power-up released {prefab.name} at {spawnCell}.");
+                    }
+                }
+            }
+            else
+            {
+                LogSpawnEvent($"Destroyed power-up at {spawnCell} released no enemy because the stage cap is full.");
+            }
+
+            pendingPowerUpEnemySpawns--;
+            if (powerUpEnemySpawnCells.Count > 0) yield return WaitForGameplaySeconds(0.5f);
+        }
+
+        pendingPowerUpEnemySpawns = 0;
+        powerUpEnemySpawning = false;
     }
 
     private void LogSpawnEvent(string message)
@@ -890,35 +1145,78 @@ public sealed class BombermanPrototype : MonoBehaviour
         return string.Join(", ", parts);
     }
 
-    private IEnumerator SpawnExitWave()
+    private IEnumerator SpawnExitWaves(Vector2Int spawnCell)
     {
-        // A pending wave keeps the exit locked until its enemies exist.
-        pendingExitWaves++;
-        yield return WaitForGameplaySeconds(exitDoorSpawnDelay);
-        pendingExitWaves--;
-        if (restarting)
+        exitWaveSpawning = true;
+        while (exitWaveSpawnCounts.Count > 0 && !restarting && map != null)
         {
-            yield break;
+            // Process one hit at a time. Hits during a wave wait their turn,
+            // preventing parallel coroutines from releasing enemies together.
+            int amount = exitWaveSpawnCounts.Dequeue();
+            yield return WaitForGameplaySeconds(exitDoorSpawnDelay);
+            if (restarting || map == null) break;
+
+            EnemyController prefab = FindEnemyPrefab(exitWaveEnemyType);
+            if (prefab == null)
+            {
+                Debug.LogError($"Assign the {exitWaveEnemyType.Name} prefab to Enemy Prefabs on {name}.", this);
+                pendingExitWaves--;
+                continue;
+            }
+
+            int released = 0;
+            for (int i = 0; i < amount; i++)
+            {
+                // Exit waves use the same stage-wide cap as every other spawn path.
+                // Any part of this hit that does not fit is discarded.
+                if (CountLivingEnemies() >= OriginalStageEnemies.StageEnemyCap) break;
+                while (!restarting && map != null && !IsSafeExitSpawnCell(spawnCell))
+                {
+                    yield return null;
+                }
+                if (restarting || map == null) break;
+
+                Vector3 position = map.CellToWorld(spawnCell);
+                EnemyController enemy = Instantiate(prefab, position, Quaternion.identity);
+                enemy.name = $"{prefab.name} (Exit)";
+                enemy.Cell = spawnCell;
+                enemy.transform.SetParent(stageRoot.transform, true);
+                actors.Add(enemy);
+                enemy.Initialize(this);
+                released++;
+                // Keep one shared release cadence across all hits/waves.
+                if (i + 1 < amount || exitWaveSpawnCounts.Count > 0) yield return WaitForGameplaySeconds(0.5f);
+            }
+            LogSpawnEvent($"Exit at {spawnCell} released {released} {prefab.name}.");
+            pendingExitWaves--;
         }
 
-        EnemyController prefab = FindEnemyPrefab(exitWaveEnemyType);
-        if (prefab == null)
+        pendingExitWaves = 0;
+        exitWaveSpawning = false;
+    }
+
+    private bool IsSafeExitSpawnCell(Vector2Int cell)
+    {
+        if (!IsWalkable(cell)) return false;
+        Vector3 spawnPosition = map.CellToWorld(cell);
+        if (player != null)
         {
-            Debug.LogError($"Assign the {exitWaveEnemyType.Name} prefab to Enemy Prefabs on {name}.", this);
-            yield break;
+            Vector3 playerPosition = player.transform.position;
+            playerPosition.y = spawnPosition.y;
+            // The player has to be near enough to bomb the door; only defer if
+            // spawning here would physically overlap the player.
+            if ((playerPosition - spawnPosition).sqrMagnitude < 0.81f) return false;
         }
 
-        Vector3 position = map.CellToWorld(map.ExitDoor.Cell);
-        int released = 0;
-        for (int alive = CountLivingEnemies(); alive < exitDoorPopulationCap; alive++)
+        foreach (GridController actor in actors)
         {
-            EnemyController enemy = Instantiate(prefab, position, Quaternion.identity);
-            enemy.name = $"{prefab.name} (Exit)";
-            RegisterEnemy(enemy);
-            released++;
+            if (actor == null || actor.IsPlayer || actor.IsDead) continue;
+            Vector3 actorPosition = actor.transform.position;
+            actorPosition.y = spawnPosition.y;
+            if ((actorPosition - spawnPosition).sqrMagnitude < 0.25f) return false;
         }
 
-        LogSpawnEvent($"The exit at {map.ExitDoor.Cell} released {released} {prefab.name}.");
+        return true;
     }
 
     private IEnumerator ShowExplosion(Vector2Int cell, Vector2Int origin)
@@ -944,7 +1242,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         {
             if (actor != null && !actor.IsDead && actor.Cell == cell)
             {
-                if (actor.IsPlayer && !playerCanDieFromBomb)
+                if (actor.IsPlayer && (!playerCanDieFromBomb || powerUpState.flamePass))
                 {
                     continue;
                 }
@@ -970,7 +1268,372 @@ public sealed class BombermanPrototype : MonoBehaviour
         Destroy(particle, lifetime);
     }
 
+    // ---- Power-ups -------------------------------------------------------------------------------------------
+
+    // Hides this stage's power-up under a random breakable block (never the one hiding the exit). The cell
+    // comes from its own random sequence, so adding power-ups never changes the layout or the exit.
+    private void PlanHiddenPowerUp(int stage, int layoutSeed)
+    {
+        hasHiddenPowerUp = false;
+        if (!spawnPowerUps || map == null) return;
+
+        Vector2Int exitCell = map.ExitDoor != null ? map.ExitDoor.Cell : new Vector2Int(-1, -1);
+        List<Vector2Int> hidingCells = new();
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                Vector2Int cell = new(x, y);
+                if (cell != exitCell && map.GetCellKind(cell) == CellKind.Destructible)
+                {
+                    hidingCells.Add(cell);
+                }
+            }
+        }
+
+        if (hidingCells.Count == 0) return;
+
+        System.Random cellRandom = new(unchecked(layoutSeed ^ 0x1F2E3D4C));
+        hiddenPowerUpCell = hidingCells[cellRandom.Next(hidingCells.Count)];
+        hiddenPowerUpType = PickPowerUpType(stage);
+        hasHiddenPowerUp = true;
+        LogSpawnEvent($"Stage {stage} hides a {hiddenPowerUpType} power-up under the block at {hiddenPowerUpCell}.");
+    }
+
+    // The same stage always hides the same power-up, whatever the layout or session.
+    private PowerUpType PickPowerUpType(int stage)
+    {
+        if (stagePowerUps != null && stagePowerUps.Length > 0)
+        {
+            return stagePowerUps[(Mathf.Max(1, stage) - 1) % stagePowerUps.Length];
+        }
+
+        return OriginalStagePowerUps.GetForStage(stage, stageManager != null ? stageManager.TotalStages : 0);
+    }
+
+    private void RevealPowerUp(Vector2Int cell)
+    {
+        if (!hasHiddenPowerUp || cell != hiddenPowerUpCell) return;
+
+        hasHiddenPowerUp = false;
+        if (hiddenPowerUpMarker != null) Destroy(hiddenPowerUpMarker);
+        hiddenPowerUpMarker = null;
+        if (hiddenPowerUpMarkerMaterial != null) Destroy(hiddenPowerUpMarkerMaterial);
+        hiddenPowerUpMarkerMaterial = null;
+        int index = (int)hiddenPowerUpType;
+        GameObject prefab = powerUpPrefabs != null && index < powerUpPrefabs.Length ? powerUpPrefabs[index] : null;
+        map.HideGrassAt(cell);
+        powerUps.Add(PowerUp.Create(hiddenPowerUpType, cell, map.CellToWorld(cell), stageRoot.transform, prefab));
+        LogSpawnEvent($"A {hiddenPowerUpType} power-up appeared at {cell}.");
+    }
+
+    private void CollectPowerUps()
+    {
+        if (powerUps.Count == 0 || IsPaused || restarting || stageClearing || player == null || player.IsDead) return;
+
+        Vector3 playerPosition = player.transform.position;
+        for (int i = powerUps.Count - 1; i >= 0; i--)
+        {
+            PowerUp item = powerUps[i];
+            if (item == null)
+            {
+                powerUps.RemoveAt(i);
+                continue;
+            }
+
+            Vector3 offset = item.transform.position - playerPosition;
+            offset.y = 0f;
+            if (offset.sqrMagnitude > powerUpPickupDistance * powerUpPickupDistance) continue;
+
+            powerUps.RemoveAt(i);
+            map.ShowGrassAt(item.Cell);
+            ApplyPowerUp(item.Type);
+            Destroy(item.gameObject);
+        }
+    }
+
+    private void ApplyPowerUp(PowerUpType type, bool rewardPickup = true)
+    {
+        string result;
+        switch (type)
+        {
+            case PowerUpType.BombUp:
+                if (maxBombs < maxBombLimit)
+                {
+                    maxBombs++;
+                    powerUpState.bombUps++;
+                }
+
+                result = $"bombs at once: {maxBombs}";
+                break;
+            case PowerUpType.FireUp:
+                if (blastRange < blastRangeLimit)
+                {
+                    blastRange++;
+                    powerUpState.fireUps++;
+                }
+
+                result = $"blast range: {blastRange}";
+                break;
+            case PowerUpType.SpeedUp:
+                if (powerUpState.speedUps < speedUpLimit)
+                {
+                    powerUpState.speedUps++;
+                    player.MoveSpeed = GetPlayerMoveSpeed();
+                    player.FreeMoveAcceleration = GetPlayerMoveAcceleration();
+                    player.FreeMoveDeceleration = GetPlayerMoveDeceleration();
+                }
+
+                result = $"speed level: {powerUpState.speedUps}";
+                break;
+            case PowerUpType.Detonator:
+                powerUpState.detonator = true;
+                result = "press X to detonate all placed bombs";
+                break;
+            case PowerUpType.BombPass:
+                powerUpState.bombPass = true;
+                result = "walks through bombs";
+                break;
+            case PowerUpType.WallPass:
+                powerUpState.wallPass = true;
+                player.WallPass = true;
+                result = "walks through breakable blocks";
+                break;
+            case PowerUpType.FlamePass:
+                powerUpState.flamePass = true;
+                result = "blasts no longer hurt";
+                break;
+            default:
+                mysteryTimeLeft = mysteryDuration;
+                result = $"invincible for {mysteryDuration:0.#}s";
+                break;
+        }
+
+        if (rewardPickup)
+        {
+            SoundManager.Instance?.PlayPowerUpPickup();
+            AddScore(powerUpScore);
+        }
+        LogSpawnEvent($"Picked up {type}: {result}.");
+    }
+
+    // The detonator key and the Mystery countdown. Both follow gameplay time, so a pause freezes them.
+    private void UpdatePowerUps()
+    {
+        if (powerUpState.detonator && HasLivingPlayer && !IsPaused && !restarting && !stageClearing
+            && WasPressed(Key.X))
+        {
+            DetonateAllBombs();
+        }
+
+        if (mysteryTimeLeft > 0f)
+        {
+            if (!IsPaused)
+            {
+                mysteryTimeLeft = Mathf.Max(0f, mysteryTimeLeft - Time.deltaTime);
+            }
+
+            if (player != null)
+            {
+                player.SetInvincibleMaterials(mysteryTimeLeft > 0f);
+            }
+        }
+        else if (player != null)
+        {
+            player.SetInvincibleMaterials(false);
+        }
+    }
+
+    private void DetonateAllBombs()
+    {
+        foreach (Bomb bomb in bombs.Values)
+        {
+            if (bomb != null) bomb.DetonateRequested = true;
+        }
+    }
+
+    private void ResetPowerUps()
+    {
+        maxBombs = Mathf.Max(1, maxBombs - powerUpState.bombUps);
+        blastRange = Mathf.Max(1, blastRange - powerUpState.fireUps);
+        powerUpState = new PowerUpState();
+        mysteryTimeLeft = 0f;
+        if (player != null)
+        {
+            player.MoveSpeed = GetPlayerMoveSpeed();
+            player.FreeMoveAcceleration = GetPlayerMoveAcceleration();
+            player.FreeMoveDeceleration = GetPlayerMoveDeceleration();
+            player.WallPass = false;
+            player.SetInvincibleMaterials(false);
+        }
+    }
+
+    private void ResetTemporaryPowerUpsOnDeath()
+    {
+        int cheatSpeedUps = Mathf.Clamp(powerUpState.cheatSpeedUps, 0, powerUpState.speedUps);
+        powerUpState.speedUps -= cheatSpeedUps;
+        powerUpState.cheatSpeedUps = 0;
+        powerUpState.detonator = false;
+        powerUpState.bombPass = false;
+        powerUpState.wallPass = false;
+        powerUpState.flamePass = false;
+        mysteryTimeLeft = 0f;
+    }
+
+    // Continue: the title screen asks for the saved stage, and the run saved at that stage's start comes back with it.
+    // A new game clears the save first, and a saved stage number without run data starts that stage fresh.
+    private void RestoreSavedRun()
+    {
+        if (GameProgress.RequestedStage < 1 || !GameProgress.TryLoadRun(GameProgress.RequestedStage, out GameProgress.RunData run))
+        {
+            return;
+        }
+
+        PowerUpState saved = run.powerUps ?? new PowerUpState();
+        saved.bombUps = Mathf.Clamp(saved.bombUps, 0, Mathf.Max(0, maxBombLimit - baseMaxBombs));
+        saved.fireUps = Mathf.Clamp(saved.fireUps, 0, Mathf.Max(0, blastRangeLimit - baseBlastRange));
+        saved.speedUps = Mathf.Clamp(saved.speedUps, 0, speedUpLimit);
+        saved.cheatBombUps = Mathf.Clamp(saved.cheatBombUps, 0, saved.bombUps);
+        saved.cheatFireUps = Mathf.Clamp(saved.cheatFireUps, 0, saved.fireUps);
+        saved.cheatSpeedUps = Mathf.Clamp(saved.cheatSpeedUps, 0, saved.speedUps);
+        powerUpState = saved;
+        maxBombs = baseMaxBombs + saved.bombUps;
+        blastRange = baseBlastRange + saved.fireUps;
+        score = Mathf.Max(0, run.score);
+        livesLeft = Mathf.Max(0, run.lives);
+        LogSpawnEvent($"Continue: stage {run.stage}, score {score}, lives {livesLeft}, bombs {maxBombs}, range {blastRange}, speed level {saved.speedUps}.");
+    }
+
     public void SetGodMode(bool enabled) => godMode = enabled;
+
+    public void ToggleGodMode() => SetGodMode(!godMode);
+
+    public void OpenCheatMenu()
+    {
+        if (!showCheatMenuButton || cheatMenu == null || transitionActive || restarting || stageClearing) return;
+        if (!cheatMenuOpen)
+        {
+            wasPausedBeforeCheatMenu = paused;
+            cheatMenuOpen = true;
+        }
+        SetPaused(true);
+        cheatMenu.SetVisible(true);
+    }
+
+    public void CloseCheatMenu()
+    {
+        if (!cheatMenuOpen) return;
+        cheatMenuOpen = false;
+        cheatMenu.SetVisible(false);
+        SetPaused(wasPausedBeforeCheatMenu);
+    }
+
+    public void CheatSkipToNextStage()
+    {
+        if (stageManager == null || stageManager.OnLastStage || transitionActive || restarting || stageClearing) return;
+        CloseCheatMenu();
+        stageManager.NextStage();
+    }
+
+    public bool CheatGoToStage(int stage, out string error)
+    {
+        error = null;
+        if (stageManager == null || !HasLivingPlayer || transitionActive || restarting || stageClearing)
+        {
+            error = "Stage change is unavailable right now.";
+            return false;
+        }
+
+        if (stage < 1)
+        {
+            error = "Stage number must be 1 or higher.";
+            return false;
+        }
+
+        int stageLimit = stageManager.TotalStages;
+        if (stageLimit > 0 && stage > stageLimit)
+        {
+            error = $"Enter a stage from 1 to {stageLimit}.";
+            return false;
+        }
+
+        CloseCheatMenu();
+        stageManager.LoadStage(stage);
+        if (stageManager.CurrentStage == stage) return true;
+
+        error = $"Stage {stage} is not available in this sequence.";
+        return false;
+    }
+
+    public void CheatGrantPowerUp(PowerUpType type)
+    {
+        if (!HasLivingPlayer || transitionActive || restarting || stageClearing) return;
+        int previousBombs = maxBombs;
+        int previousRange = blastRange;
+        int previousSpeedUps = powerUpState.speedUps;
+        ApplyPowerUp(type, rewardPickup: false);
+        powerUpState.cheatBombUps += Mathf.Max(0, maxBombs - previousBombs);
+        powerUpState.cheatFireUps += Mathf.Max(0, blastRange - previousRange);
+        powerUpState.cheatSpeedUps += Mathf.Max(0, powerUpState.speedUps - previousSpeedUps);
+    }
+
+    public void CheatGrantAllPowerUps()
+    {
+        if (!HasLivingPlayer || transitionActive || restarting || stageClearing) return;
+
+        powerUpState.cheatBombUps += Mathf.Max(0, maxBombLimit - maxBombs);
+        powerUpState.cheatFireUps += Mathf.Max(0, blastRangeLimit - blastRange);
+        powerUpState.cheatSpeedUps += Mathf.Max(0, speedUpLimit - powerUpState.speedUps);
+        maxBombs = maxBombLimit;
+        blastRange = blastRangeLimit;
+        powerUpState.bombUps = maxBombs - baseMaxBombs;
+        powerUpState.fireUps = blastRange - baseBlastRange;
+        powerUpState.speedUps = speedUpLimit;
+        powerUpState.detonator = true;
+        powerUpState.bombPass = true;
+        powerUpState.wallPass = true;
+        powerUpState.flamePass = true;
+        mysteryTimeLeft = mysteryDuration;
+        player.MoveSpeed = GetPlayerMoveSpeed();
+        player.FreeMoveAcceleration = GetPlayerMoveAcceleration();
+        player.FreeMoveDeceleration = GetPlayerMoveDeceleration();
+        player.WallPass = true;
+        LogSpawnEvent("Cheat granted all power-ups at their limits.");
+    }
+
+    public bool CheatRevealPowerUpLocation()
+    {
+        if (!hasHiddenPowerUp || map == null || transitionActive || restarting || stageClearing) return false;
+        if (hiddenPowerUpMarker == null)
+        {
+            hiddenPowerUpMarker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            hiddenPowerUpMarker.name = "Cheat Hidden Power-up Marker";
+            hiddenPowerUpMarker.transform.SetParent(stageRoot.transform, true);
+            hiddenPowerUpMarker.transform.position = map.CellToWorld(hiddenPowerUpCell) + Vector3.up * 1.6f;
+            hiddenPowerUpMarker.transform.localScale = Vector3.one * 0.35f;
+            Collider markerCollider = hiddenPowerUpMarker.GetComponent<Collider>();
+            if (markerCollider != null) Destroy(markerCollider);
+            Renderer markerRenderer = hiddenPowerUpMarker.GetComponent<Renderer>();
+            hiddenPowerUpMarkerMaterial = BombermanMaterials.Make("Cheat Reveal Marker", new Color(1f, 0.15f, 0.9f));
+            markerRenderer.sharedMaterial = hiddenPowerUpMarkerMaterial;
+            markerRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+        LogSpawnEvent($"Cheat marked the hidden power-up location at {hiddenPowerUpCell}.");
+        return true;
+    }
+
+    public bool CheatRevealExitDoor()
+    {
+        if (map == null || transitionActive || restarting || stageClearing) return false;
+        ExitDoor exitDoor = map.ExitDoor;
+        if (exitDoor == null) return false;
+        if (exitDoor.IsRevealed) return true;
+
+        map.DestroyDestructibleAt(exitDoor.Cell);
+        exitDoor.Reveal();
+        LogSpawnEvent($"Cheat revealed the exit door at {exitDoor.Cell}. No enemies released.");
+        return exitDoor.IsRevealed;
+    }
 
     // Score for one kill, by enemy type. Unknown types give 0.
     private int GetEnemyScore(GridController actor)
@@ -1000,7 +1663,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void StartPlayerDeath(PlayerDeathCause cause)
     {
-        if (godMode || IsPaused || restarting || stageClearing || player == null || player.IsDead)
+        if (IsInvincible || IsPaused || restarting || stageClearing || player == null || player.IsDead)
         {
             return;
         }
@@ -1118,6 +1781,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageHud.SetLives(livesLeft);
         score = 0;
         stageHud.SetScore(score);
+        ResetPowerUps();
         stageManager.LoadStage(1);
     }
 
@@ -1125,6 +1789,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         restarting = true;
         SetPaused(false);
+        ResetTemporaryPowerUpsOnDeath();
         player.BeginDeathAnimation(cause == PlayerDeathCause.Bomb);
         SoundManager.Instance?.PlayPlayerDeath();
 
@@ -1179,6 +1844,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageHud.SetLives(livesLeft);
         score = 0;
         stageHud.SetScore(score);
+        ResetPowerUps();
         stageManager.RestartStage();
     }
 

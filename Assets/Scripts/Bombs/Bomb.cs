@@ -4,6 +4,11 @@ public sealed class Bomb : MonoBehaviour
 {
     public Vector2Int Cell;
 
+    // 1 for the first bomb placed on the stage, then counting up.
+    public int PlacedOrder;
+    // Set by BombermanPrototype when the player presses the detonator key; the fuse coroutine then explodes the bomb.
+    public bool DetonateRequested;
+
     private Collider[] bombColliders;
     private Transform owner;
     private float ownerReleaseDistance;

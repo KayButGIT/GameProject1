@@ -28,9 +28,12 @@ MonoBehaviour:
     - {fileID: 8300000, guid: bae96cee30d04ef4491be1cc53d33d9a, type: 3}
     - {fileID: 8300000, guid: b1df591a8d12c054d90142829deba05b, type: 3}
     - {fileID: 8300000, guid: b6efb5b5ed7824e47b2cbb06ac721d67, type: 3}
-    volume: 0.267
-  - footsteps: []
-    volume: 0.85
+    volume: 0.207
+  - footsteps:
+    - {fileID: 8300000, guid: 13b09e6f0d4c76945a5ab78fd59ac7d0, type: 3}
+    - {fileID: 8300000, guid: f0b0b651bf8bbe340a11847879b39e97, type: 3}
+    - {fileID: 8300000, guid: e6959871f4e7f5d449ba42d81b8d31d7, type: 3}
+    volume: 0.322
   - footsteps: []
     volume: 0.85
   footstepPitchRange: {x: 0.96, y: 1.04}

@@ -12,19 +12,26 @@ public sealed class PlayerController : GridController
     private int faceMaterialIndex = -1;
     private Material bodyNormalMaterial;
     private Material bodyBurntMaterial;
+    private Material bodyInvincibleMaterial;
     private Material faceNormalMaterial;
     private Material faceBlinkMaterial;
+    private Material faceInvincibleMaterial;
     private Material faceDeadMaterial;
     private Material faceDeadBurntMaterial;
     private Vector2 moveInput;
     private float blinkTimer = BlinkInterval;
     private float blinkDurationTimer;
+    private bool invincibleVisualActive;
 
     private const float BlinkInterval = 3f;
     private const float BlinkDuration = 0.14f;
     private const float InputAcceleration = 12f;
     private const float InputDeceleration = 18f;
     public override bool IsPlayer => true;
+
+    // Wall Pass power-up: walk through breakable blocks. BombermanPrototype turns it on and off.
+    public bool WallPass { get; set; }
+    public override bool CanPassDestructibleWalls => WallPass;
 
     public static PlayerController Create(
         string actorName,
@@ -40,8 +47,10 @@ public sealed class PlayerController : GridController
         RuntimeAnimatorController animatorController,
         Material bodyNormalMaterial,
         Material bodyBurntMaterial,
+        Material bodyInvincibleMaterial,
         Material faceNormalMaterial,
         Material faceBlinkMaterial,
+        Material faceInvincibleMaterial,
         Material faceDeadMaterial,
         Material faceDeadBurntMaterial)
     {
@@ -54,8 +63,10 @@ public sealed class PlayerController : GridController
             animatorController,
             bodyNormalMaterial,
             bodyBurntMaterial,
+            bodyInvincibleMaterial,
             faceNormalMaterial,
             faceBlinkMaterial,
+            faceInvincibleMaterial,
             faceDeadMaterial,
             faceDeadBurntMaterial);
         return player;
@@ -93,7 +104,7 @@ public sealed class PlayerController : GridController
         }
 
         MoveFreely(moveInput, map, game.IsBombBlockingCell);
-        animationBridge?.SetMovement(CurrentFreeMoveSpeed, MoveSpeed);
+        animationBridge?.SetMovement(CurrentFreeMoveSpeed, MoveSpeed, game.PlayerSpeedMultiplier);
     }
 
     public void PlayFootstepFromAnimation()
@@ -102,6 +113,26 @@ public sealed class PlayerController : GridController
             return;
 
         SoundManager.Instance?.PlayFootstep(game.CurrentStagePhase);
+    }
+
+    public void SetInvincibleMaterials(bool active)
+    {
+        if (IsDead) return;
+        if (invincibleVisualActive == active) return;
+        invincibleVisualActive = active;
+        if (active)
+        {
+            if (BodyRenderer != null && bodyMaterialIndex >= 0 && bodyInvincibleMaterial != null)
+                SetRendererMaterial(BodyRenderer, bodyMaterialIndex, bodyInvincibleMaterial);
+            if (headRenderer != null && bodyInvincibleMaterial != null)
+                SetNonFaceHeadMaterials(bodyInvincibleMaterial);
+            if (faceRenderer != null && faceMaterialIndex >= 0 && faceInvincibleMaterial != null)
+                SetRendererMaterial(faceRenderer, faceMaterialIndex, faceInvincibleMaterial);
+        }
+        else
+        {
+            ApplyNormalMaterials();
+        }
     }
 
     public override void Die()
@@ -124,15 +155,19 @@ public sealed class PlayerController : GridController
         RuntimeAnimatorController animatorController,
         Material bodyNormalMaterial,
         Material bodyBurntMaterial,
+        Material bodyInvincibleMaterial,
         Material faceNormalMaterial,
         Material faceBlinkMaterial,
+        Material faceInvincibleMaterial,
         Material faceDeadMaterial,
         Material faceDeadBurntMaterial)
     {
         this.bodyNormalMaterial = bodyNormalMaterial;
         this.bodyBurntMaterial = bodyBurntMaterial;
+        this.bodyInvincibleMaterial = bodyInvincibleMaterial;
         this.faceNormalMaterial = faceNormalMaterial;
         this.faceBlinkMaterial = faceBlinkMaterial;
+        this.faceInvincibleMaterial = faceInvincibleMaterial;
         this.faceDeadMaterial = faceDeadMaterial;
         this.faceDeadBurntMaterial = faceDeadBurntMaterial;
 
@@ -281,6 +316,15 @@ public sealed class PlayerController : GridController
     {
         if (faceRenderer == null || faceMaterialIndex < 0 || faceNormalMaterial == null || faceBlinkMaterial == null)
         {
+            return;
+        }
+
+        if (invincibleVisualActive)
+        {
+            blinkTimer = BlinkInterval;
+            blinkDurationTimer = 0f;
+            if (faceInvincibleMaterial != null)
+                SetRendererMaterial(faceRenderer, faceMaterialIndex, faceInvincibleMaterial);
             return;
         }
 
