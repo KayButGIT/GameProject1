@@ -115,27 +115,106 @@ public sealed class ExplosionParticlePiece : MonoBehaviour
     private float lifetime;
     private float age;
     private Vector3 startScale;
+    private float startDelay;
+    private Mesh ownedMesh;
+    private bool settlesOnGround;
+    private bool hasLanded;
+    private int bounceCount;
+    private float groundHeight;
+    private float landedAt;
 
     public void Initialize(Vector3 initialVelocity, Vector3 angularVelocity, float maxLifetime)
+    {
+        Initialize(initialVelocity, angularVelocity, maxLifetime, 0f, null);
+    }
+
+    public void Initialize(Vector3 initialVelocity, Vector3 angularVelocity, float maxLifetime, float delay, Mesh mesh)
     {
         velocity = initialVelocity;
         spin = angularVelocity;
         lifetime = maxLifetime;
         startScale = transform.localScale;
+        startDelay = delay;
+        ownedMesh = mesh;
+    }
+
+    public void InitializeSettling(Vector3 initialVelocity, Vector3 angularVelocity, float floorHeight, float persistAfterLanding)
+    {
+        velocity = initialVelocity;
+        spin = angularVelocity;
+        groundHeight = floorHeight;
+        lifetime = persistAfterLanding;
+        startScale = transform.localScale;
+        settlesOnGround = true;
     }
 
     private void Update()
     {
+        if (settlesOnGround)
+        {
+            UpdateSettlingPiece();
+            return;
+        }
+
         age += Time.deltaTime;
-        if (age >= lifetime)
+        if (age < startDelay) return;
+        float effectAge = age - startDelay;
+        if (effectAge >= lifetime)
         {
             Destroy(gameObject);
             return;
         }
 
-        velocity += Physics.gravity * (0.35f * Time.deltaTime);
+        velocity += Physics.gravity * (ownedMesh != null ? 2.5f : 0.35f) * Time.deltaTime;
         transform.localPosition += velocity * Time.deltaTime;
         transform.Rotate(spin * Time.deltaTime, Space.Self);
-        transform.localScale = startScale * (1f - age / lifetime);
+        transform.localScale = startScale * (1f - effectAge / lifetime);
+    }
+
+    private void UpdateSettlingPiece()
+    {
+        age += Time.deltaTime;
+        if (!hasLanded)
+        {
+            velocity += Physics.gravity * 1.7f * Time.deltaTime;
+            transform.position += velocity * Time.deltaTime;
+            transform.Rotate(spin * Time.deltaTime, Space.Self);
+            if (transform.position.y <= groundHeight)
+            {
+                Vector3 position = transform.position;
+                position.y = groundHeight;
+                transform.position = position;
+                if (bounceCount == 0 && Mathf.Abs(velocity.y) > 1.15f)
+                {
+                    velocity.y = Mathf.Abs(velocity.y) * 0.28f;
+                    velocity.x *= 0.52f;
+                    velocity.z *= 0.52f;
+                    spin *= 0.55f;
+                    bounceCount++;
+                }
+                else
+                {
+                    hasLanded = true;
+                    landedAt = age;
+                    velocity = Vector3.zero;
+                    spin = Vector3.zero;
+                }
+            }
+            return;
+        }
+
+        float groundedAge = age - landedAt;
+        if (groundedAge >= lifetime)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        if (groundedAge > lifetime - 0.8f)
+            transform.localScale = startScale * Mathf.Clamp01((lifetime - groundedAge) / 0.8f);
+    }
+
+    private void OnDestroy()
+    {
+        if (ownedMesh != null) Destroy(ownedMesh);
     }
 }

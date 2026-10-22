@@ -138,6 +138,35 @@ public sealed class BombermanMap
         return null;
     }
 
+    public GameObject CreateBlockDebrisSource(Vector2Int cell)
+    {
+        if (!blocks.TryGetValue(cell, out GameObject block) || block == null) return null;
+
+        GameObject snapshot = new($"Debris Source {cell.x},{cell.y}");
+        snapshot.transform.SetPositionAndRotation(block.transform.position, block.transform.rotation);
+        snapshot.transform.localScale = block.transform.lossyScale;
+        foreach (MeshFilter sourceFilter in block.GetComponentsInChildren<MeshFilter>())
+        {
+            MeshRenderer sourceRenderer = sourceFilter.GetComponent<MeshRenderer>();
+            if (sourceRenderer == null || !sourceRenderer.enabled || sourceFilter.sharedMesh == null) continue;
+
+            GameObject part = new(sourceFilter.gameObject.name);
+            part.transform.SetParent(snapshot.transform, false);
+            part.transform.position = sourceFilter.transform.position;
+            part.transform.rotation = sourceFilter.transform.rotation;
+            part.transform.localScale = sourceFilter.transform.lossyScale;
+            part.AddComponent<MeshFilter>().sharedMesh = sourceFilter.sharedMesh;
+            part.AddComponent<MeshRenderer>().sharedMaterials = sourceRenderer.sharedMaterials;
+        }
+
+        if (snapshot.transform.childCount == 0)
+        {
+            UnityEngine.Object.Destroy(snapshot);
+            return null;
+        }
+        return snapshot;
+    }
+
     public Vector3 CellToWorld(Vector2Int cell)
     {
         return new Vector3(cell.x - width / 2f, 0f, cell.y - height / 2f);

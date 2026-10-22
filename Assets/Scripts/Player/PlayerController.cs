@@ -22,6 +22,9 @@ public sealed class PlayerController : GridController
     private float blinkTimer = BlinkInterval;
     private float blinkDurationTimer;
     private bool invincibleVisualActive;
+    private Renderer[] burnRenderers;
+    private Material[] burnMaterials;
+    private Material[][] originalMaterials;
 
     private const float BlinkInterval = 3f;
     private const float BlinkDuration = 0.14f;
@@ -147,6 +150,74 @@ public sealed class PlayerController : GridController
         moveInput = Vector2.zero;
         SetDeathMaterials(burnt);
         animationBridge?.SetDeath();
+    }
+
+    public void BeginBurnDissolve()
+    {
+        if (burnMaterials != null || BodyRenderer == null) return;
+        Transform modelRoot = transform;
+        burnRenderers = modelRoot.GetComponentsInChildren<Renderer>();
+        System.Collections.Generic.List<Material> created = new();
+        originalMaterials = new Material[burnRenderers.Length][];
+        for (int rendererIndex = 0; rendererIndex < burnRenderers.Length; rendererIndex++)
+        {
+            Renderer renderer = burnRenderers[rendererIndex];
+            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer) continue;
+            originalMaterials[rendererIndex] = renderer.sharedMaterials;
+            if (!renderer.enabled) continue;
+            Material[] replacement = new Material[renderer.sharedMaterials.Length];
+            for (int i = 0; i < replacement.Length; i++)
+            {
+                Material source = renderer.sharedMaterials[i];
+                Shader shader = Shader.Find("Bomberman/Player Burn");
+                if (shader == null || source == null) continue;
+                Material burn = new(shader) { name = source.name + " Burn" };
+                burn.SetFloat("_NoiseScale", 7f);
+                burn.SetFloat("_EdgeWidth", 0.18f);
+                burn.SetColor("_EdgeColor", new Color(5f, 0.65f, 0.035f, 1f));
+                burn.SetColor("_CoreColor", new Color(8f, 3.2f, 0.35f, 1f));
+                Texture baseMap = source.mainTexture;
+                if (source.HasProperty("_BaseMap") && source.GetTexture("_BaseMap") != null) baseMap = source.GetTexture("_BaseMap");
+                if (source.HasProperty("_BaseColorMap") && source.GetTexture("_BaseColorMap") != null) baseMap = source.GetTexture("_BaseColorMap");
+                if (source.HasProperty("_ColorMap") && source.GetTexture("_ColorMap") != null) baseMap = source.GetTexture("_ColorMap");
+                Color baseColor = source.HasProperty("_BaseColor") ? source.GetColor("_BaseColor") : source.color;
+                if (baseMap != null) burn.SetTexture("_BaseMap", baseMap);
+                burn.SetColor("_BaseColor", baseColor);
+                replacement[i] = burn;
+                created.Add(burn);
+            }
+            if (replacement.Length > 0 && replacement[0] != null) renderer.materials = replacement;
+        }
+        burnMaterials = created.ToArray();
+        if (burnMaterials.Length == 0) { burnMaterials = null; return; }
+        SetBurnDissolve(0f);
+    }
+
+    public void SetBurnDissolve(float progress)
+    {
+        if (burnMaterials == null) return;
+        progress = Mathf.Clamp01(progress);
+        foreach (Material material in burnMaterials)
+        {
+            material.SetFloat("_BurnProgress", progress);
+        }
+    }
+
+    public void ClearBurnDissolve()
+    {
+        if (burnRenderers != null && originalMaterials != null)
+            for (int i = 0; i < burnRenderers.Length; i++)
+                if (burnRenderers[i] != null && originalMaterials[i] != null) burnRenderers[i].sharedMaterials = originalMaterials[i];
+        if (burnMaterials != null)
+            foreach (Material material in burnMaterials) if (material != null) Destroy(material);
+        burnMaterials = null;
+        burnRenderers = null;
+        originalMaterials = null;
+    }
+
+    private void OnDestroy()
+    {
+        ClearBurnDissolve();
     }
 
     private void ConfigureVisual(

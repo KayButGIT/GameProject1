@@ -70,6 +70,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField, Min(0f)] private float gameClearDelay = 4f;
     [SerializeField, Min(0f)] private float playerDeathAnimationTime = 0.85f;
     [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
+    [SerializeField, Min(0.05f)] private float playerBurnDissolveTime = 0.48f;
     [SerializeField] private float playerRestartDelay = 0.15f;
 
     [Header("Scoring")]
@@ -153,6 +154,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     private Vector3 cameraBasePosition;
     private Vector3 cameraFollowVelocity;
     private Quaternion cameraRotation;
+    private float cameraShakeRemaining;
+    private float cameraShakeDuration;
+    private float cameraShakeAmplitude;
     private PlayerController player;
     private int activeBombs;
     private bool paused;
@@ -548,13 +552,30 @@ public sealed class BombermanPrototype : MonoBehaviour
             return;
         }
 
-        mainCamera.transform.position = Vector3.SmoothDamp(
+        Vector3 followPosition = Vector3.SmoothDamp(
             mainCamera.transform.position,
             targetPosition,
             ref cameraFollowVelocity,
             smoothTime,
             Mathf.Infinity,
             Time.deltaTime);
+        Vector3 shakeOffset = Vector3.zero;
+        if (cameraShakeRemaining > 0f)
+        {
+            cameraShakeRemaining = Mathf.Max(0f, cameraShakeRemaining - Time.deltaTime);
+            float envelope = cameraShakeDuration > 0f ? cameraShakeRemaining / cameraShakeDuration : 0f;
+            float x = (Mathf.PerlinNoise(Time.time * 37f, 0.17f) - 0.5f) * 2f;
+            float z = (Mathf.PerlinNoise(0.73f, Time.time * 43f) - 0.5f) * 2f;
+            shakeOffset = new Vector3(x, 0f, z) * (cameraShakeAmplitude * envelope);
+        }
+        mainCamera.transform.position = followPosition + shakeOffset;
+    }
+
+    private void ShakeCamera(float amplitude, float duration)
+    {
+        cameraShakeAmplitude = Mathf.Clamp(Mathf.Max(cameraShakeAmplitude, amplitude), 0f, 0.28f);
+        cameraShakeDuration = Mathf.Max(cameraShakeDuration, duration);
+        cameraShakeRemaining = Mathf.Max(cameraShakeRemaining, duration);
     }
 
     private Vector3 GetCameraPositionLookingAt(Vector3 groundTarget)
@@ -1008,9 +1029,10 @@ public sealed class BombermanPrototype : MonoBehaviour
                         debrisMaterial = materials.Destructible;
                     }
 
+                    GameObject debrisSource = map.CreateBlockDebrisSource(cell);
                     map.DestroyDestructibleAt(cell);
                     RevealPowerUp(cell);
-                    StartCoroutine(ShowDebris(cell, debrisMaterial, step));
+                    StartCoroutine(ShowDebris(cell, origin, debrisMaterial, debrisSource, step));
                     break;
                 }
 
@@ -1026,6 +1048,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         StageTheme.ThemeLighting lighting = StageLighting.Resolve(currentLighting);
         ExplosionFlash.Create(map.CellToWorld(origin) + Vector3.up, lighting.ExplosionColor, lighting.ExplosionIntensity, blastRange + 1.5f, stageRoot.transform);
+        ShakeCamera(0.2f, 0.34f);
         SoundManager.Instance?.PlayBombExplode();
         foreach (Vector2Int cell in blastCells)
         {
@@ -1228,12 +1251,23 @@ public sealed class BombermanPrototype : MonoBehaviour
         Destroy(blast);
     }
 
-    private IEnumerator ShowDebris(Vector2Int cell, Material blockMaterial, int step)
+    private IEnumerator ShowDebris(Vector2Int cell, Vector2Int blastOrigin, Material blockMaterial, GameObject debrisSource, int step)
     {
-        GameObject debris = BlastEffects.CreateDebris($"Debris {cell.x},{cell.y}", map.CellToWorld(cell), blockMaterial, step);
+        GameObject debris = BlastEffects.CreateDebris($"Debris {cell.x},{cell.y}", map.CellToWorld(cell), blockMaterial, step, debrisSource);
         debris.transform.SetParent(stageRoot.transform, true);
+        GameObject lingeringFragments = BlastEffects.CreateBlastWallFragments(
+            $"Blast Thrown Debris {cell.x},{cell.y}",
+            map.CellToWorld(cell),
+            map.CellToWorld(blastOrigin),
+            blockMaterial,
+            step);
+        lingeringFragments.transform.SetParent(stageRoot.transform, true);
+        ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 5f, 2.7f, stageRoot.transform);
+        ShakeCamera(0.12f, 0.26f);
         yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
         Destroy(debris);
+        yield return WaitForGameplaySeconds(BlastEffects.SettledDebrisDuration);
+        Destroy(lingeringFragments);
     }
 
     private void DamageActorsAt(Vector2Int cell)
@@ -1254,8 +1288,15 @@ public sealed class BombermanPrototype : MonoBehaviour
                 }
 
                 AddScore(GetEnemyScore(actor));
-                SpawnActorDeathParticles(actor, "Enemy Death Particles", playerDeathParticleTime);
-                actor.Die();
+                if (actor is EnemyController enemy)
+                {
+                    enemy.DieFromBomb(Mathf.Max(playerBurnDissolveTime, enemy.DeathSeconds * 1.5f));
+                }
+                else
+                {
+                    SpawnActorDeathParticles(actor, "Enemy Death Particles", playerDeathParticleTime);
+                    actor.Die();
+                }
             }
         }
     }
@@ -1793,22 +1834,49 @@ public sealed class BombermanPrototype : MonoBehaviour
         player.BeginDeathAnimation(cause == PlayerDeathCause.Bomb);
         SoundManager.Instance?.PlayPlayerDeath();
 
-        yield return new WaitForSeconds(playerDeathAnimationTime);
+        bool bombDeath = cause == PlayerDeathCause.Bomb;
+        if (bombDeath)
+        {
+            if (player != null)
+            {
+                player.BeginBurnDissolve();
+                float elapsed = 0f;
+                float dissolveDuration = Mathf.Max(playerBurnDissolveTime, playerDeathAnimationTime * 1.5f);
+                while (elapsed < dissolveDuration && player != null)
+                {
+                    if (!IsPaused)
+                    {
+                        elapsed += Time.deltaTime;
+                        player.SetBurnDissolve(elapsed / dissolveDuration);
+                    }
+                    yield return null;
+                }
+            }
+        }
+        else
+        {
+            yield return new WaitForSeconds(playerDeathAnimationTime);
+        }
 
         if (player != null)
         {
-            player.GetParticleColors(out Color primaryColor, out Color secondaryColor);
-            GameObject particle = ExplosionParticleFactory.CreateColorBurst(
-                cause == PlayerDeathCause.Bomb ? "Player Bomb Death Particles" : "Player Enemy Death Particles",
-                player.transform.position,
-                primaryColor,
-                secondaryColor);
-            particle.transform.SetParent(stageRoot.transform, true);
+            if (bombDeath)
+            {
+                GameObject aftermath = BlastEffects.CreatePlayerBurnAftermath("Player Burn Smoke and Embers", player.transform.position);
+                aftermath.transform.SetParent(stageRoot.transform, true);
+                Destroy(aftermath, BlastEffects.BurnAftermathDuration);
+            }
+            else
+            {
+                player.GetParticleColors(out Color primaryColor, out Color secondaryColor);
+                GameObject particles = ExplosionParticleFactory.CreateColorBurst("Player Enemy Death Particles", player.transform.position, primaryColor, secondaryColor);
+                particles.transform.SetParent(stageRoot.transform, true);
+                Destroy(particles, playerDeathParticleTime);
+            }
             Destroy(player.gameObject);
-            Destroy(particle, playerDeathParticleTime);
         }
 
-        yield return new WaitForSeconds(playerDeathParticleTime);
+        yield return new WaitForSeconds(bombDeath ? BlastEffects.BurnAftermathDuration : playerDeathParticleTime);
         yield return new WaitForSeconds(playerRestartDelay);
         Time.timeScale = 1f;
         livesLeft--;
