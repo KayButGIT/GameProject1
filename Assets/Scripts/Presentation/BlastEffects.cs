@@ -11,7 +11,7 @@ public static class BlastEffects
     // Longest time an effect needs before it can be removed, excluding the spread delay.
     public const float Duration = 3f;
     public const float BurnAftermathDuration = 1.05f;
-    public const float SettledDebrisDuration = 30f;
+    public const float SettledDebrisDuration = 8f;
 
     private static Texture2D glowTexture;
     private static Texture2D puffTexture;
@@ -136,7 +136,7 @@ public static class BlastEffects
         ParticleSystem chunks = CreateSystem(root.transform, "Chunks", new Vector3(0f, 0.4f, 0f), blockMaterial, delay);
         ParticleSystem.MainModule main = chunks.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 2f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(6f, 10f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3.2f);
         ConfigureBrickChunkSize(main);
         main.startRotation3D = true;
         main.startRotationX = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
@@ -144,8 +144,8 @@ public static class BlastEffects
         main.startRotationZ = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         main.gravityModifier = 1.35f;
         main.maxParticles = 80;
-        SetBurst(chunks, 64);
-        SetHemisphere(chunks, 0.3f);
+        SetBurst(chunks, 20);
+        SetHemisphere(chunks, 0.12f);
         SetSize(chunks, new Keyframe(0f, 1.35f), new Keyframe(0.6f, 1.15f), new Keyframe(1.3f, 0f));
         ParticleSystem.RotationOverLifetimeModule rotation = chunks.rotationOverLifetime;
         rotation.enabled = true;
@@ -177,7 +177,7 @@ public static class BlastEffects
                 for (int submesh = 0; submesh < filter.sharedMesh.subMeshCount; submesh++)
                 {
                     Material material = sourceMaterials.Length > 0 ? sourceMaterials[Mathf.Min(submesh, sourceMaterials.Length - 1)] : blockMaterial;
-                    int emitted = EmitMeshFragments(root.transform, filter.sharedMesh, filter.transform, material, submesh, delay, 88 - meshFragmentCount);
+                    int emitted = EmitMeshFragments(root.transform, filter.sharedMesh, filter.transform, material, submesh, delay, 24 - meshFragmentCount);
                     meshFragmentCount += emitted;
                     emittedMeshFragments |= emitted > 0;
                 }
@@ -190,31 +190,31 @@ public static class BlastEffects
         }
         else
         {
-            int extraChunks = Mathf.Max(12, 76 - meshFragmentCount);
-            CreateChunkBurst("Chunk Accents", root.transform, blockMaterial, delay, extraChunks, 5f, 9f, 0.9f);
+            int extraChunks = Mathf.Max(4, 18 - meshFragmentCount);
+            CreateChunkBurst("Chunk Accents", root.transform, blockMaterial, delay, extraChunks, 2f, 3.5f, 0.9f);
         }
 
         ParticleSystem dust = CreateSystem(root.transform, "Dust", new Vector3(0f, 0.35f, 0f), DustMaterial, delay);
         main = dust.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 1.7f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(1.4f, 2.8f);
-        main.startSize = new ParticleSystem.MinMaxCurve(1.1f, 1.8f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.35f, 0.8f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.65f);
         main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
-        SetBurst(dust, 24);
-        SetHemisphere(dust, 0.65f);
+        SetBurst(dust, 8);
+        SetHemisphere(dust, 0.2f);
         SetColor(dust, new[] { Key(1f, 1f, 1f, 0f), Key(1f, 1f, 1f, 1f) },
             new[] { new GradientAlphaKey(0.08f, 0f), new GradientAlphaKey(0.82f, 0.12f), new GradientAlphaKey(0.5f, 0.6f), new GradientAlphaKey(0f, 1f) });
-        SetSize(dust, new Keyframe(0f, 1.1f), new Keyframe(1f, 2.2f));
+        SetSize(dust, new Keyframe(0f, 0.7f), new Keyframe(1f, 1.1f));
         SetSpin(dust, 1.1f);
 
         ParticleSystem sparks = CreateSystem(root.transform, "Debris Sparks", new Vector3(0f, 0.42f, 0f), SparkMaterial, delay);
         main = sparks.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.9f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(5f, 10f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 4f);
         main.startSize = new ParticleSystem.MinMaxCurve(0.045f, 0.09f);
         main.gravityModifier = 1.1f;
-        SetBurst(sparks, 52);
-        SetHemisphere(sparks, 0.25f);
+        SetBurst(sparks, 18);
+        SetHemisphere(sparks, 0.12f);
         SetColor(sparks, new[] { Key(1f, 0.98f, 0.68f, 0f), Key(1f, 0.38f, 0.08f, 1f) },
             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.45f), new GradientAlphaKey(0f, 1f) });
         SetSize(sparks, new Keyframe(0f, 1f), new Keyframe(1f, 0.25f));
@@ -234,13 +234,13 @@ public static class BlastEffects
         if (blastDirection.sqrMagnitude < 0.001f) blastDirection = Vector3.forward;
         blastDirection.Normalize();
         Vector3 sideways = new(-blastDirection.z, 0f, blastDirection.x);
-        int count = UnityEngine.Random.Range(22 + blastStep * 2, 29 + blastStep * 3);
+        int count = UnityEngine.Random.Range(8 + blastStep, 12 + blastStep * 2);
         for (int i = 0; i < count; i++)
         {
             GameObject shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
             shard.name = "Blast Thrown Brick Fragment";
             shard.transform.SetParent(root.transform, false);
-            float faceSpread = ((i % 7) - 3) * 0.105f + UnityEngine.Random.Range(-0.035f, 0.035f);
+            float faceSpread = ((i % 7) - 3) * 0.08f + UnityEngine.Random.Range(-0.025f, 0.025f);
             Vector3 launchPosition = groundPosition + Vector3.up * UnityEngine.Random.Range(0.2f, 0.62f)
                 + sideways * faceSpread;
             shard.transform.position = launchPosition;
@@ -254,14 +254,14 @@ public static class BlastEffects
                 UnityEngine.Random.Range(0.08f, 0.2f));
             shard.GetComponent<Renderer>().sharedMaterial = material;
             UnityEngine.Object.Destroy(shard.GetComponent<Collider>());
-            int lateralSlot = i % 9;
-            float lateralSpread = (lateralSlot - 4) * 0.29f + UnityEngine.Random.Range(-0.12f, 0.12f);
-            float forwardReach = UnityEngine.Random.Range(0.45f, 1.35f);
+            int lateralSlot = i % 7;
+            float lateralSpread = (lateralSlot - 3) * 0.1f + UnityEngine.Random.Range(-0.04f, 0.04f);
+            float forwardReach = UnityEngine.Random.Range(0.25f, 0.6f);
             Vector3 launchDirection = blastDirection * forwardReach
                 + sideways * lateralSpread
-                + Vector3.up * UnityEngine.Random.Range(0.5f, 1.25f);
+                + Vector3.up * UnityEngine.Random.Range(0.35f, 0.75f);
             shard.AddComponent<ExplosionParticlePiece>().InitializeSettling(
-                launchDirection.normalized * UnityEngine.Random.Range(3.5f, 6.8f),
+                launchDirection.normalized * UnityEngine.Random.Range(1.8f, 3f),
                 new Vector3(UnityEngine.Random.Range(-480f, 480f), UnityEngine.Random.Range(-480f, 480f), UnityEngine.Random.Range(-480f, 480f)),
                 groundPosition.y + 0.035f,
                 SettledDebrisDuration);
@@ -332,8 +332,8 @@ public static class BlastEffects
             piece.AddComponent<MeshFilter>().sharedMesh = fragment;
             piece.AddComponent<MeshRenderer>().sharedMaterial = material;
             Vector3 direction = (piece.transform.position - parent.position).normalized
-                + new Vector3(UnityEngine.Random.Range(-0.9f, 0.9f), UnityEngine.Random.Range(0.9f, 1.8f), UnityEngine.Random.Range(-0.9f, 0.9f));
-            piece.AddComponent<ExplosionParticlePiece>().Initialize(direction.normalized * UnityEngine.Random.Range(7f, 12f),
+                + new Vector3(UnityEngine.Random.Range(-0.25f, 0.25f), UnityEngine.Random.Range(0.5f, 0.9f), UnityEngine.Random.Range(-0.25f, 0.25f));
+            piece.AddComponent<ExplosionParticlePiece>().Initialize(direction.normalized * UnityEngine.Random.Range(2f, 4f),
                 new Vector3(UnityEngine.Random.Range(-540f, 540f), UnityEngine.Random.Range(-540f, 540f), UnityEngine.Random.Range(-540f, 540f)),
                 UnityEngine.Random.Range(1.1f, 2.2f), delay, fragment);
             emitted++;

@@ -18,6 +18,10 @@ public sealed class PlayerController : GridController
     private Material faceInvincibleMaterial;
     private Material faceDeadMaterial;
     private Material faceDeadBurntMaterial;
+    private Material bodyFireDissolveMaterial;
+    private Material faceFireDissolveMaterial;
+    private float burnDissolveStart;
+    private float burnDissolveEnd = 1f;
     private Vector2 moveInput;
     private float blinkTimer = BlinkInterval;
     private float blinkDurationTimer;
@@ -55,7 +59,11 @@ public sealed class PlayerController : GridController
         Material faceBlinkMaterial,
         Material faceInvincibleMaterial,
         Material faceDeadMaterial,
-        Material faceDeadBurntMaterial)
+        Material faceDeadBurntMaterial,
+        Material bodyFireDissolveMaterial,
+        Material faceFireDissolveMaterial,
+        float burnDissolveStart,
+        float burnDissolveEnd)
     {
         PlayerController player = CreateActor<PlayerController>(actorName, cell, map, normalMaterial, deadMaterial, true, scale);
         player.map = map;
@@ -71,7 +79,11 @@ public sealed class PlayerController : GridController
             faceBlinkMaterial,
             faceInvincibleMaterial,
             faceDeadMaterial,
-            faceDeadBurntMaterial);
+            faceDeadBurntMaterial,
+            bodyFireDissolveMaterial,
+            faceFireDissolveMaterial,
+            burnDissolveStart,
+            burnDissolveEnd);
         return player;
     }
 
@@ -169,20 +181,33 @@ public sealed class PlayerController : GridController
             for (int i = 0; i < replacement.Length; i++)
             {
                 Material source = renderer.sharedMaterials[i];
-                Shader shader = Shader.Find("Bomberman/Player Burn");
-                if (shader == null || source == null) continue;
-                Material burn = new(shader) { name = source.name + " Burn" };
-                burn.SetFloat("_NoiseScale", 7f);
-                burn.SetFloat("_EdgeWidth", 0.18f);
-                burn.SetColor("_EdgeColor", new Color(5f, 0.65f, 0.035f, 1f));
-                burn.SetColor("_CoreColor", new Color(8f, 3.2f, 0.35f, 1f));
-                Texture baseMap = source.mainTexture;
-                if (source.HasProperty("_BaseMap") && source.GetTexture("_BaseMap") != null) baseMap = source.GetTexture("_BaseMap");
-                if (source.HasProperty("_BaseColorMap") && source.GetTexture("_BaseColorMap") != null) baseMap = source.GetTexture("_BaseColorMap");
-                if (source.HasProperty("_ColorMap") && source.GetTexture("_ColorMap") != null) baseMap = source.GetTexture("_ColorMap");
-                Color baseColor = source.HasProperty("_BaseColor") ? source.GetColor("_BaseColor") : source.color;
-                if (baseMap != null) burn.SetTexture("_BaseMap", baseMap);
-                burn.SetColor("_BaseColor", baseColor);
+                bool isFace = renderer == faceRenderer && i == faceMaterialIndex;
+                Material burnTemplate = isFace ? faceFireDissolveMaterial : bodyFireDissolveMaterial;
+                if (source == null) continue;
+
+                Material burn;
+                if (burnTemplate != null)
+                {
+                    burn = new(burnTemplate) { name = burnTemplate.name + " Runtime Burn" };
+                    if (burn.HasProperty("_Clipping")) burn.SetFloat("_Clipping", burnDissolveStart);
+                }
+                else
+                {
+                    Shader shader = Shader.Find("Bomberman/Player Burn");
+                    if (shader == null) continue;
+                    burn = new(shader) { name = source.name + " Burn" };
+                    burn.SetFloat("_NoiseScale", 7f);
+                    burn.SetFloat("_EdgeWidth", 0.18f);
+                    burn.SetColor("_EdgeColor", new Color(5f, 0.65f, 0.035f, 1f));
+                    burn.SetColor("_CoreColor", new Color(8f, 3.2f, 0.35f, 1f));
+                    Texture baseMap = source.mainTexture;
+                    if (source.HasProperty("_BaseMap") && source.GetTexture("_BaseMap") != null) baseMap = source.GetTexture("_BaseMap");
+                    if (source.HasProperty("_BaseColorMap") && source.GetTexture("_BaseColorMap") != null) baseMap = source.GetTexture("_BaseColorMap");
+                    if (source.HasProperty("_ColorMap") && source.GetTexture("_ColorMap") != null) baseMap = source.GetTexture("_ColorMap");
+                    Color baseColor = source.HasProperty("_BaseColor") ? source.GetColor("_BaseColor") : source.color;
+                    if (baseMap != null) burn.SetTexture("_BaseMap", baseMap);
+                    burn.SetColor("_BaseColor", baseColor);
+                }
                 replacement[i] = burn;
                 created.Add(burn);
             }
@@ -199,7 +224,9 @@ public sealed class PlayerController : GridController
         progress = Mathf.Clamp01(progress);
         foreach (Material material in burnMaterials)
         {
-            material.SetFloat("_BurnProgress", progress);
+            float clipping = Mathf.Lerp(burnDissolveStart, burnDissolveEnd, progress);
+            if (material.HasProperty("_Clipping")) material.SetFloat("_Clipping", clipping);
+            else material.SetFloat("_BurnProgress", clipping);
         }
     }
 
@@ -231,7 +258,11 @@ public sealed class PlayerController : GridController
         Material faceBlinkMaterial,
         Material faceInvincibleMaterial,
         Material faceDeadMaterial,
-        Material faceDeadBurntMaterial)
+        Material faceDeadBurntMaterial,
+        Material bodyFireDissolveMaterial,
+        Material faceFireDissolveMaterial,
+        float burnDissolveStart,
+        float burnDissolveEnd)
     {
         this.bodyNormalMaterial = bodyNormalMaterial;
         this.bodyBurntMaterial = bodyBurntMaterial;
@@ -241,6 +272,10 @@ public sealed class PlayerController : GridController
         this.faceInvincibleMaterial = faceInvincibleMaterial;
         this.faceDeadMaterial = faceDeadMaterial;
         this.faceDeadBurntMaterial = faceDeadBurntMaterial;
+        this.bodyFireDissolveMaterial = bodyFireDissolveMaterial;
+        this.faceFireDissolveMaterial = faceFireDissolveMaterial;
+        this.burnDissolveStart = Mathf.Clamp01(burnDissolveStart);
+        this.burnDissolveEnd = Mathf.Clamp01(burnDissolveEnd);
 
         Transform visualRoot = transform;
         if (modelPrefab != null)

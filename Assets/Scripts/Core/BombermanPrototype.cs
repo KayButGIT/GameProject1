@@ -49,6 +49,13 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private Material playerFaceInvincibleMaterial;
     [SerializeField] private Material playerFaceDeadMaterial;
     [SerializeField] private Material playerFaceDeadBurntMaterial;
+    [Tooltip("Optional Fire Dissolve material for the body. Leave empty to use the previous Player Burn effect.")]
+    [SerializeField] private Material playerBodyFireDissolveMaterial;
+    [Tooltip("Optional Fire Dissolve material for the face. Leave empty to use the previous Player Burn effect.")]
+    [SerializeField] private Material playerFaceFireDissolveMaterial;
+    [Tooltip("Starting and ending _Clipping values for the Fire Dissolve shader.")]
+    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveStart = 0f;
+    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveEnd = 1f;
     [SerializeField] private GameObject bombModelPrefab;
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
@@ -622,7 +629,11 @@ public sealed class BombermanPrototype : MonoBehaviour
             playerFaceBlinkMaterial,
             playerFaceInvincibleMaterial,
             playerFaceDeadMaterial,
-            playerFaceDeadBurntMaterial);
+            playerFaceDeadBurntMaterial,
+            playerBodyFireDissolveMaterial,
+            playerFaceFireDissolveMaterial,
+            playerBurnDissolveStart,
+            playerBurnDissolveEnd);
         player.MoveSpeed = GetPlayerMoveSpeed();
         player.WallPass = powerUpState.wallPass;
         player.FreeMoveAcceleration = GetPlayerMoveAcceleration();
@@ -1262,8 +1273,8 @@ public sealed class BombermanPrototype : MonoBehaviour
             blockMaterial,
             step);
         lingeringFragments.transform.SetParent(stageRoot.transform, true);
-        ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 5f, 2.7f, stageRoot.transform);
-        ShakeCamera(0.12f, 0.26f);
+        ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 3.5f, 1.5f, stageRoot.transform);
+        ShakeCamera(0.008f, 0.06f);
         yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
         Destroy(debris);
         yield return WaitForGameplaySeconds(BlastEffects.SettledDebrisDuration);
