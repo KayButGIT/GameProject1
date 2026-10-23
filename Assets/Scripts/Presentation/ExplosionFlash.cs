@@ -19,9 +19,7 @@ public sealed class ExplosionFlash : MonoBehaviour
         light.color = color;
         light.intensity = intensity;
         light.range = range;
-        light.shadows = LightShadows.Soft;
-        light.shadowBias = 0.02f;
-        light.shadowNormalBias = 0.05f;
+        light.shadows = LightShadows.None;
         ExplosionFlash explosionFlash = flashObject.AddComponent<ExplosionFlash>();
         explosionFlash.flash = light;
         explosionFlash.peakIntensity = intensity;

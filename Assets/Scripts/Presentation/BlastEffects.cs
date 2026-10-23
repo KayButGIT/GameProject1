@@ -21,13 +21,13 @@ public static class BlastEffects
     private static Material smokeMaterial;
     private static Material dustMaterial;
 
-    public static GameObject CreateFire(string objectName, Vector3 groundPosition, int step, Vector4 bounds, Vector3 origin, bool showShockwave)
+    public static GameObject CreateFire(string objectName, Vector3 groundPosition, int step)
     {
         GameObject root = new(objectName);
         root.transform.position = groundPosition;
         bool center = step == 0;
         float delay = step * SpreadDelay;
-        if (center && showShockwave) CreateShockwave(root.transform, delay);
+        if (center) CreateShockwave(root.transform, delay);
 
         ParticleSystem fireball = CreateSystem(root.transform, "Fireball", new Vector3(0f, 0.35f, 0f), FireMaterial, delay);
         ParticleSystem.MainModule main = fireball.main;
@@ -43,6 +43,16 @@ public static class BlastEffects
             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.9f, 0.3f), new GradientAlphaKey(0.55f, 0.65f), new GradientAlphaKey(0f, 1f) });
         SetSize(fireball, new Keyframe(0f, 0.7f), new Keyframe(0.3f, 1.15f), new Keyframe(1f, 1.3f));
         SetSpin(fireball, 1.5f);
+
+        ParticleSystem glow = CreateSystem(root.transform, "Glow", new Vector3(0f, 0.4f, 0f), GlowMaterial, delay);
+        main = glow.main;
+        main.startLifetime = 0.18f;
+        main.startSpeed = 0f;
+        main.startSize = center ? 2.5f : 1.5f;
+        SetBurst(glow, 1);
+        SetColor(glow, new[] { Key(1f, 1f, 1f, 0f), Key(1f, 1f, 1f, 1f) },
+            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+        SetSize(glow, new Keyframe(0f, 1f), new Keyframe(1f, 0.6f));
 
         ParticleSystem smoke = CreateSystem(root.transform, "Smoke", new Vector3(0f, 0.5f, 0f), SmokeMaterial, delay + 0.12f);
         main = smoke.main;
@@ -77,22 +87,6 @@ public static class BlastEffects
             sparkRenderer.lengthScale = 2f;
         }
 
-        Shader clippedShader = Resources.Load<Shader>("BlastClipped");
-        if (clippedShader != null)
-        {
-            foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
-            {
-                Material source = renderer.sharedMaterial;
-                Material clipped = new(clippedShader);
-                clipped.SetTexture("_BaseMap", source.mainTexture);
-                clipped.SetColor("_BaseColor", source.color);
-                clipped.SetFloat("_DstBlend", source.GetFloat("_DstBlend"));
-                clipped.SetVector("_BlastBounds", bounds);
-                clipped.SetVector("_BlastOrigin", new Vector4(origin.x, origin.z, 0f, 0f));
-                renderer.sharedMaterial = clipped;
-            }
-            root.AddComponent<BlastMaterialCleanup>();
-        }
         Activate(root.transform);
         return root;
     }
@@ -135,14 +129,10 @@ public static class BlastEffects
         root.transform.position = groundPosition;
         float delay = step * SpreadDelay;
 
-        // Chunks bounce on a plane at floor height.
-        Transform floor = new GameObject("Debris Floor").transform;
-        floor.SetParent(root.transform, false);
-
         ParticleSystem chunks = CreateSystem(root.transform, "Chunks", new Vector3(0f, 0.4f, 0f), blockMaterial, delay);
         ParticleSystem.MainModule main = chunks.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 2f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(3f, 6.2f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3.2f);
         ConfigureBrickChunkSize(main);
         main.startRotation3D = true;
         main.startRotationX = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
@@ -161,8 +151,11 @@ public static class BlastEffects
         rotation.z = new ParticleSystem.MinMaxCurve(-8f, 8f);
         ParticleSystem.CollisionModule collision = chunks.collision;
         collision.enabled = true;
-        collision.type = ParticleSystemCollisionType.Planes;
-        collision.SetPlane(0, floor);
+        collision.type = ParticleSystemCollisionType.World;
+        collision.mode = ParticleSystemCollisionMode.Collision3D;
+        collision.quality = ParticleSystemCollisionQuality.High;
+        collision.enableDynamicColliders = true;
+        collision.collidesWith = Physics.DefaultRaycastLayers;
         collision.bounce = 0.58f;
         collision.dampen = 0.16f;
         collision.radiusScale = 0.9f;
@@ -364,9 +357,11 @@ public static class BlastEffects
         SetHemisphere(chunks, 0.38f);
         ParticleSystem.CollisionModule collision = chunks.collision;
         collision.enabled = true;
-        collision.type = ParticleSystemCollisionType.Planes;
-        Transform floor = parent.Find("Debris Floor");
-        if (floor != null) collision.SetPlane(0, floor);
+        collision.type = ParticleSystemCollisionType.World;
+        collision.mode = ParticleSystemCollisionMode.Collision3D;
+        collision.quality = ParticleSystemCollisionQuality.High;
+        collision.enableDynamicColliders = true;
+        collision.collidesWith = Physics.DefaultRaycastLayers;
         collision.bounce = 0.5f;
         collision.dampen = 0.25f;
         collision.radiusScale = 0.7f;
@@ -640,21 +635,12 @@ public sealed class WallShockwave : MonoBehaviour
         transform.localScale = Vector3.one * Mathf.Lerp(0.22f, 1.15f, eased);
         Color color = startColor;
         color.a *= 1f - progress;
-        GetComponent<MeshRenderer>().sharedMaterial.color = color;
+        material.color = color;
         if (progress >= 1f) Destroy(gameObject);
     }
 
     private void OnDestroy()
     {
         if (material != null) Destroy(material);
-    }
-}
-
-public sealed class BlastMaterialCleanup : MonoBehaviour
-{
-    private void OnDestroy()
-    {
-        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
-            if (renderer.sharedMaterial != null) Destroy(renderer.sharedMaterial);
     }
 }
