@@ -155,12 +155,12 @@ public sealed class PlayerController : GridController
         BeginDeathAnimation(false);
     }
 
-    public void BeginDeathAnimation(bool burnt)
+    public void BeginDeathAnimation(bool burnt, bool applyDeathMaterials = true)
     {
         IsDead = true;
         IsMoving = false;
         moveInput = Vector2.zero;
-        SetDeathMaterials(burnt);
+        if (applyDeathMaterials) SetDeathMaterials(burnt);
         animationBridge?.SetDeath();
     }
 
@@ -211,7 +211,14 @@ public sealed class PlayerController : GridController
                 replacement[i] = burn;
                 created.Add(burn);
             }
-            if (replacement.Length > 0 && replacement[0] != null) renderer.materials = replacement;
+            bool hasReplacement = false;
+            foreach (Material material in replacement)
+            {
+                if (material == null) continue;
+                hasReplacement = true;
+                break;
+            }
+            if (hasReplacement) renderer.materials = replacement;
         }
         burnMaterials = created.ToArray();
         if (burnMaterials.Length == 0) { burnMaterials = null; return; }
