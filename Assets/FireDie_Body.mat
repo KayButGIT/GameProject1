@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: FireDie_Body
-  m_Shader: {fileID: -6465566751694194690, guid: 77c789f76db09ee4ea515e6e34d6d035, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 72e4ae586073ca84dafa35d3eeb721c4, type: 3}
   m_Parent: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []

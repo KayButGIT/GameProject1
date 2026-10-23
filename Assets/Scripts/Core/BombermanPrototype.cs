@@ -53,9 +53,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private Material playerBodyFireDissolveMaterial;
     [Tooltip("Optional Fire Dissolve material for the face. Leave empty to use the previous Player Burn effect.")]
     [SerializeField] private Material playerFaceFireDissolveMaterial;
-    [Tooltip("Starting and ending _Clipping values for the Fire Dissolve shader.")]
-    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveStart = 0f;
-    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveEnd = 1f;
+    [Tooltip("Starting and ending _Range values for the Dissolve Direction shader. Defaults run the dissolve in reverse.")]
+    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveStart = 1f;
+    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveEnd = 0f;
     [SerializeField] private GameObject bombModelPrefab;
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
@@ -1848,11 +1848,13 @@ public sealed class BombermanPrototype : MonoBehaviour
         bool bombDeath = cause == PlayerDeathCause.Bomb;
         if (bombDeath)
         {
+            // Let the death animation establish its pose before the Fire Dissolve starts.
+            yield return WaitForGameplaySeconds(playerDeathAnimationTime * 0.5f);
             if (player != null)
             {
                 player.BeginBurnDissolve();
                 float elapsed = 0f;
-                float dissolveDuration = Mathf.Max(playerBurnDissolveTime, playerDeathAnimationTime * 1.5f);
+                float dissolveDuration = playerBurnDissolveTime;
                 while (elapsed < dissolveDuration && player != null)
                 {
                     if (!IsPaused)
