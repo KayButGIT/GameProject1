@@ -59,6 +59,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private GameObject bombModelPrefab;
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
+    [Tooltip("Show the expanding orange ring at the center of each bomb blast.")]
+    [SerializeField] private bool showBombShockwave = false;
     [SerializeField] private float bombFuseTime = 2f;
     [SerializeField, Min(0f)] private float bombReleasePadding = 0.65f;
     [Tooltip("Bomb blasts can hurt Bomberman unless Flame Pass or Mystery protects him.")]
@@ -1020,6 +1022,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         // Only an exit that was already visible reacts; the blast that uncovers it does not.
         bool exitWasRevealed = exitDoor != null && exitDoor.IsRevealed;
         List<Vector2Int> blastCells = new() { origin };
+        HashSet<Vector2Int> destroyedWallCells = new();
         foreach (Vector2Int direction in Directions)
         {
             for (int step = 1; step <= blastRange; step++)
@@ -1037,6 +1040,7 @@ public sealed class BombermanPrototype : MonoBehaviour
                 }
                 if (kind == CellKind.Destructible)
                 {
+                    destroyedWallCells.Add(cell);
                     Material debrisMaterial = map.GetBlockMaterial(cell);
                     if (debrisMaterial == null)
                     {
@@ -1060,13 +1064,22 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         DestroyPowerUpsCaughtInBlast(blastCells, powerUpsPresentBeforeBlast);
 
-        StageTheme.ThemeLighting lighting = StageLighting.Resolve(currentLighting);
-        ExplosionFlash.Create(map.CellToWorld(origin) + Vector3.up, lighting.ExplosionColor, lighting.ExplosionIntensity, blastRange + 1.5f, stageRoot.transform);
         ShakeCamera(0.2f, 0.34f);
         SoundManager.Instance?.PlayBombExplode();
+        Vector3 blastOrigin = map.CellToWorld(origin);
+        Vector4 bounds = new(blastOrigin.x - 0.48f, blastOrigin.z - 0.48f, blastOrigin.x + 0.48f, blastOrigin.z + 0.48f);
+        foreach (Vector2Int blastCell in blastCells)
+        {
+            Vector3 position = map.CellToWorld(blastCell);
+            bounds.x = Mathf.Min(bounds.x, position.x - 0.48f);
+            bounds.y = Mathf.Min(bounds.y, position.z - 0.48f);
+            bounds.z = Mathf.Max(bounds.z, position.x + 0.48f);
+            bounds.w = Mathf.Max(bounds.w, position.z + 0.48f);
+        }
         foreach (Vector2Int cell in blastCells)
         {
-            StartCoroutine(ShowExplosion(cell, origin));
+            if (!destroyedWallCells.Contains(cell))
+            StartCoroutine(ShowExplosion(cell, origin, bounds, showBombShockwave));
             DamageActorsAt(cell);
         }
 
@@ -1256,10 +1269,10 @@ public sealed class BombermanPrototype : MonoBehaviour
         return true;
     }
 
-    private IEnumerator ShowExplosion(Vector2Int cell, Vector2Int origin)
+    private IEnumerator ShowExplosion(Vector2Int cell, Vector2Int origin, Vector4 bounds, bool showShockwave)
     {
         int step = Mathf.Abs(cell.x - origin.x) + Mathf.Abs(cell.y - origin.y);
-        GameObject blast = BlastEffects.CreateFire($"Explosion {cell.x},{cell.y}", map.CellToWorld(cell), step);
+        GameObject blast = BlastEffects.CreateFire($"Explosion {cell.x},{cell.y}", map.CellToWorld(cell), step, bounds, map.CellToWorld(origin), showShockwave);
         blast.transform.SetParent(stageRoot.transform, true);
         yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
         Destroy(blast);
@@ -1276,7 +1289,6 @@ public sealed class BombermanPrototype : MonoBehaviour
             blockMaterial,
             step);
         lingeringFragments.transform.SetParent(stageRoot.transform, true);
-        ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 3.5f, 1.5f, stageRoot.transform);
         ShakeCamera(0.008f, 0.06f);
         yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
         Destroy(debris);
