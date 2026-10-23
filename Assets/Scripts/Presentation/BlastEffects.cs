@@ -142,7 +142,7 @@ public static class BlastEffects
         ParticleSystem chunks = CreateSystem(root.transform, "Chunks", new Vector3(0f, 0.4f, 0f), blockMaterial, delay);
         ParticleSystem.MainModule main = chunks.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 2f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3.2f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(3f, 6.2f);
         ConfigureBrickChunkSize(main);
         main.startRotation3D = true;
         main.startRotationX = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);

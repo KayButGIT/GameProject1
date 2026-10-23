@@ -28,17 +28,17 @@ MonoBehaviour:
     - {fileID: 8300000, guid: bae96cee30d04ef4491be1cc53d33d9a, type: 3}
     - {fileID: 8300000, guid: b1df591a8d12c054d90142829deba05b, type: 3}
     - {fileID: 8300000, guid: b6efb5b5ed7824e47b2cbb06ac721d67, type: 3}
-    volume: 0.207
+    volume: 0.171
   - footsteps:
     - {fileID: 8300000, guid: 13b09e6f0d4c76945a5ab78fd59ac7d0, type: 3}
     - {fileID: 8300000, guid: f0b0b651bf8bbe340a11847879b39e97, type: 3}
     - {fileID: 8300000, guid: e6959871f4e7f5d449ba42d81b8d31d7, type: 3}
-    volume: 0.322
+    volume: 0.292
   - footsteps:
     - {fileID: 8300000, guid: 988bc1d839556ad45b31864d4aeb26ff, type: 3}
     - {fileID: 8300000, guid: a15de634d119aeb46be721cb5ed91dbc, type: 3}
     - {fileID: 8300000, guid: 14b9f8a64fb2aae4ba642d88fc04b6f5, type: 3}
-    volume: 0.147
+    volume: 0.123
   footstepPitchRange: {x: 0.96, y: 1.04}
   onealDeath:
   - {fileID: 8300000, guid: a3c628ae657e4ca4394f1a48b4d782f8, type: 3}
