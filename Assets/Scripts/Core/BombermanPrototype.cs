@@ -53,9 +53,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private Material playerBodyFireDissolveMaterial;
     [Tooltip("Optional Fire Dissolve material for the face. Leave empty to use the previous Player Burn effect.")]
     [SerializeField] private Material playerFaceFireDissolveMaterial;
-    [Tooltip("Starting and ending _Range values for the Dissolve Direction shader. Defaults run the dissolve in reverse.")]
-    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveStart = 1f;
-    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveEnd = 0f;
+    [Tooltip("Starting and ending _Clipping values for the FireDie dissolve. Keep the full cycle at 0 to 1.")]
+    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveStart = 0f;
+    [SerializeField, Range(0f, 1f)] private float playerBurnDissolveEnd = 1f;
     [SerializeField] private GameObject bombModelPrefab;
     [SerializeField] private int maxBombs = 1;
     [SerializeField] private int blastRange = 1;
@@ -77,7 +77,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField, Min(0f)] private float gameClearDelay = 4f;
     [SerializeField, Min(0f)] private float playerDeathAnimationTime = 0.85f;
     [SerializeField, Min(0f)] private float playerDeathParticleTime = 0.6f;
-    [SerializeField, Min(0.05f)] private float playerBurnDissolveTime = 0.48f;
+    [SerializeField, Min(0.05f)] private float playerBurnDissolveTime = 3f;
     [SerializeField] private float playerRestartDelay = 0.15f;
 
     [Header("Scoring")]
@@ -1842,7 +1842,9 @@ public sealed class BombermanPrototype : MonoBehaviour
         restarting = true;
         SetPaused(false);
         ResetTemporaryPowerUpsOnDeath();
-        player.BeginDeathAnimation(cause == PlayerDeathCause.Bomb);
+        // Bomb deaths use the FireDie dissolve during the animation instead of swapping
+        // to the static burnt material before the dissolve starts.
+        player.BeginDeathAnimation(false);
         SoundManager.Instance?.PlayPlayerDeath();
 
         bool bombDeath = cause == PlayerDeathCause.Bomb;
@@ -1854,7 +1856,9 @@ public sealed class BombermanPrototype : MonoBehaviour
             {
                 player.BeginBurnDissolve();
                 float elapsed = 0f;
-                float dissolveDuration = playerBurnDissolveTime;
+                // Run the burn during the second half of the death animation, at least through
+                // the remaining animation time so the player is not removed before it finishes.
+                float dissolveDuration = Mathf.Max(playerBurnDissolveTime, playerDeathAnimationTime * 0.5f);
                 while (elapsed < dissolveDuration && player != null)
                 {
                     if (!IsPaused)

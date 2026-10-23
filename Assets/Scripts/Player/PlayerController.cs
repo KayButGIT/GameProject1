@@ -189,8 +189,7 @@ public sealed class PlayerController : GridController
                 if (burnTemplate != null)
                 {
                     burn = new(burnTemplate) { name = burnTemplate.name + " Runtime Burn" };
-                    if (burn.HasProperty("_Range")) burn.SetFloat("_Range", burnDissolveStart);
-                    else if (burn.HasProperty("_Clipping")) burn.SetFloat("_Clipping", burnDissolveStart);
+                    if (burn.HasProperty("_Clipping")) burn.SetFloat("_Clipping", burnDissolveStart);
                 }
                 else
                 {
@@ -225,9 +224,9 @@ public sealed class PlayerController : GridController
         progress = Mathf.Clamp01(progress);
         foreach (Material material in burnMaterials)
         {
-            float clipping = Mathf.Lerp(burnDissolveStart, burnDissolveEnd, progress);
-            if (material.HasProperty("_Range")) material.SetFloat("_Range", clipping);
-            else if (material.HasProperty("_Clipping")) material.SetFloat("_Clipping", clipping);
+            float clipping = Mathf.SmoothStep(burnDissolveStart, burnDissolveEnd, progress);
+            if (material.HasProperty("_Clipping")) material.SetFloat("_Clipping", clipping);
+            else if (material.HasProperty("_Range")) material.SetFloat("_Range", clipping);
             else material.SetFloat("_BurnProgress", progress);
         }
     }
