@@ -111,7 +111,7 @@ public static class BlastEffects
         ParticleSystem embers = CreateSystem(root.transform, "Burn Embers", new Vector3(0f, 0.35f, 0f), SparkMaterial, 0f);
         main = embers.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.65f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.7f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(5f, 8f);
         main.startSize = new ParticleSystem.MinMaxCurve(0.025f, 0.06f);
         main.gravityModifier = 0.15f;
         SetBurst(embers, 18);
