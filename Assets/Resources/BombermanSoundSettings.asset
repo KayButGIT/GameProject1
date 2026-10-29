@@ -38,7 +38,7 @@ MonoBehaviour:
     - {fileID: 8300000, guid: 988bc1d839556ad45b31864d4aeb26ff, type: 3}
     - {fileID: 8300000, guid: a15de634d119aeb46be721cb5ed91dbc, type: 3}
     - {fileID: 8300000, guid: 14b9f8a64fb2aae4ba642d88fc04b6f5, type: 3}
-    volume: 0.1
+    volume: 0.07
   footstepPitchRange: {x: 0.96, y: 1.04}
   onealDeath:
   - {fileID: 8300000, guid: a3c628ae657e4ca4394f1a48b4d782f8, type: 3}
