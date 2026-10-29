@@ -20,7 +20,7 @@ MonoBehaviour:
   bombExplode: {fileID: 8300000, guid: c7a7c00c6561f6a4092ea81c29c5ffb4, type: 3}
   bombExplodeVolume: 0.419
   playerDeath: {fileID: 8300000, guid: e7d25daa71ee09040beaa0614677f18b, type: 3}
-  playerDeathVolume: 0.71
+  playerDeathVolume: 0.815
   exitOpen: {fileID: 8300000, guid: 636abe3a1069ced449abff0fa71d51a2, type: 3}
   exitOpenVolume: 0.581
   footstepPhases:
