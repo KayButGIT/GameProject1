@@ -299,6 +299,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageHud.SetTime(timeLeft);
         stageHud.SetScore(score);
         stageHud.SetLives(livesLeft);
+        stageHud.SetStage(stage);
         mysteryTimeLeft = 0f;
         powerUps.Clear();
         hasHiddenPowerUp = false;
@@ -520,6 +521,40 @@ public sealed class BombermanPrototype : MonoBehaviour
         CollectPowerUps();
         KillPlayerIfEnemyTouches();
         UpdateExitDoor();
+        UpdateXray();
+    }
+
+    // Gives every Wall Pass actor its see-through silhouette, and turns the solid-block masks on only while one is showing.
+    private void UpdateXray()
+    {
+        if (map == null) return;
+        foreach (GridController actor in actors)
+        {
+            if (actor == null || actor.IsDead || !actor.CanPassDestructibleWalls) continue;
+            XrayVision.Attach(actor, this);
+        }
+
+        map.SetXrayOccluders(XrayVision.VisibleCount > 0);
+    }
+
+    // True when the point is inside, or within margin of, any breakable block's cell.
+    public bool IsNearBreakableBlock(Vector3 worldPosition, float margin)
+    {
+        if (map == null) return false;
+        Vector2Int center = map.WorldToCell(worldPosition);
+        float reach = 0.5f + margin;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                Vector2Int cell = new(center.x + dx, center.y + dy);
+                if (map.GetCellKind(cell) != CellKind.Destructible) continue;
+                Vector3 cellCenter = map.CellToWorld(cell);
+                if (Mathf.Abs(worldPosition.x - cellCenter.x) <= reach && Mathf.Abs(worldPosition.z - cellCenter.z) <= reach) return true;
+            }
+        }
+
+        return false;
     }
 
     private void ConfigureCamera()
