@@ -68,6 +68,16 @@ MonoBehaviour:
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 0.99999976, y: 1, z: 0.99999976}
       Weight: 1
+    - Prefab: {fileID: 3133718195429293773, guid: eb791d6b921deee4686a619aa9989ec6, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 0.3
+    - Prefab: {fileID: 3133718195429293773, guid: 762f993aa6dd0db449ddc76889573c73, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 0.3
     RandomYRotation: 1
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: -0, y: -0.5, z: -0}
