@@ -1,23 +1,26 @@
 using UnityEngine;
 
-// Builds the screen-space status bar used during gameplay.
+// Builds the screen-space status bar used during gameplay: Time, Score, Stage, and Life.
 public sealed class StageHud
 {
     private readonly GameObject canvasObject;
     private readonly UnityEngine.UI.Text timeText;
     private readonly UnityEngine.UI.Text livesText;
     private readonly UnityEngine.UI.Text scoreText;
+    private readonly UnityEngine.UI.Text stageText;
     private int shownSeconds = -1;
     private int shownLives = -1;
     private int shownScore = -1;
+    private int shownStage = -1;
 
     private StageHud(GameObject canvasObject, UnityEngine.UI.Text timeText, UnityEngine.UI.Text livesText,
-        UnityEngine.UI.Text scoreText)
+        UnityEngine.UI.Text scoreText, UnityEngine.UI.Text stageText)
     {
         this.canvasObject = canvasObject;
         this.timeText = timeText;
         this.livesText = livesText;
         this.scoreText = scoreText;
+        this.stageText = stageText;
     }
 
     public static StageHud Create()
@@ -86,14 +89,33 @@ public sealed class StageHud
         scoreTransform.offsetMin = new Vector2(8f, -86f);
         scoreTransform.offsetMax = new Vector2(-8f, -14f);
 
-        return new StageHud(canvasObject, text, lives, score);
+        // Stage sits centered under the score, so the top row keeps Time, Score, and Life.
+        GameObject stageObject = new("Stage Text");
+        stageObject.transform.SetParent(canvasObject.transform);
+
+        UnityEngine.UI.Text stage = stageObject.AddComponent<UnityEngine.UI.Text>();
+        stage.alignment = TextAnchor.UpperCenter;
+        stage.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        stage.fontSize = 36;
+        stage.color = Color.white;
+        AddBlackOutline(stage);
+
+        RectTransform stageTransform = stageObject.GetComponent<RectTransform>();
+        stageTransform.anchorMin = new Vector2(0.3f, 1f);
+        stageTransform.anchorMax = new Vector2(0.7f, 1f);
+        stageTransform.pivot = new Vector2(0.5f, 1f);
+        stageTransform.anchoredPosition = new Vector2(0f, -64f);
+        stageTransform.offsetMin = new Vector2(8f, -120f);
+        stageTransform.offsetMax = new Vector2(-8f, -64f);
+
+        return new StageHud(canvasObject, text, lives, score, stage);
     }
 
     public void SetLives(int lives)
     {
         if (lives == shownLives) return;
         shownLives = lives;
-        livesText.text = $"LEFT {Mathf.Max(0, lives)}";
+        livesText.text = $"LIFE {Mathf.Max(0, lives)}";
     }
 
     public void SetScore(int score)
@@ -101,6 +123,13 @@ public sealed class StageHud
         if (score == shownScore) return;
         shownScore = score;
         scoreText.text = $"SCORE {Mathf.Max(0, score)}";
+    }
+
+    public void SetStage(int stage)
+    {
+        if (stage == shownStage) return;
+        shownStage = stage;
+        stageText.text = $"STAGE {Mathf.Max(1, stage)}";
     }
 
     public void SetTime(float seconds)
@@ -115,7 +144,7 @@ public sealed class StageHud
         timeText.text = $"TIME {wholeSeconds}";
     }
 
-    // Hides only the Time row, so Score/Stage/Left still show on stages with no time limit.
+    // Hides only the Time row, so Score/Stage/Life still show on stages with no time limit.
     public void SetTimeVisible(bool visible)
     {
         timeText.gameObject.SetActive(visible);
