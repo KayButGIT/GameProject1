@@ -15,8 +15,6 @@ public sealed class BombermanMap
     private readonly Dictionary<Vector2Int, GameObject> blocks = new();
     private readonly Dictionary<Vector2Int, GameObject> floors = new();
     private readonly Dictionary<Vector2Int, CellKind> cells = new();
-    private static Material xrayOccluderMaterial;
-    private GameObject xrayOccluders;
 
     public BombermanMap(int width, int height, float destructibleDensity, int randomSeed, BombermanMaterials materials, StageTheme theme = null, Transform parent = null)
     {
@@ -67,66 +65,6 @@ public sealed class BombermanMap
 
         ExitDoor = CreateExitDoor(mapRoot.transform);
         CreateArenaBorder(mapRoot.transform);
-        if (Application.isPlaying) CreateXrayOccluders(mapRoot.transform);
-    }
-
-    // Turns the masks over the middle pillars and the border on or off.
-    // They are on only while a Wall Pass character shows its silhouette, so they cost nothing the rest of the time.
-    public void SetXrayOccluders(bool active)
-    {
-        if (xrayOccluders != null && xrayOccluders.activeSelf != active) xrayOccluders.SetActive(active);
-    }
-
-    // Invisible copies of the solid blocks and the border model that only mark the stencil buffer.
-    // The Actor Xray shader skips marked pixels, so the silhouette shows through breakable blocks but never through these.
-    private void CreateXrayOccluders(Transform mapRoot)
-    {
-        if (xrayOccluderMaterial == null)
-        {
-            Shader shader = Resources.Load<Shader>("XrayOccluder");
-            if (shader == null) shader = Shader.Find("Bomberman/Xray Occluder");
-            if (shader == null)
-            {
-                Debug.LogWarning("Xray occluder shader is missing. Put XrayOccluder.shader in Assets/Resources.");
-                return;
-            }
-
-            xrayOccluderMaterial = new Material(shader) { name = "Xray Occluder" };
-        }
-
-        xrayOccluders = new GameObject("Xray Occluders");
-        xrayOccluders.transform.SetParent(mapRoot, false);
-        foreach (KeyValuePair<Vector2Int, GameObject> block in blocks)
-        {
-            if (block.Value != null && GetCellKind(block.Key) == CellKind.Solid) AddXrayOccluders(block.Value.transform);
-        }
-
-        Transform border = mapRoot.Find("Arena Border");
-        if (border != null) AddXrayOccluders(border);
-        xrayOccluders.SetActive(false);
-    }
-
-    private void AddXrayOccluders(Transform source)
-    {
-        foreach (MeshFilter filter in source.GetComponentsInChildren<MeshFilter>())
-        {
-            MeshRenderer renderer = filter.GetComponent<MeshRenderer>();
-            if (renderer == null || !renderer.enabled || filter.sharedMesh == null) continue;
-
-            GameObject copy = new("Xray Occluder");
-            copy.transform.SetParent(xrayOccluders.transform, false);
-            copy.transform.SetPositionAndRotation(filter.transform.position, filter.transform.rotation);
-            copy.transform.localScale = filter.transform.lossyScale;
-            copy.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
-            MeshRenderer copyRenderer = copy.AddComponent<MeshRenderer>();
-            Material[] materials = new Material[Mathf.Max(1, filter.sharedMesh.subMeshCount)];
-            for (int i = 0; i < materials.Length; i++) materials[i] = xrayOccluderMaterial;
-            copyRenderer.sharedMaterials = materials;
-            copyRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            copyRenderer.receiveShadows = false;
-            copyRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            copyRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-        }
     }
 
     public CellKind GetCellKind(Vector2Int cell)
