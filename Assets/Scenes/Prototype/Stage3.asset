@@ -287,19 +287,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b2db86121404754db890f4c8dfe81b2, type: 3}
   m_Name: Bloom
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.Bloom
-  active: 1
+  active: 0
   skipIterations:
     m_OverrideState: 0
     m_Value: 1
   threshold:
     m_OverrideState: 1
-    m_Value: 1.09
+    m_Value: 1
   intensity:
     m_OverrideState: 1
-    m_Value: 1.27
+    m_Value: 1.67
   scatter:
     m_OverrideState: 1
-    m_Value: 0.449
+    m_Value: 0.619
   clamp:
     m_OverrideState: 1
     m_Value: 65472
