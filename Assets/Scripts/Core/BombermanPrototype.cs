@@ -299,7 +299,6 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageHud.SetTime(timeLeft);
         stageHud.SetScore(score);
         stageHud.SetLives(livesLeft);
-        stageHud.SetStage(stage);
         mysteryTimeLeft = 0f;
         powerUps.Clear();
         hasHiddenPowerUp = false;
