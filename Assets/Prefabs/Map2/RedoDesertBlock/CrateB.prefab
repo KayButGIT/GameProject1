@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 7299481016623855357}
   - component: {fileID: 3055497085397715198}
   m_Layer: 0
-  m_Name: RealD2Create (1)
+  m_Name: CrateB
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -26,7 +26,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3133718195429293773}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
@@ -66,7 +66,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: db06b08d79e05a943ae8bbb5cd38807b, type: 2}
+  - {fileID: 2100000, guid: 0bede837ee300b344bbacdbd633f74c5, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

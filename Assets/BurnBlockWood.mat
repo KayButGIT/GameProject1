@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: BurnBlockA
+  m_Name: BurnBlockWood
   m_Shader: {fileID: -6465566751694194690, guid: 77c789f76db09ee4ea515e6e34d6d035, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -25,7 +25,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 0263f6ad4a0ceaa41b1a8b3257862b8c, type: 3}
+        m_Texture: {fileID: 2800000, guid: 86ea3f66a4fb02d43a3041b1e4dc8f3f, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Noise:
