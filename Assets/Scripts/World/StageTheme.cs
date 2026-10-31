@@ -7,6 +7,12 @@ using UnityEngine.Serialization;
 [CreateAssetMenu(menuName = "Bomberman/Stage Theme")]
 public sealed class StageTheme : ScriptableObject
 {
+    public enum BreakableBlockBurnMode
+    {
+        NormalBlock,
+        WoodBlock
+    }
+
     [Serializable]
     public sealed class VisualVariant
     {
@@ -16,6 +22,8 @@ public sealed class StageTheme : ScriptableObject
         public Vector3 Scale = Vector3.one;
         [Tooltip("Relative chance of picking this variant. Zero never picks it.")]
         [Min(0f)] public float Weight = 1f;
+        [Tooltip("Normal Block uses standard destruction. Wood Block uses Fire Dissolve when this variant is destroyed.")]
+        public BreakableBlockBurnMode BurnMode = BreakableBlockBurnMode.NormalBlock;
     }
 
     [Serializable]
@@ -36,7 +44,13 @@ public sealed class StageTheme : ScriptableObject
 
         public bool Attach(Transform parent, System.Random random)
         {
+            return Attach(parent, random, out _);
+        }
+
+        public bool Attach(Transform parent, System.Random random, out BreakableBlockBurnMode burnMode)
+        {
             VisualVariant variant = Pick(random);
+            burnMode = variant != null ? variant.BurnMode : BreakableBlockBurnMode.NormalBlock;
             if (variant == null) return false;
             Quaternion turn = RandomYRotation ? Quaternion.Euler(0f, 90f * random.Next(4), 0f) : Quaternion.identity;
             GameObject visual = Instantiate(variant.Prefab, parent);

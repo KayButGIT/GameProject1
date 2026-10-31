@@ -18,6 +18,7 @@ public sealed class SoundManager : MonoBehaviour
     private float sfxVolume = 1f;
     private AudioSource sfxSource;
     private AudioSource footstepSource;
+    private AudioSource musicSource;
     private bool exitOpenPlayedThisStage;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -64,6 +65,11 @@ public sealed class SoundManager : MonoBehaviour
         footstepSource.playOnAwake = false;
         footstepSource.spatialBlend = 0f;
         footstepSource.loop = false;
+
+        musicSource = gameObject.AddComponent<AudioSource>();
+        musicSource.playOnAwake = false;
+        musicSource.spatialBlend = 0f;
+        musicSource.loop = true;
     }
 
     private void Configure(SoundManagerSettings loadedSettings)
@@ -92,6 +98,49 @@ public sealed class SoundManager : MonoBehaviour
 
         sfxSource.pitch = 1f;
         sfxSource.PlayOneShot(clip, sfxVolume * soundVolume);
+    }
+
+    private void PlayMusic(AudioClip clip, float volume, bool loop = true)
+    {
+        if (musicSource == null) return;
+        musicSource.volume = Mathf.Clamp01(volume);
+        musicSource.loop = loop;
+        if (musicSource.clip == clip && (clip == null || musicSource.isPlaying)) return;
+        musicSource.Stop();
+        musicSource.clip = clip;
+        if (clip != null) musicSource.Play();
+    }
+
+    public void StopMusic()
+    {
+        if (musicSource == null) return;
+        musicSource.Stop();
+        musicSource.clip = null;
+    }
+
+    public void PlayTitleScreenBgm() => PlayMusic(settings != null ? settings.titleScreenBgm : null, settings != null ? settings.titleScreenBgmVolume : 0f);
+    public void PlayStageStartIntroBgm() => PlayMusic(settings != null ? settings.stageStartIntroBgm : null, settings != null ? settings.stageStartIntroBgmVolume : 0f, false);
+    public bool IsStageStartIntroBgmPlaying => musicSource != null && settings != null && musicSource.clip == settings.stageStartIntroBgm && musicSource.isPlaying;
+    public void PlayDeadBgm() => PlayMusic(settings != null ? settings.deadBgm : null, settings != null ? settings.deadBgmVolume : 0f, false);
+    public bool IsDeadBgmPlaying => musicSource != null && settings != null && musicSource.clip == settings.deadBgm && musicSource.isPlaying;
+    public void PlayGameOverBgm() => PlayMusic(settings != null ? settings.gameOverBgm : null, settings != null ? settings.gameOverBgmVolume : 0f, false);
+    public bool IsGameOverBgmPlaying => musicSource != null && settings != null && musicSource.clip == settings.gameOverBgm && musicSource.isPlaying;
+    public void PlayStageWinBgm() => PlayMusic(settings != null ? settings.stageWinBgm : null, settings != null ? settings.stageWinBgmVolume : 0f);
+    public void PlayGameClearedBgm() => PlayMusic(settings != null ? settings.gameClearedBgm : null, settings != null ? settings.gameClearedBgmVolume : 0f);
+
+    public void PlayMapBgm(int stagePhase)
+    {
+        if (settings == null || settings.mapBgmPhases == null)
+        {
+            PlayMusic(null, 0f);
+            return;
+        }
+
+        int phaseIndex = Mathf.Max(0, stagePhase - 1);
+        SoundManagerSettings.MapMusicPhase phase = phaseIndex < settings.mapBgmPhases.Count
+            ? settings.mapBgmPhases[phaseIndex]
+            : null;
+        PlayMusic(phase != null ? phase.clip : null, phase != null ? phase.volume : 0f);
     }
 
     private void PlayRandomOneShot(AudioClip[] pool, float soundVolume)

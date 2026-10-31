@@ -53,6 +53,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private Material playerBodyFireDissolveMaterial;
     [Tooltip("Optional Fire Dissolve material for the face. Leave empty to use the previous Player Burn effect.")]
     [SerializeField] private Material playerFaceFireDissolveMaterial;
+    [SerializeField] private Material wallDebrisBurnMaterial;
     [Tooltip("Starting and ending _Clipping values for the FireDie dissolve. The full burn cycle runs from 1 to 0.")]
     [SerializeField, Range(0f, 1f)] private float playerBurnDissolveStart = 1f;
     [SerializeField, Range(0f, 1f)] private float playerBurnDissolveEnd = 0f;
@@ -192,9 +193,11 @@ public sealed class BombermanPrototype : MonoBehaviour
     private int pendingPowerUpEnemySpawns;
     private int exitDoorHitCount;
     private bool stageClearing;
+    private bool stageWinIntroPending;
     private StageHud stageHud;
     private float timeLeft;
     private bool timeUp;
+    private bool mysteryGrantedByCheat;
     private StageLighting stageLighting;
     private StageTheme.ThemeLighting currentLighting;
     private int livesLeft;
@@ -275,6 +278,10 @@ public sealed class BombermanPrototype : MonoBehaviour
     internal void LoadStage(int stage, StageTheme theme)
     {
         StopAllCoroutines();
+        bool stageWasCleared = stageWinIntroPending;
+        stageWinIntroPending = false;
+        if (!stageWasCleared)
+            SoundManager.Instance?.PlayStageStartIntroBgm();
         if (cheatMenuOpen)
         {
             cheatMenuOpen = false;
@@ -300,6 +307,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageHud.SetScore(score);
         stageHud.SetLives(livesLeft);
         mysteryTimeLeft = 0f;
+        mysteryGrantedByCheat = false;
         powerUps.Clear();
         hasHiddenPowerUp = false;
         if (hiddenPowerUpMarker != null) Destroy(hiddenPowerUpMarker);
@@ -329,6 +337,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         currentLighting = theme != null ? theme.Lighting : null;
         stageLighting.Apply(currentLighting, mainCamera);
         map.Generate();
+        BlastEffects.PrewarmWoodCollapseMeshes(stageRoot.transform);
         PlanHiddenPowerUp(stage, layoutSeed);
         SpawnPlayer();
         if (firstStage)
@@ -350,7 +359,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         int campaignLength = stageManager != null ? stageManager.TotalStages : 0;
         exitWaveEnemyType = OriginalStageEnemies.GetExitEnemy(stage, campaignLength);
         LogSpawnEvent($"Stage {stage} starts with {DescribeEnemies()}. Bombing the open exit releases {exitWaveEnemyType.Name}.");
-        StartCoroutine(StageIntroSequence(stage));
+        StartCoroutine(StageIntroSequence(stage, stageWasCleared));
     }
 
     // Scenery is heavy, so it outlives the stage root and is rebuilt only when a stage asks for different scenery.
@@ -755,6 +764,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         enemy.Cell = cell;
         enemy.transform.position = map.CellToWorld(enemy.Cell);
+        enemy.BindMovementMap(map);
         enemy.transform.SetParent(stageRoot.transform, true);
         actors.Add(enemy);
         enemy.Initialize(this);
@@ -1043,10 +1053,11 @@ public sealed class BombermanPrototype : MonoBehaviour
                         debrisMaterial = materials.Destructible;
                     }
 
+                    bool isWoodBurnBlock = map.IsWoodBurnBlock(cell);
                     GameObject debrisSource = map.CreateBlockDebrisSource(cell);
-                    map.DestroyDestructibleAt(cell);
+                    GameObject dissolvingBlock = map.TakeDestructibleForDissolve(cell);
                     RevealPowerUp(cell);
-                    StartCoroutine(ShowDebris(cell, origin, debrisMaterial, debrisSource, step));
+                    StartCoroutine(ShowDebris(cell, origin, debrisMaterial, dissolvingBlock, debrisSource, isWoodBurnBlock, step));
                     break;
                 }
 
@@ -1265,23 +1276,76 @@ public sealed class BombermanPrototype : MonoBehaviour
         Destroy(blast);
     }
 
-    private IEnumerator ShowDebris(Vector2Int cell, Vector2Int blastOrigin, Material blockMaterial, GameObject debrisSource, int step)
+    private IEnumerator ShowDebris(Vector2Int cell, Vector2Int blastOrigin, Material blockMaterial, GameObject dissolvingBlock, GameObject debrisSource, bool isWoodBurnBlock, int step)
     {
-        GameObject debris = BlastEffects.CreateDebris($"Debris {cell.x},{cell.y}", map.CellToWorld(cell), blockMaterial, step, debrisSource);
+        float spreadDelay = step * BlastEffects.SpreadDelay;
+        float burnDuration = playerBurnDissolveTime;
+        Material woodBurnMaterial = wallDebrisBurnMaterial;
+        bool dissolveAsWood = isWoodBurnBlock && woodBurnMaterial != null;
+        float blockBurnDuration = burnDuration;
+        float wallBurnStart = Mathf.Lerp(playerBurnDissolveStart, playerBurnDissolveEnd, 0.35f);
+        float debrisBurnDuration = dissolveAsWood ? burnDuration * 1.5f : burnDuration;
+        GameObject collapseSections = dissolveAsWood && dissolvingBlock != null
+            ? BlastEffects.CreateWoodCollapseSections(dissolvingBlock, stageRoot.transform, woodBurnMaterial,
+                blockBurnDuration, wallBurnStart, playerBurnDissolveEnd)
+            : null;
+        if (dissolvingBlock != null)
+            dissolvingBlock.transform.SetParent(stageRoot.transform, true);
+
+        GameObject debris = BlastEffects.CreateDebris($"Debris {cell.x},{cell.y}", map.CellToWorld(cell), blockMaterial, step,
+            debrisSource, dissolveAsWood, dissolveAsWood ? playerBurnDissolveDelay : 0f);
         debris.transform.SetParent(stageRoot.transform, true);
-        GameObject lingeringFragments = BlastEffects.CreateBlastWallFragments(
-            $"Blast Thrown Debris {cell.x},{cell.y}",
-            map.CellToWorld(cell),
-            map.CellToWorld(blastOrigin),
-            blockMaterial,
-            step);
-        lingeringFragments.transform.SetParent(stageRoot.transform, true);
+        if (dissolveAsWood)
+        {
+            BlastEffects.CreateWoodBurningDebrisChunks(debris, blockMaterial, step, debrisBurnDuration);
+            WallDebrisBurn.Apply(debris, woodBurnMaterial, spreadDelay, debrisBurnDuration,
+                playerBurnDissolveStart, playerBurnDissolveEnd, 0.35f);
+        }
+        GameObject lingeringFragments = null;
+        if (!dissolveAsWood)
+        {
+            lingeringFragments = BlastEffects.CreateBlastWallFragments(
+                $"Blast Thrown Debris {cell.x},{cell.y}",
+                map.CellToWorld(cell),
+                map.CellToWorld(blastOrigin),
+                blockMaterial,
+                step);
+            lingeringFragments.transform.SetParent(stageRoot.transform, true);
+        }
         ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 3.5f, 1.5f, stageRoot.transform);
         ShakeCamera(0.008f, 0.06f);
-        yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
+        yield return WaitForGameplaySeconds(spreadDelay);
+        if (dissolveAsWood)
+        {
+            if (dissolvingBlock != null)
+            {
+                foreach (Renderer renderer in dissolvingBlock.GetComponentsInChildren<Renderer>(true))
+                    renderer.enabled = false;
+            }
+            if (collapseSections != null) collapseSections.SetActive(true);
+            yield return WaitForGameplaySeconds(blockBurnDuration);
+        }
+        else
+        {
+            if (dissolvingBlock != null)
+            {
+                foreach (Renderer renderer in dissolvingBlock.GetComponentsInChildren<Renderer>(true))
+                    renderer.enabled = false;
+            }
+            yield return WaitForGameplaySeconds(playerBurnDissolveDelay + playerBurnDissolveTime);
+        }
+        if (dissolvingBlock != null) Destroy(dissolvingBlock);
+        if (collapseSections != null) Destroy(collapseSections);
+        if (dissolveAsWood)
+            yield return WaitForGameplaySeconds(Mathf.Max(0f, debrisBurnDuration - blockBurnDuration));
+        float dissolveWait = dissolveAsWood ? debrisBurnDuration : playerBurnDissolveDelay + burnDuration;
+        yield return WaitForGameplaySeconds(Mathf.Max(0f, BlastEffects.Duration - dissolveWait));
         Destroy(debris);
-        yield return WaitForGameplaySeconds(BlastEffects.SettledDebrisDuration);
-        Destroy(lingeringFragments);
+        if (lingeringFragments != null)
+        {
+            yield return WaitForGameplaySeconds(BlastEffects.SettledDebrisDuration);
+            Destroy(lingeringFragments);
+        }
     }
 
     private void DamageActorsAt(Vector2Int cell)
@@ -1460,6 +1524,7 @@ public sealed class BombermanPrototype : MonoBehaviour
                 break;
             default:
                 mysteryTimeLeft = mysteryDuration;
+                mysteryGrantedByCheat = !rewardPickup;
                 result = $"invincible for {mysteryDuration:0.#}s";
                 break;
         }
@@ -1486,6 +1551,7 @@ public sealed class BombermanPrototype : MonoBehaviour
             if (!IsPaused)
             {
                 mysteryTimeLeft = Mathf.Max(0f, mysteryTimeLeft - Time.deltaTime);
+                if (mysteryTimeLeft <= 0f) mysteryGrantedByCheat = false;
             }
 
             if (player != null)
@@ -1513,6 +1579,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         blastRange = Mathf.Max(1, blastRange - powerUpState.fireUps);
         powerUpState = new PowerUpState();
         mysteryTimeLeft = 0f;
+        mysteryGrantedByCheat = false;
         if (player != null)
         {
             player.MoveSpeed = GetPlayerMoveSpeed();
@@ -1533,6 +1600,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         powerUpState.wallPass = false;
         powerUpState.flamePass = false;
         mysteryTimeLeft = 0f;
+        mysteryGrantedByCheat = false;
     }
 
     // Continue: the title screen asks for the saved stage, and the run saved at that stage's start comes back with it.
@@ -1559,7 +1627,18 @@ public sealed class BombermanPrototype : MonoBehaviour
         LogSpawnEvent($"Continue: stage {run.stage}, score {score}, lives {livesLeft}, bombs {maxBombs}, range {blastRange}, speed level {saved.speedUps}.");
     }
 
-    public void SetGodMode(bool enabled) => godMode = enabled;
+    public void SetGodMode(bool enabled)
+    {
+        godMode = enabled;
+        // The all-power-ups cheat also grants the timed Mystery invincibility.
+        // Turning God Mode off must not leave that cheat-granted protection active.
+        if (!enabled && mysteryGrantedByCheat)
+        {
+            mysteryTimeLeft = 0f;
+            mysteryGrantedByCheat = false;
+            player?.SetInvincibleMaterials(false);
+        }
+    }
 
     public void ToggleGodMode() => SetGodMode(!godMode);
 
@@ -1649,6 +1728,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         powerUpState.wallPass = true;
         powerUpState.flamePass = true;
         mysteryTimeLeft = mysteryDuration;
+        mysteryGrantedByCheat = true;
         player.MoveSpeed = GetPlayerMoveSpeed();
         player.FreeMoveAcceleration = GetPlayerMoveAcceleration();
         player.FreeMoveDeceleration = GetPlayerMoveDeceleration();
@@ -1806,10 +1886,12 @@ public sealed class BombermanPrototype : MonoBehaviour
         // A sequence ends after its last stage; without one the stages keep coming.
         if (stageManager.OnLastStage)
         {
+            SoundManager.Instance?.PlayGameClearedBgm();
             StartCoroutine(GameClearSequence());
             return;
         }
 
+        stageWinIntroPending = true;
         stageManager.NextStage();
     }
 
@@ -1842,6 +1924,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private IEnumerator PlayerDeathSequence(PlayerDeathCause cause)
     {
+        SoundManager.Instance?.PlayDeadBgm();
         restarting = true;
         SetPaused(false);
         ResetTemporaryPowerUpsOnDeath();
@@ -1900,6 +1983,10 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         yield return new WaitForSeconds(bombDeath ? BlastEffects.BurnAftermathDuration : playerDeathParticleTime);
         yield return new WaitForSeconds(playerRestartDelay);
+        SoundManager soundManager = SoundManager.Instance;
+        while (soundManager != null && soundManager.IsDeadBgmPlaying)
+            yield return null;
+        soundManager?.StopMusic();
         Time.timeScale = 1f;
         livesLeft--;
         stageHud.SetLives(livesLeft);
@@ -1914,10 +2001,15 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private IEnumerator GameOverSequence()
     {
+        SoundManager.Instance?.PlayGameOverBgm();
         GameProgress.Clear();
         GameProgress.RequestedStage = 0;
         LogSpawnEvent("Out of lives. Returning to the title screen.");
         yield return ShowEndingCard("GAME OVER", gameOverDelay);
+        SoundManager soundManager = SoundManager.Instance;
+        while (soundManager != null && soundManager.IsGameOverBgmPlaying)
+            yield return null;
+        soundManager?.StopMusic();
 
         // The smoke tests build scenes without the title, so those keep playing instead.
         if (Application.CanStreamedLevelBeLoaded(titleSceneName))
@@ -1938,16 +2030,26 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageManager.RestartStage();
     }
 
-    private IEnumerator StageIntroSequence(int stage)
+    private IEnumerator StageIntroSequence(int stage, bool stageWasCleared)
     {
+        if (stageWasCleared)
+            SoundManager.Instance?.PlayStageWinBgm();
+
         transitionActive = true;
         Time.timeScale = 0f;
         transitionOverlay.Show($"STAGE {stage}", 1f);
         yield return new WaitForSecondsRealtime(StageCardHoldSeconds);
+        if (!stageWasCleared)
+        {
+            SoundManager soundManager = SoundManager.Instance;
+            while (soundManager != null && soundManager.IsStageStartIntroBgmPlaying)
+                yield return null;
+        }
         yield return FadeTransition(1f, 0f);
         transitionOverlay.Hide();
         transitionActive = false;
         Time.timeScale = paused ? 0f : 1f;
+        SoundManager.Instance?.PlayMapBgm(CurrentStagePhase);
     }
 
     private IEnumerator ShowEndingCard(string message, float holdDuration)

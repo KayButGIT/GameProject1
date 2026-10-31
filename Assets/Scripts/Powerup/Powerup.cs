@@ -18,7 +18,7 @@ public sealed class PowerUp : MonoBehaviour
     private static readonly int GlowIntensityId = Shader.PropertyToID("_Intensity");
 
     // Your own models (Power Up Prefabs) lie on the floor. Switch these on if you want them to hover or spin instead.
-    private const float ModelHeight = 0.02f;
+    private const float ModelHeight = 0.1f;
     private static readonly bool ModelBobs = false;
     private static readonly bool ModelSpins = false;
 

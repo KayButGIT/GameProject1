@@ -71,11 +71,17 @@ public sealed class StageThemeEditor : Editor
 {
     public override void OnInspectorGUI()
     {
+        StageTheme theme = (StageTheme)target;
+        string breakableSettingsBefore = BreakableBlockMeshReadability.GetSettingsSignature(theme);
         DrawDefaultInspector();
+        if (breakableSettingsBefore != BreakableBlockMeshReadability.GetSettingsSignature(theme))
+            BreakableBlockMeshReadability.SyncAllThemes();
+        EditorGUILayout.HelpBox(
+            "FBX Read/Write is enabled for models used by any Wood Block variant and disabled when all their breakable variants use Normal Block.",
+            MessageType.Info);
         if (Application.isPlaying) return;
 
         EditorGUILayout.Space();
-        StageTheme theme = (StageTheme)target;
         StageManager manager = FindFirstObjectByType<StageManager>();
         if (manager == null)
         {

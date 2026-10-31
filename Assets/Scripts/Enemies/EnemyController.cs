@@ -412,7 +412,8 @@ public abstract class EnemyController : GridController
         List<Material> created = new();
         foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
         {
-            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer) continue;
+            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer
+                || renderer.name.Contains("Wall Pass")) continue;
             Material[] sourceMaterials = renderer.sharedMaterials;
             Material[] replacements = new Material[sourceMaterials.Length];
             for (int i = 0; i < sourceMaterials.Length; i++)
@@ -424,11 +425,8 @@ public abstract class EnemyController : GridController
                 burn.SetFloat("_EdgeWidth", 0.18f);
                 burn.SetColor("_EdgeColor", new Color(5f, 0.65f, 0.035f, 1f));
                 burn.SetColor("_CoreColor", new Color(8f, 3.2f, 0.35f, 1f));
-                Texture baseMap = source.mainTexture;
-                if (source.HasProperty("_BaseMap") && source.GetTexture("_BaseMap") != null) baseMap = source.GetTexture("_BaseMap");
-                if (source.HasProperty("_BaseColorMap") && source.GetTexture("_BaseColorMap") != null) baseMap = source.GetTexture("_BaseColorMap");
-                if (source.HasProperty("_ColorMap") && source.GetTexture("_ColorMap") != null) baseMap = source.GetTexture("_ColorMap");
-                Color baseColor = source.HasProperty("_BaseColor") ? source.GetColor("_BaseColor") : source.color;
+                Texture baseMap = GetMaterialTexture(source);
+                Color baseColor = GetMaterialColor(source);
                 if (baseMap != null) burn.SetTexture("_BaseMap", baseMap);
                 burn.SetColor("_BaseColor", baseColor);
                 replacements[i] = burn;
@@ -439,10 +437,27 @@ public abstract class EnemyController : GridController
         burnMaterials = created.ToArray();
     }
 
-    private void OnDestroy()
+    private static Texture GetMaterialTexture(Material material)
     {
-        if (burnMaterials == null) return;
-        foreach (Material material in burnMaterials)
-            if (material != null) Destroy(material);
+        string[] properties = { "_BaseMap", "_MainTex", "_BaseColorMap", "_ColorMap" };
+        foreach (string property in properties)
+            if (material.HasProperty(property) && material.GetTexture(property) != null)
+                return material.GetTexture(property);
+        return null;
+    }
+
+    private static Color GetMaterialColor(Material material)
+    {
+        if (material.HasProperty("_BaseColor")) return material.GetColor("_BaseColor");
+        if (material.HasProperty("_Color")) return material.GetColor("_Color");
+        return Color.white;
+    }
+
+    protected override void OnDestroy()
+    {
+        if (burnMaterials != null)
+            foreach (Material material in burnMaterials)
+                if (material != null) Destroy(material);
+        base.OnDestroy();
     }
 }

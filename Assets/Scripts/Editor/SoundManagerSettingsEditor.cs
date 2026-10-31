@@ -13,10 +13,16 @@ public sealed class SoundManagerSettingsEditor : Editor
             : 1;
         int previousPhaseCount = settings.footstepPhases != null ? settings.footstepPhases.Count : 0;
         settings.EnsureFootstepPhaseCount(phaseCount);
+        int previousMapBgmPhaseCount = settings.mapBgmPhases != null ? settings.mapBgmPhases.Count : 0;
+        settings.EnsureMapBgmPhaseCount(phaseCount);
         if (settings.footstepPhases.Count != previousPhaseCount)
+            EditorUtility.SetDirty(settings);
+        if (settings.mapBgmPhases.Count != previousMapBgmPhaseCount)
             EditorUtility.SetDirty(settings);
 
         serializedObject.Update();
+        SerializedProperty mapBgmPhases = serializedObject.FindProperty("mapBgmPhases");
+        mapBgmPhases.arraySize = phaseCount;
         SerializedProperty iterator = serializedObject.GetIterator();
         bool enterChildren = true;
         while (iterator.NextVisible(enterChildren))
@@ -28,6 +34,12 @@ public sealed class SoundManagerSettingsEditor : Editor
                 continue;
             }
 
+            if (iterator.propertyPath == "mapBgmPhases")
+            {
+                DrawMapBgmPhases(iterator.Copy(), sequence, phaseCount);
+                continue;
+            }
+
             if (iterator.propertyPath == "m_Script")
                 continue;
 
@@ -35,6 +47,27 @@ public sealed class SoundManagerSettingsEditor : Editor
         }
 
         serializedObject.ApplyModifiedProperties();
+    }
+
+    private static void DrawMapBgmPhases(SerializedProperty phases, StageSequence sequence, int phaseCount)
+    {
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Map BGM by Sequence Phase", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(sequence != null
+            ? $"Following {sequence.name}: {phaseCount} phase{(phaseCount == 1 ? "" : "s")}. Empty clips leave music silent for that phase."
+            : "No Stage Sequence is selected or available in the open game scene. Showing Phase 1. Empty clips leave music silent.",
+            sequence != null ? MessageType.None : MessageType.Info);
+
+        for (int i = 0; i < phaseCount; i++)
+        {
+            SerializedProperty phase = phases.GetArrayElementAtIndex(i);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField($"Phase {i + 1}", EditorStyles.boldLabel);
+                EditorGUILayout.PropertyField(phase.FindPropertyRelative("clip"), new GUIContent("Map BGM"));
+                EditorGUILayout.PropertyField(phase.FindPropertyRelative("volume"), new GUIContent("BGM Volume"));
+            }
+        }
     }
 
     private static void DrawFootstepPhases(SerializedProperty phases, StageSequence sequence, int phaseCount)

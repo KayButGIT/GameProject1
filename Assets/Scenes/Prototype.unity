@@ -324,6 +324,7 @@ MonoBehaviour:
   playerFaceDeadBurntMaterial: {fileID: 2100000, guid: e1633b51609fb7d4c97c76220aacdc3c, type: 2}
   playerBodyFireDissolveMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
   playerFaceFireDissolveMaterial: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
+  wallDebrisBurnMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
   playerBurnDissolveStart: 1
   playerBurnDissolveEnd: 0.3
   bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}

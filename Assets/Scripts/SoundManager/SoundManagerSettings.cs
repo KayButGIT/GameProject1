@@ -6,6 +6,13 @@ using UnityEngine;
 public sealed class SoundManagerSettings : ScriptableObject
 {
     [Serializable]
+    public sealed class MapMusicPhase
+    {
+        public AudioClip clip;
+        [Range(0f, 1f)] public float volume = 1f;
+    }
+
+    [Serializable]
     public sealed class FootstepPhase
     {
         public AudioClip[] footsteps = Array.Empty<AudioClip>();
@@ -14,6 +21,21 @@ public sealed class SoundManagerSettings : ScriptableObject
 
     [Header("Master")]
     [Range(0f, 1f)] public float sfxVolume = 1f;
+
+    [Header("Background Music")]
+    public AudioClip titleScreenBgm;
+    [Range(0f, 1f)] public float titleScreenBgmVolume = 1f;
+    public AudioClip stageStartIntroBgm;
+    [Range(0f, 1f)] public float stageStartIntroBgmVolume = 1f;
+    public List<MapMusicPhase> mapBgmPhases = new() { new MapMusicPhase() };
+    public AudioClip deadBgm;
+    [Range(0f, 1f)] public float deadBgmVolume = 1f;
+    public AudioClip gameOverBgm;
+    [Range(0f, 1f)] public float gameOverBgmVolume = 1f;
+    public AudioClip stageWinBgm;
+    [Range(0f, 1f)] public float stageWinBgmVolume = 1f;
+    public AudioClip gameClearedBgm;
+    [Range(0f, 1f)] public float gameClearedBgmVolume = 1f;
 
     [Header("Power Up Pickup")]
     public AudioClip powerUpPickup;
@@ -45,6 +67,15 @@ public sealed class SoundManagerSettings : ScriptableObject
         footstepPhases ??= new List<FootstepPhase>();
         while (footstepPhases.Count < Mathf.Max(1, phaseCount))
             footstepPhases.Add(new FootstepPhase());
+    }
+
+    public void EnsureMapBgmPhaseCount(int phaseCount)
+    {
+        mapBgmPhases ??= new List<MapMusicPhase>();
+        while (mapBgmPhases.Count < Mathf.Max(1, phaseCount))
+            mapBgmPhases.Add(new MapMusicPhase());
+        while (mapBgmPhases.Count > Mathf.Max(1, phaseCount))
+            mapBgmPhases.RemoveAt(mapBgmPhases.Count - 1);
     }
 
     [Header("Enemy Death")]

@@ -67,6 +67,7 @@ public sealed class PlayerController : GridController
     {
         PlayerController player = CreateActor<PlayerController>(actorName, cell, map, normalMaterial, deadMaterial, true, scale);
         player.map = map;
+        player.BindMovementMap(map);
         player.ConfigureFreeMovementPhysics(colliderRadius, colliderHeight);
         player.ConfigureVisual(
             modelPrefab,
@@ -174,7 +175,8 @@ public sealed class PlayerController : GridController
         for (int rendererIndex = 0; rendererIndex < burnRenderers.Length; rendererIndex++)
         {
             Renderer renderer = burnRenderers[rendererIndex];
-            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer) continue;
+            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer
+                || renderer.name.Contains("Wall Pass")) continue;
             originalMaterials[rendererIndex] = renderer.sharedMaterials;
             if (!renderer.enabled) continue;
             Material[] replacement = new Material[renderer.sharedMaterials.Length];
@@ -200,11 +202,8 @@ public sealed class PlayerController : GridController
                     burn.SetFloat("_EdgeWidth", 0.18f);
                     burn.SetColor("_EdgeColor", new Color(5f, 0.65f, 0.035f, 1f));
                     burn.SetColor("_CoreColor", new Color(8f, 3.2f, 0.35f, 1f));
-                    Texture baseMap = source.mainTexture;
-                    if (source.HasProperty("_BaseMap") && source.GetTexture("_BaseMap") != null) baseMap = source.GetTexture("_BaseMap");
-                    if (source.HasProperty("_BaseColorMap") && source.GetTexture("_BaseColorMap") != null) baseMap = source.GetTexture("_BaseColorMap");
-                    if (source.HasProperty("_ColorMap") && source.GetTexture("_ColorMap") != null) baseMap = source.GetTexture("_ColorMap");
-                    Color baseColor = source.HasProperty("_BaseColor") ? source.GetColor("_BaseColor") : source.color;
+                    Texture baseMap = GetMaterialTexture(source);
+                    Color baseColor = GetMaterialColor(source);
                     if (baseMap != null) burn.SetTexture("_BaseMap", baseMap);
                     burn.SetColor("_BaseColor", baseColor);
                 }
@@ -223,6 +222,22 @@ public sealed class PlayerController : GridController
         burnMaterials = created.ToArray();
         if (burnMaterials.Length == 0) { burnMaterials = null; return; }
         SetBurnDissolve(0f);
+    }
+
+    private static Texture GetMaterialTexture(Material material)
+    {
+        string[] properties = { "_BaseMap", "_MainTex", "_BaseColorMap", "_ColorMap" };
+        foreach (string property in properties)
+            if (material.HasProperty(property) && material.GetTexture(property) != null)
+                return material.GetTexture(property);
+        return null;
+    }
+
+    private static Color GetMaterialColor(Material material)
+    {
+        if (material.HasProperty("_BaseColor")) return material.GetColor("_BaseColor");
+        if (material.HasProperty("_Color")) return material.GetColor("_Color");
+        return Color.white;
     }
 
     public void SetBurnDissolve(float progress)
@@ -250,9 +265,10 @@ public sealed class PlayerController : GridController
         originalMaterials = null;
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
         ClearBurnDissolve();
+        base.OnDestroy();
     }
 
     private void ConfigureVisual(
