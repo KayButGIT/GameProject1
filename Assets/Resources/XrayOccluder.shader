@@ -1,7 +1,10 @@
-// Marks the stencil buffer where a middle pillar or border block is visible, and draws nothing.
-// BombermanMap puts copies of those blocks in the scene with this shader; Actor Xray skips marked pixels.
 Shader "Bomberman/Xray Occluder"
 {
+    Properties
+    {
+        _StencilRef ("Stencil Ref", Int) = 1
+        _StencilWriteMask ("Stencil Write Mask", Int) = 1
+    }
     SubShader
     {
         Tags
@@ -21,8 +24,8 @@ Shader "Bomberman/Xray Occluder"
             Cull Back
             Stencil
             {
-                Ref 1
-                WriteMask 1
+                Ref [_StencilRef]
+                WriteMask [_StencilWriteMask]
                 Comp Always
                 Pass Replace
             }

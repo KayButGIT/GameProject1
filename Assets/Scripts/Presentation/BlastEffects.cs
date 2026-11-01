@@ -693,11 +693,15 @@ public static class BlastEffects
         if (maxFragments <= 0 || material == null || !mesh.isReadable || mesh.vertexCount == 0) return 0;
         int[] triangles;
         Vector3[] vertices;
+        Vector3[] normals;
+        Vector2[] uvs;
         Bounds bounds;
         try
         {
             triangles = mesh.GetTriangles(submesh);
             vertices = mesh.vertices;
+            normals = mesh.normals;
+            uvs = mesh.uv;
             bounds = mesh.bounds;
         }
         catch (UnityException)
@@ -728,6 +732,8 @@ public static class BlastEffects
             if (emitted >= maxFragments) break;
             System.Collections.Generic.Dictionary<int, int> remap = new();
             System.Collections.Generic.List<Vector3> compactVertices = new();
+            System.Collections.Generic.List<Vector3> compactNormals = new();
+            System.Collections.Generic.List<Vector2> compactUvs = new();
             int[] compactTriangles = new int[bucket.Count];
             for (int i = 0; i < bucket.Count; i++)
             {
@@ -737,15 +743,30 @@ public static class BlastEffects
                     compactIndex = compactVertices.Count;
                     remap.Add(sourceIndex, compactIndex);
                     compactVertices.Add(fragmentVertices[sourceIndex]);
+                    if (normals.Length == vertices.Length) compactNormals.Add(normals[sourceIndex]);
+                    if (uvs.Length == vertices.Length) compactUvs.Add(uvs[sourceIndex]);
                 }
                 compactTriangles[i] = compactIndex;
             }
-            Mesh fragment = new() { name = "Wall Fragment", vertices = compactVertices.ToArray(), triangles = compactTriangles };
-            fragment.RecalculateNormals();
+            Mesh fragment = new()
+            {
+                name = "Wall Fragment",
+                vertices = compactVertices.ToArray(),
+                triangles = compactTriangles
+            };
+            if (compactNormals.Count == compactVertices.Count) fragment.normals = compactNormals.ToArray();
+            if (compactUvs.Count == compactVertices.Count) fragment.uv = compactUvs.ToArray();
+            fragment.RecalculateBounds();
+            Bounds fragmentBounds = fragment.bounds;
+            Vector3 fragmentCenter = fragmentBounds.center;
+            Vector3[] localVertices = fragment.vertices;
+            for (int i = 0; i < localVertices.Length; i++) localVertices[i] -= fragmentCenter;
+            fragment.vertices = localVertices;
+            if (compactNormals.Count != compactVertices.Count) fragment.RecalculateNormals();
             fragment.RecalculateBounds();
             GameObject piece = new("Wall Chunk");
             piece.transform.SetParent(parent, false);
-            piece.transform.position = sourceTransform.TransformPoint(fragment.bounds.center);
+            piece.transform.position = sourceTransform.TransformPoint(fragmentCenter);
             piece.transform.rotation = sourceTransform.rotation;
             piece.transform.localScale = sourceTransform.lossyScale;
             float collapseOrder = collapseToAsh

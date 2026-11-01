@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>Gives one wall burst independent Fire Dissolve material instances.</summary>
 public sealed class WallDebrisBurn : MonoBehaviour
 {
     private sealed class RendererMaterials
@@ -28,11 +27,22 @@ public sealed class WallDebrisBurn : MonoBehaviour
         if (root == null || template == null || !template.HasProperty("_Clipping")) return null;
 
         WallDebrisBurn effect = root.AddComponent<WallDebrisBurn>();
-        effect.Initialize(template, delay, burnDuration, startClipping, endClipping, stagger);
+        effect.Initialize(template, delay, burnDuration, startClipping, endClipping, stagger, false, null);
         return effect;
     }
 
-    private void Initialize(Material template, float delay, float burnDuration, float startClipping, float endClipping, float stagger)
+    public static WallDebrisBurn ApplyParticleRenderer(ParticleSystemRenderer renderer, Material template,
+        float delay, float burnDuration, float startClipping, float endClipping, float stagger = 0f)
+    {
+        if (renderer == null || template == null || !template.HasProperty("_Clipping")) return null;
+
+        WallDebrisBurn effect = renderer.gameObject.AddComponent<WallDebrisBurn>();
+        effect.Initialize(template, delay, burnDuration, startClipping, endClipping, stagger, true, renderer);
+        return effect;
+    }
+
+    private void Initialize(Material template, float delay, float burnDuration, float startClipping, float endClipping,
+        float stagger, bool includeParticleSystems, Renderer onlyRenderer)
     {
         startDelay = Mathf.Max(0f, delay);
         duration = Mathf.Max(0.01f, burnDuration);
@@ -40,9 +50,10 @@ public sealed class WallDebrisBurn : MonoBehaviour
         clippingStart = Mathf.Clamp01(startClipping);
         clippingEnd = Mathf.Clamp01(endClipping);
 
-        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        Renderer[] renderers = onlyRenderer != null ? new[] { onlyRenderer } : GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in renderers)
         {
-            if (renderer == null || !renderer.enabled || !IsBurnableDebris(renderer)) continue;
+            if (renderer == null || !renderer.enabled || !IsBurnableRenderer(renderer, includeParticleSystems)) continue;
 
             Material[] originals = renderer.sharedMaterials;
             Material[] replacements = new Material[originals.Length];
@@ -77,12 +88,9 @@ public sealed class WallDebrisBurn : MonoBehaviour
         }
     }
 
-    private static bool IsBurnableDebris(Renderer renderer)
+    private static bool IsBurnableRenderer(Renderer renderer, bool includeParticleSystems)
     {
-        // FireDie's alpha-clip shader can cull mesh particles entirely. Keep the
-        // particle renderer's block material so the chunk burst remains visible;
-        // the particle system shrinks those chunks away over its lifetime instead.
-        if (renderer is ParticleSystemRenderer) return false;
+        if (renderer is ParticleSystemRenderer) return includeParticleSystems;
 
         return renderer is MeshRenderer || renderer is SkinnedMeshRenderer;
     }

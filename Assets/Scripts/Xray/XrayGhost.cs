@@ -2,27 +2,23 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-// Marks the see-through copies, so burn effects that swap every renderer's materials leave them alone.
 public sealed class XrayGhost : MonoBehaviour
 {
 }
 
-// Shows a see-through silhouette of a character while it walks through breakable blocks.
-// It works for the player with Wall Pass and for enemies that can pass breakable blocks.
-// The silhouette is a copy of the character's meshes drawn with the Bomberman/Actor Xray shader,
-// which only paints pixels hidden behind something else. Copies are built the first time they are needed.
 [DisallowMultipleComponent]
 public sealed class XrayVision : MonoBehaviour
 {
+    private const int MaxOverlapBounds = 9;
     private const string ShaderResourceName = "ActorXray";
     private const string ShaderName = "Bomberman/Actor Xray";
-    // How close to a breakable block the character's center must be before the silhouette fades in.
-    private const float EdgeMargin = 0.3f;
-    private const float FadeSeconds = 0.15f;
+    private const float FadeSeconds = 0.3f;
     private static readonly int ColorId = Shader.PropertyToID("_XrayColor");
     private static readonly int IntensityId = Shader.PropertyToID("_Intensity");
-    private static readonly Color PlayerColor = new(0.25f, 0.95f, 1f, 1f);
-    private static readonly Color EnemyColor = new(1f, 0.4f, 0.3f, 1f);
+    private static readonly int OpacityId = Shader.PropertyToID("_Opacity");
+    private static readonly int OverlapBoundsMinId = Shader.PropertyToID("_OverlapBoundsMin");
+    private static readonly int OverlapBoundsMaxId = Shader.PropertyToID("_OverlapBoundsMax");
+    private static readonly int OverlapBoundsCountId = Shader.PropertyToID("_OverlapBoundsCount");
 
     private GridController actor;
     private BombermanPrototype game;
@@ -31,8 +27,9 @@ public sealed class XrayVision : MonoBehaviour
     private bool built;
     private bool ghostsVisible;
     private float blend;
-
-    // How many characters are showing a silhouette right now. BombermanPrototype switches the solid-block masks on while this is above zero.
+    private readonly Bounds[] overlapBounds = new Bounds[MaxOverlapBounds];
+    private readonly Vector4[] overlapBoundsMin = new Vector4[MaxOverlapBounds];
+    private readonly Vector4[] overlapBoundsMax = new Vector4[MaxOverlapBounds];
     public static int VisibleCount { get; private set; }
 
     public static XrayVision Attach(GridController actor, BombermanPrototype game)
@@ -54,20 +51,46 @@ public sealed class XrayVision : MonoBehaviour
     {
         if (actor == null || game == null) return;
 
-        if (actor.IsDead)
-        {
-            blend = 0f;
-            SetGhostsVisible(false);
-            return;
-        }
-
-        bool wanted = actor.CanPassDestructibleWalls && game.IsNearBreakableBlock(actor.transform.position, EdgeMargin);
+        int overlapBoundsCount = !actor.IsDead && actor.CanPassDestructibleWalls
+            ? game.GetNearbyDestructibleBlockBounds(actor.transform.position, overlapBounds)
+            : 0;
+        bool wanted = overlapBoundsCount > 0;
         if (wanted && !built) Build();
         if (!built || material == null) return;
 
+        if (overlapBoundsCount > 0)
+            SetOverlapBounds(overlapBoundsCount);
+
+        material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
+        material.SetFloat(OpacityId, game.XrayOpacity);
         blend = Mathf.MoveTowards(blend, wanted ? 1f : 0f, Time.unscaledDeltaTime / FadeSeconds);
         material.SetFloat(IntensityId, blend);
+        if (!wanted && blend <= 0.001f)
+            material.SetFloat(OverlapBoundsCountId, 0f);
         SetGhostsVisible(blend > 0.001f);
+    }
+
+    private void SetOverlapBounds(int count)
+    {
+        for (int i = 0; i < MaxOverlapBounds; i++)
+        {
+            if (i < count)
+            {
+                Vector3 min = overlapBounds[i].min;
+                Vector3 max = overlapBounds[i].max;
+                overlapBoundsMin[i] = new Vector4(min.x, min.y, min.z, 0f);
+                overlapBoundsMax[i] = new Vector4(max.x, max.y, max.z, 0f);
+            }
+            else
+            {
+                overlapBoundsMin[i] = Vector4.zero;
+                overlapBoundsMax[i] = Vector4.zero;
+            }
+        }
+
+        material.SetVectorArray(OverlapBoundsMinId, overlapBoundsMin);
+        material.SetVectorArray(OverlapBoundsMaxId, overlapBoundsMax);
+        material.SetFloat(OverlapBoundsCountId, count);
     }
 
     private void SetGhostsVisible(bool visible)
@@ -91,7 +114,8 @@ public sealed class XrayVision : MonoBehaviour
         }
 
         material = new Material(shader) { name = "Actor Xray" };
-        material.SetColor(ColorId, actor.IsPlayer ? PlayerColor : EnemyColor);
+        material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
+        material.SetFloat(OpacityId, game.XrayOpacity);
         material.SetFloat(IntensityId, 0f);
 
         foreach (Renderer source in actor.GetComponentsInChildren<Renderer>(true))
@@ -110,7 +134,6 @@ public sealed class XrayVision : MonoBehaviour
         GameObject ghost = CreateGhostObject(source);
         SkinnedMeshRenderer copy = ghost.AddComponent<SkinnedMeshRenderer>();
         copy.sharedMesh = mesh;
-        // Sharing the bones makes the copy follow the animation without any extra work.
         copy.bones = source.bones;
         copy.rootBone = source.rootBone;
         copy.localBounds = source.localBounds;
@@ -142,7 +165,6 @@ public sealed class XrayVision : MonoBehaviour
 
     private void ConfigureGhost(Renderer copy, Mesh mesh)
     {
-        // One xray material per submesh, so every part of a multi-material model is covered.
         Material[] materials = new Material[Mathf.Max(1, mesh.subMeshCount)];
         for (int i = 0; i < materials.Length; i++) materials[i] = material;
         copy.sharedMaterials = materials;

@@ -6,7 +6,7 @@ Shader "Bomberman/Actor Xray"
     {
         _XrayColor ("Xray Color", Color) = (0.25, 0.95, 1, 1)
         _Intensity ("Intensity", Range(0, 1)) = 0
-        _Opacity ("Opacity", Range(0, 1)) = 0.75
+        _Opacity ("Opacity", Range(0, 1)) = 1
         _RimPower ("Rim Power", Range(0.5, 8)) = 2.5
         // Not drawn. Death effects read these two from every material on a character, so they must exist.
         [HideInInspector] _MainTex ("Unused", 2D) = "white" {}
@@ -30,15 +30,19 @@ Shader "Bomberman/Actor Xray"
 
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
-            // Only pixels that sit behind something already drawn, such as the block around the character.
-            ZTest Greater
+            // The silhouette marks only the actor part inside a destructible block volume,
+            // and the stencil mask restricts it to visible destructible-block pixels.
+            // Drawing over that block surface also works when the actor is on the camera-facing side.
+            ZTest Always
             Cull Back
             // Bit 1 is set by Xray Occluder over the middle pillars and the border, so nothing is drawn there.
             // Bit 2 is flipped by the silhouette itself, so overlapping parts of the same character do not stack up.
             Stencil
             {
-                Ref 0
-                ReadMask 3
+                // Only show fragments over visible destructible-block pixels (bit 4),
+                // skip solid occluders (bit 1), and avoid blending the same actor twice (bit 2).
+                Ref 4
+                ReadMask 7
                 WriteMask 2
                 Comp Equal
                 Pass Invert
@@ -55,6 +59,9 @@ Shader "Bomberman/Actor Xray"
                 half _Opacity;
                 half _RimPower;
                 half4 _Color;
+                float4 _OverlapBoundsMin[9];
+                float4 _OverlapBoundsMax[9];
+                float _OverlapBoundsCount;
             CBUFFER_END
 
             struct Attributes
@@ -68,6 +75,7 @@ Shader "Bomberman/Actor Xray"
                 float4 positionCS : SV_POSITION;
                 float3 normalWS : TEXCOORD0;
                 float3 viewDirWS : TEXCOORD1;
+                float3 positionWS : TEXCOORD2;
             };
 
             Varyings Vert(Attributes input)
@@ -77,16 +85,31 @@ Shader "Bomberman/Actor Xray"
                 output.positionCS = position.positionCS;
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.viewDirWS = GetWorldSpaceViewDir(position.positionWS);
+                output.positionWS = position.positionWS;
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                float insideOverlap = 0.0;
+                [unroll]
+                for (int i = 0; i < 9; i++)
+                {
+                    if (i < _OverlapBoundsCount)
+                    {
+                        float3 insideMin = step(_OverlapBoundsMin[i].xyz, input.positionWS);
+                        float3 insideMax = step(input.positionWS, _OverlapBoundsMax[i].xyz);
+                        insideOverlap = max(insideOverlap, insideMin.x * insideMin.y * insideMin.z
+                            * insideMax.x * insideMax.y * insideMax.z);
+                    }
+                }
+                clip(insideOverlap - 0.5);
+
                 half3 normal = normalize(input.normalWS);
                 half3 viewDir = normalize(input.viewDirWS);
                 half rim = pow(saturate(1.0h - saturate(dot(normal, viewDir))), _RimPower);
-                half3 color = _XrayColor.rgb * (0.35h + rim * 1.4h);
-                half alpha = saturate(_Opacity * _Intensity * (0.12h + 0.88h * rim));
+                half3 color = _XrayColor.rgb;
+                half alpha = saturate(_Opacity * _Intensity * (0.2h + 0.8h * rim));
                 return half4(color, alpha);
             }
             ENDHLSL

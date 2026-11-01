@@ -24,6 +24,9 @@ public sealed class BombermanPrototype : MonoBehaviour
         Vector2Int.right
     };
 
+    public Color GetXrayColor(bool isPlayer) => isPlayer ? playerXrayColor : enemyXrayColor;
+    public float XrayOpacity => xrayOpacity;
+
     [Header("Map")]
     [SerializeField] private int width = 31;
     [SerializeField] private int height = 13;
@@ -83,6 +86,14 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Tooltip("Seconds for the full dissolve after the initial clipping hold.")]
     [SerializeField, Min(0.05f)] private float playerBurnDissolveTime = 3f;
     [SerializeField] private float playerRestartDelay = 0.15f;
+
+    [Header("X-ray")]
+    [Tooltip("Fixed highlight color used for the player while visible through destructible blocks.")]
+    [SerializeField] private Color playerXrayColor = new(0.25f, 0.95f, 1f, 1f);
+    [Tooltip("Fixed highlight color used for enemies while visible through destructible blocks.")]
+    [SerializeField] private Color enemyXrayColor = new(1f, 0.4f, 0.3f, 1f);
+    [Tooltip("Transparency of the X-ray highlight while it is fully visible.")]
+    [SerializeField, Range(0f, 1f)] private float xrayOpacity = 0.22f;
 
     [Header("Scoring")]
     [Tooltip("Score for killing each enemy type.")]
@@ -337,7 +348,6 @@ public sealed class BombermanPrototype : MonoBehaviour
         currentLighting = theme != null ? theme.Lighting : null;
         stageLighting.Apply(currentLighting, mainCamera);
         map.Generate();
-        BlastEffects.PrewarmWoodCollapseMeshes(stageRoot.transform);
         PlanHiddenPowerUp(stage, layoutSeed);
         SpawnPlayer();
         if (firstStage)
@@ -563,6 +573,11 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         return false;
+    }
+
+    public int GetNearbyDestructibleBlockBounds(Vector3 worldPosition, Bounds[] results)
+    {
+        return map != null ? map.GetNearbyDestructibleBounds(worldPosition, results) : 0;
     }
 
     private void ConfigureCamera()
@@ -1315,28 +1330,42 @@ public sealed class BombermanPrototype : MonoBehaviour
         float spreadDelay = step * BlastEffects.SpreadDelay;
         float burnDuration = playerBurnDissolveTime;
         Material woodBurnMaterial = wallDebrisBurnMaterial;
-        bool dissolveAsWood = isWoodBurnBlock && woodBurnMaterial != null;
-        float blockBurnDuration = burnDuration;
-        float wallBurnStart = Mathf.Lerp(playerBurnDissolveStart, playerBurnDissolveEnd, 0.35f);
-        float debrisBurnDuration = dissolveAsWood ? burnDuration * 1.5f : burnDuration;
-        GameObject collapseSections = dissolveAsWood && dissolvingBlock != null
-            ? BlastEffects.CreateWoodCollapseSections(dissolvingBlock, stageRoot.transform, woodBurnMaterial,
-                blockBurnDuration, wallBurnStart, playerBurnDissolveEnd)
-            : null;
+        bool useFireDissolve = isWoodBurnBlock && woodBurnMaterial != null;
         if (dissolvingBlock != null)
             dissolvingBlock.transform.SetParent(stageRoot.transform, true);
 
+        if (useFireDissolve && dissolvingBlock != null)
+            WallDebrisBurn.Apply(dissolvingBlock, woodBurnMaterial, spreadDelay, burnDuration, 1f, 0f);
+
         GameObject debris = BlastEffects.CreateDebris($"Debris {cell.x},{cell.y}", map.CellToWorld(cell), blockMaterial, step,
-            debrisSource, dissolveAsWood, dissolveAsWood ? playerBurnDissolveDelay : 0f);
+            debrisSource);
         debris.transform.SetParent(stageRoot.transform, true);
-        if (dissolveAsWood)
+        if (useFireDissolve)
         {
-            BlastEffects.CreateWoodBurningDebrisChunks(debris, blockMaterial, step, debrisBurnDuration);
-            WallDebrisBurn.Apply(debris, woodBurnMaterial, spreadDelay, debrisBurnDuration,
-                playerBurnDissolveStart, playerBurnDissolveEnd, 0.35f);
+            float debrisDelay = Mathf.Min(0.15f, burnDuration * 0.1f);
+            float debrisDuration = Mathf.Max(0.05f, burnDuration - debrisDelay);
+            WallDebrisBurn.Apply(debris, woodBurnMaterial, spreadDelay + debrisDelay, debrisDuration, 1f, 0f, 0.5f);
+            Transform chunks = debris.transform.Find("Chunks");
+            if (chunks != null)
+            {
+                if (chunks.TryGetComponent(out ParticleSystemRenderer chunkRenderer))
+                    WallDebrisBurn.ApplyParticleRenderer(chunkRenderer, woodBurnMaterial, spreadDelay + debrisDelay,
+                        debrisDuration, 1f, 0f, 0.5f);
+                if (chunks.TryGetComponent(out ParticleSystem chunkSystem))
+                {
+                    ParticleSystem.MainModule chunkMain = chunkSystem.main;
+                    chunkMain.startLifetime = new ParticleSystem.MinMaxCurve(
+                        Mathf.Max(0.1f, burnDuration * 0.9f), burnDuration + 0.1f);
+                }
+            }
+            Transform accents = debris.transform.Find("Chunk Accents");
+            if (accents != null && accents.TryGetComponent(out ParticleSystemRenderer accentRenderer))
+                WallDebrisBurn.ApplyParticleRenderer(accentRenderer, woodBurnMaterial, spreadDelay + debrisDelay,
+                    debrisDuration, 1f, 0f, 0.5f);
         }
+
         GameObject lingeringFragments = null;
-        if (!dissolveAsWood)
+        if (!useFireDissolve)
         {
             lingeringFragments = BlastEffects.CreateBlastWallFragments(
                 $"Blast Thrown Debris {cell.x},{cell.y}",
@@ -1349,16 +1378,8 @@ public sealed class BombermanPrototype : MonoBehaviour
         ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 3.5f, 1.5f, stageRoot.transform);
         ShakeCamera(0.008f, 0.06f);
         yield return WaitForGameplaySeconds(spreadDelay);
-        if (dissolveAsWood)
-        {
-            if (dissolvingBlock != null)
-            {
-                foreach (Renderer renderer in dissolvingBlock.GetComponentsInChildren<Renderer>(true))
-                    renderer.enabled = false;
-            }
-            if (collapseSections != null) collapseSections.SetActive(true);
-            yield return WaitForGameplaySeconds(blockBurnDuration);
-        }
+        if (useFireDissolve)
+            yield return WaitForGameplaySeconds(burnDuration);
         else
         {
             if (dissolvingBlock != null)
@@ -1369,10 +1390,7 @@ public sealed class BombermanPrototype : MonoBehaviour
             yield return WaitForGameplaySeconds(playerBurnDissolveDelay + playerBurnDissolveTime);
         }
         if (dissolvingBlock != null) Destroy(dissolvingBlock);
-        if (collapseSections != null) Destroy(collapseSections);
-        if (dissolveAsWood)
-            yield return WaitForGameplaySeconds(Mathf.Max(0f, debrisBurnDuration - blockBurnDuration));
-        float dissolveWait = dissolveAsWood ? debrisBurnDuration : playerBurnDissolveDelay + burnDuration;
+        float dissolveWait = playerBurnDissolveDelay + burnDuration;
         yield return WaitForGameplaySeconds(Mathf.Max(0f, BlastEffects.Duration - dissolveWait));
         Destroy(debris);
         if (lingeringFragments != null)
