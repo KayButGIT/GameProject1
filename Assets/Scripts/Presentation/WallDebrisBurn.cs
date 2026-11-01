@@ -22,27 +22,31 @@ public sealed class WallDebrisBurn : MonoBehaviour
     private float elapsed;
     private bool finished;
 
-    public static WallDebrisBurn Apply(GameObject root, Material template, float delay, float burnDuration, float startClipping, float endClipping, float stagger = 0f)
+    public static WallDebrisBurn Apply(GameObject root, Material template, float delay, float burnDuration,
+        float startClipping, float endClipping, float stagger = 0f, bool copySourceAppearance = true)
     {
         if (root == null || template == null || !template.HasProperty("_Clipping")) return null;
 
         WallDebrisBurn effect = root.AddComponent<WallDebrisBurn>();
-        effect.Initialize(template, delay, burnDuration, startClipping, endClipping, stagger, false, null);
+        effect.Initialize(template, delay, burnDuration, startClipping, endClipping, stagger, false, null,
+            copySourceAppearance);
         return effect;
     }
 
     public static WallDebrisBurn ApplyParticleRenderer(ParticleSystemRenderer renderer, Material template,
-        float delay, float burnDuration, float startClipping, float endClipping, float stagger = 0f)
+        float delay, float burnDuration, float startClipping, float endClipping, float stagger = 0f,
+        bool copySourceAppearance = true)
     {
         if (renderer == null || template == null || !template.HasProperty("_Clipping")) return null;
 
         WallDebrisBurn effect = renderer.gameObject.AddComponent<WallDebrisBurn>();
-        effect.Initialize(template, delay, burnDuration, startClipping, endClipping, stagger, true, renderer);
+        effect.Initialize(template, delay, burnDuration, startClipping, endClipping, stagger, true, renderer,
+            copySourceAppearance);
         return effect;
     }
 
     private void Initialize(Material template, float delay, float burnDuration, float startClipping, float endClipping,
-        float stagger, bool includeParticleSystems, Renderer onlyRenderer)
+        float stagger, bool includeParticleSystems, Renderer onlyRenderer, bool copySourceAppearance)
     {
         startDelay = Mathf.Max(0f, delay);
         duration = Mathf.Max(0.01f, burnDuration);
@@ -65,7 +69,7 @@ public sealed class WallDebrisBurn : MonoBehaviour
                 if (source == null) continue;
 
                 Material burn = new Material(template) { name = $"{source.name} Wall Debris Burn" };
-                CopyAppearance(source, burn);
+                if (copySourceAppearance) CopyAppearance(source, burn);
                 burn.SetFloat("_Clipping", clippingStart);
                 burnMaterials.Add(burn);
                 replacements[i] = burn;

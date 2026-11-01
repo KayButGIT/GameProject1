@@ -1385,7 +1385,8 @@ public sealed class BombermanPrototype : MonoBehaviour
                 }
                 if (chunks.TryGetComponent(out ParticleSystemRenderer chunkRenderer))
                     WallDebrisBurn.ApplyParticleRenderer(chunkRenderer, woodBurnMaterial,
-                        spreadDelay + woodChunkGroundHold, woodChunkDissolveDuration, 1f, 0f, 0.25f);
+                        spreadDelay + woodChunkGroundHold, woodChunkDissolveDuration, 1f, 0f, 0.25f,
+                        copySourceAppearance: false);
                 if (chunks.TryGetComponent(out ParticleSystem burst)) burst.Play();
             }
         }
@@ -1397,6 +1398,13 @@ public sealed class BombermanPrototype : MonoBehaviour
             blockMaterial,
             step);
         lingeringFragments.transform.SetParent(stageRoot.transform, true);
+        if (dissolveDebris)
+        {
+            const float lingeringBurnDuration = 4f;
+            float lingeringBurnDelay = spreadDelay;
+            WallDebrisBurn.Apply(lingeringFragments, woodBurnMaterial, lingeringBurnDelay,
+                lingeringBurnDuration, 1f, 0f, 0.15f, copySourceAppearance: false);
+        }
         ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 3.5f, 1.5f, stageRoot.transform);
         ShakeCamera(0.008f, 0.06f);
         yield return WaitForGameplaySeconds(spreadDelay);
