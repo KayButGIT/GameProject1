@@ -117,18 +117,22 @@ public sealed class ExplosionParticlePiece : MonoBehaviour
     private Vector3 startScale;
     private float startDelay;
     private Mesh ownedMesh;
+    private bool shrinkAtEnd;
+    private bool collideWithWorld;
+    private float collisionRadius;
     private bool settlesOnGround;
     private bool hasLanded;
     private int bounceCount;
     private float groundHeight;
     private float landedAt;
+    private float gravityMultiplier = -1f;
 
     public void Initialize(Vector3 initialVelocity, Vector3 angularVelocity, float maxLifetime)
     {
         Initialize(initialVelocity, angularVelocity, maxLifetime, 0f, null);
     }
 
-    public void Initialize(Vector3 initialVelocity, Vector3 angularVelocity, float maxLifetime, float delay, Mesh mesh)
+    public void Initialize(Vector3 initialVelocity, Vector3 angularVelocity, float maxLifetime, float delay, Mesh mesh, bool shrinkAtEnd = false, bool collideWithWorld = false, float customGravityMultiplier = -1f)
     {
         velocity = initialVelocity;
         spin = angularVelocity;
@@ -136,6 +140,11 @@ public sealed class ExplosionParticlePiece : MonoBehaviour
         startScale = transform.localScale;
         startDelay = delay;
         ownedMesh = mesh;
+        this.shrinkAtEnd = shrinkAtEnd;
+        this.collideWithWorld = collideWithWorld;
+        gravityMultiplier = customGravityMultiplier;
+        Renderer sourceRenderer = GetComponent<Renderer>();
+        collisionRadius = sourceRenderer != null ? Mathf.Max(0.04f, sourceRenderer.bounds.extents.magnitude * 0.45f) : 0.08f;
     }
 
     public void InitializeSettling(Vector3 initialVelocity, Vector3 angularVelocity, float floorHeight, float persistAfterLanding)
@@ -165,10 +174,34 @@ public sealed class ExplosionParticlePiece : MonoBehaviour
             return;
         }
 
-        velocity += Physics.gravity * (ownedMesh != null ? 2.5f : 0.35f) * Time.deltaTime;
-        transform.localPosition += velocity * Time.deltaTime;
+        float gravity = gravityMultiplier >= 0f
+            ? gravityMultiplier
+            : ownedMesh != null ? 2.5f : 0.35f;
+        velocity += Physics.gravity * gravity * Time.deltaTime;
+        Vector3 displacement = velocity * Time.deltaTime;
+        if (collideWithWorld && displacement.sqrMagnitude > 0.000001f
+            && Physics.SphereCast(transform.position, collisionRadius, displacement.normalized, out RaycastHit hit,
+                displacement.magnitude + collisionRadius * 0.1f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+        {
+            transform.position = hit.point + hit.normal * (collisionRadius + 0.002f);
+            velocity = Vector3.Reflect(velocity, hit.normal) * 0.58f;
+            spin *= 0.72f;
+            if (velocity.sqrMagnitude < 0.36f && hit.normal.y > 0.65f)
+                velocity = Vector3.zero;
+        }
+        else if (collideWithWorld)
+        {
+            transform.position += displacement;
+        }
+        else
+        {
+            transform.localPosition += displacement;
+        }
         transform.Rotate(spin * Time.deltaTime, Space.Self);
-        transform.localScale = startScale * (1f - effectAge / lifetime);
+        float scaleProgress = effectAge / lifetime;
+        if (shrinkAtEnd)
+            scaleProgress = Mathf.InverseLerp(0.9f, 1f, scaleProgress);
+        transform.localScale = startScale * (1f - scaleProgress);
     }
 
     private void UpdateSettlingPiece()

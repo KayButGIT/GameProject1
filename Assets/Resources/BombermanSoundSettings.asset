@@ -13,6 +13,25 @@ MonoBehaviour:
   m_Name: BombermanSoundSettings
   m_EditorClassIdentifier: Assembly-CSharp::SoundManagerSettings
   sfxVolume: 1
+  titleScreenBgm: {fileID: 0}
+  titleScreenBgmVolume: 1
+  stageStartIntroBgm: {fileID: 0}
+  stageStartIntroBgmVolume: 1
+  mapBgmPhases:
+  - clip: {fileID: 0}
+    volume: 0.55
+  - clip: {fileID: 0}
+    volume: 0.55
+  - clip: {fileID: 0}
+    volume: 0.55
+  deadBgm: {fileID: 0}
+  deadBgmVolume: 0.65
+  gameOverBgm: {fileID: 0}
+  gameOverBgmVolume: 0.65
+  stageWinBgm: {fileID: 0}
+  stageWinBgmVolume: 0.65
+  gameClearedBgm: {fileID: 0}
+  gameClearedBgmVolume: 0.65
   powerUpPickup: {fileID: 8300000, guid: 7112cba4b175c354e853c261c354ffb2, type: 3}
   powerUpPickupVolume: 1
   placeBomb: {fileID: 8300000, guid: c4d9f9c69f4a2894f9d44402dac71b7e, type: 3}
