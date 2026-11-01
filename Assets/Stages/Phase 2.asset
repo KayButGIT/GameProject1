@@ -19,16 +19,19 @@ MonoBehaviour:
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     - Prefab: {fileID: 5202575052292297135, guid: 2ca1c0a3e8fb35a4198c98a3c570955c, type: 3}
       Position: {x: 0, y: -0.4, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     - Prefab: {fileID: 140246124697680923, guid: 5575addc7547e3f448aed202ca09d6dd, type: 3}
       Position: {x: 0, y: -0.4, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     RandomYRotation: 1
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: 0, y: 0, z: 0}
@@ -41,11 +44,13 @@ MonoBehaviour:
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     - Prefab: {fileID: 737507076291200426, guid: b14ad4b5ecbd8c54cb62a13ca18ed0e0, type: 3}
       Position: {x: -0, y: -0.4, z: -0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     RandomYRotation: 1
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: -0, y: -0.5, z: -0}
@@ -58,18 +63,30 @@ MonoBehaviour:
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 0.99999976, y: 1, z: 0.99999976}
       Weight: 1
-      BurnMode: 1
+      BurnMode: 0
     - Prefab: {fileID: 5866983876600683715, guid: b18b63d941f65af419ec7f8786158316, type: 3}
       Position: {x: -0, y: -0.4, z: -0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 0.99999976, y: 1, z: 0.99999976}
       Weight: 1
-      BurnMode: 1
+      BurnMode: 0
     - Prefab: {fileID: 3459035116329193686, guid: 3622a3db3c49e1240acd481398762521, type: 3}
       Position: {x: -0, y: -0.4, z: -0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 0.99999976, y: 1, z: 0.99999976}
       Weight: 1
+      BurnMode: 0
+    - Prefab: {fileID: 3133718195429293773, guid: eb791d6b921deee4686a619aa9989ec6, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 0.3
+      BurnMode: 1
+    - Prefab: {fileID: 3133718195429293773, guid: 850705b7fbf67a247845355da90a3827, type: 3}
+      Position: {x: -0, y: -0.4, z: -0}
+      Rotation: {x: 0, y: 0, z: 0}
+      Scale: {x: 0.99999976, y: 1, z: 0.99999976}
+      Weight: 0.3
       BurnMode: 1
     RandomYRotation: 0
     legacyPrefab: {fileID: 0}
@@ -83,11 +100,13 @@ MonoBehaviour:
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     - Prefab: {fileID: 7927828499857218296, guid: 330830f89a2f554429acf08c818819f0, type: 3}
       Position: {x: 0, y: -0.92, z: 0}
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     RandomYRotation: 1
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: 0, y: 0, z: 0}
@@ -100,11 +119,13 @@ MonoBehaviour:
       Rotation: {x: 0, y: 0, z: 0}
       Scale: {x: 1, y: 1, z: 1}
       Weight: 1
+      BurnMode: 0
     RandomYRotation: 0
     legacyPrefab: {fileID: 0}
     legacyPosition: {x: 0, y: 0, z: 0}
     legacyRotation: {x: 0, y: 0, z: 0}
     legacyScale: {x: 1, y: 1, z: 1}
+  ExitOutlineColor: {r: 1, g: 1, b: 1, a: 1}
   Border:
     Prefab: {fileID: 8654465921699099453, guid: d6c8b2ef7dcfa1347b5799344ba21be4, type: 3}
     Offset: {x: 0, y: -0.08, z: 0}
