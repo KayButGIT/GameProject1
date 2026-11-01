@@ -1335,8 +1335,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         float spreadDelay = step * BlastEffects.SpreadDelay;
         float burnDuration = playerBurnDissolveTime;
-        const float woodChunkGroundHold = 2f;
-        const float woodChunkDissolveDuration = 1.2f;
+        const float woodChunkGroundHold = 0.5f;
+        const float woodChunkDissolveDuration = 1f;
         Material woodBurnMaterial = wallDebrisBurnMaterial;
         bool dissolveDebris = isWoodBurnBlock && woodBurnMaterial != null;
         if (dissolvingBlock != null)
@@ -1391,23 +1391,20 @@ public sealed class BombermanPrototype : MonoBehaviour
             }
         }
 
-        GameObject lingeringFragments = BlastEffects.CreateBlastWallFragments(
-            $"Blast Thrown Debris {cell.x},{cell.y}",
-            map.CellToWorld(cell),
-            map.CellToWorld(blastOrigin),
-            blockMaterial,
-            step);
-        lingeringFragments.transform.SetParent(stageRoot.transform, true);
-        if (dissolveDebris)
+        GameObject lingeringFragments = null;
+
+        if (!dissolveDebris)
         {
-            const float lingeringBurnDuration = 4f;
-            float lingeringBurnDelay = spreadDelay;
-            WallDebrisBurn.Apply(lingeringFragments, woodBurnMaterial, lingeringBurnDelay,
-                lingeringBurnDuration, 1f, 0f, 0.15f, copySourceAppearance: false);
+            lingeringFragments = BlastEffects.CreateBlastWallFragments(
+                $"Blast Thrown Debris {cell.x},{cell.y}",
+                map.CellToWorld(cell),
+                map.CellToWorld(blastOrigin),
+                blockMaterial,
+                step);
+
+            lingeringFragments.transform.SetParent(stageRoot.transform, true);
         }
-        ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 3.5f, 1.5f, stageRoot.transform);
-        ShakeCamera(0.008f, 0.06f);
-        yield return WaitForGameplaySeconds(spreadDelay);
+
         if (dissolvingBlock != null)
         {
             foreach (Renderer renderer in dissolvingBlock.GetComponentsInChildren<Renderer>(true))

@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 9158490115799813683}
   - component: {fileID: 9142566815798798357}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -66,7 +66,7 @@ GameObject:
   - component: {fileID: 8675568277402740475}
   - component: {fileID: 3424275481080373962}
   - component: {fileID: 1740899277897714795}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -157,7 +157,7 @@ GameObject:
   - component: {fileID: 8974263895213262361}
   - component: {fileID: 7729611645164450779}
   - component: {fileID: 2483109427673378951}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Facing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -245,7 +245,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3842334203779193414}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: VisualRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -278,7 +278,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3597360883555108997}
   - component: {fileID: 2748077993896910579}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Pontan
   m_TagString: Untagged
   m_Icon: {fileID: 0}

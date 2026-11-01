@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1972634213219073778}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: VisualRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -43,7 +43,7 @@ GameObject:
   - component: {fileID: 1346557770497283477}
   - component: {fileID: 7713039235538931326}
   - component: {fileID: 5893417953768239926}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -133,7 +133,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7613742711413217693}
   - component: {fileID: 6620013482215686235}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Pass
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -201,7 +201,7 @@ GameObject:
   - component: {fileID: 8308135077157989321}
   - component: {fileID: 6534606463369077139}
   - component: {fileID: 8407959921389410047}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Facing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -290,7 +290,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4660913455799226654}
   - component: {fileID: 1874873073477433625}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8158229033995989775}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: VisualRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -42,7 +42,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2450059264091473711}
   - component: {fileID: 7662294321563916286}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -98,7 +98,7 @@ GameObject:
   - component: {fileID: 6117160270436370421}
   - component: {fileID: 256623614725625834}
   - component: {fileID: 1441158460609194273}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Facing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -188,7 +188,7 @@ GameObject:
   - component: {fileID: 5234957900407701556}
   - component: {fileID: 1630808967929675458}
   - component: {fileID: 6329660302310784748}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -278,7 +278,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5862982153493837581}
   - component: {fileID: 6738829313803337161}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Minuo
   m_TagString: Untagged
   m_Icon: {fileID: 0}
