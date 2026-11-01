@@ -27,6 +27,20 @@ public abstract class GridController : MonoBehaviour
     private Vector3 visualFreeMoveVelocity;
     private float freeMoveWalkTime;
     private BombermanMap freeMoveMap;
+    private Renderer[] wallPassSilhouetteRenderers;
+    private Material wallPassOutlineMaterial;
+    private readonly System.Collections.Generic.List<GameObject> wallPassOutlineObjects = new();
+    private readonly System.Collections.Generic.List<GameObject> wallPassGhostObjects = new();
+    private readonly System.Collections.Generic.List<Material> wallPassGhostMaterials = new();
+    private readonly System.Collections.Generic.List<SkinnedOutlinePair> wallPassSkinnedOutlines = new();
+    private bool wallPassSilhouetteVisible;
+
+    private sealed class SkinnedOutlinePair
+    {
+        public SkinnedMeshRenderer Source;
+        public SkinnedMeshRenderer Outline;
+        public SkinnedMeshRenderer Ghost;
+    }
     private System.Func<Vector2Int, bool> extraMovementBlocker;
     private System.Func<Vector2Int, bool> movementBlocker;
     private const float BlockedMoveEpsilon = 0.00001f;
@@ -209,6 +223,12 @@ public abstract class GridController : MonoBehaviour
         }
     }
 
+    protected virtual void LateUpdate()
+    {
+        UpdateWallPassSilhouette();
+        RefreshOutlineShells();
+    }
+
     public void StartMove(Vector2Int targetCell, Vector3 targetPosition)
     {
         Cell = targetCell;
@@ -220,12 +240,247 @@ public abstract class GridController : MonoBehaviour
 
     public virtual void Die()
     {
+        SetWallPassSilhouetteVisible(false);
         IsDead = true;
         IsMoving = false;
         freeMoveVelocity = Vector3.zero;
         actualFreeMoveVelocity = Vector3.zero;
         visualFreeMoveVelocity = Vector3.zero;
         Destroy(gameObject);
+    }
+
+    internal void BindMovementMap(BombermanMap map) => freeMoveMap = map;
+
+    private void UpdateWallPassSilhouette()
+    {
+        bool shouldShow = !IsDead && CanPassDestructibleWalls && freeMoveMap != null;
+        Vector2Int cell = shouldShow ? freeMoveMap.WorldToCell(transform.position) : Vector2Int.zero;
+        shouldShow = shouldShow && freeMoveMap.GetCellKind(cell) == CellKind.Destructible;
+
+        SetWallPassSilhouetteVisible(shouldShow);
+    }
+
+    private void SetWallPassSilhouetteVisible(bool visible)
+    {
+        if (wallPassSilhouetteVisible == visible) return;
+        wallPassSilhouetteVisible = visible;
+        if (!visible)
+        {
+            DestroyOutlineShells();
+            return;
+        }
+
+        Shader shader = Resources.Load<Shader>("WallPassOutline");
+        if (shader == null)
+        {
+            Debug.LogWarning("Wall Pass outline shader is missing from Resources/WallPassOutline.shader.", this);
+            wallPassSilhouetteVisible = false;
+            return;
+        }
+
+        wallPassSilhouetteRenderers = GetComponentsInChildren<Renderer>(true);
+        CreateOutlineShells();
+    }
+
+    private void CreateOutlineShells()
+    {
+        Shader shader = Resources.Load<Shader>("WallPassOutline");
+        if (shader == null) return;
+        wallPassOutlineMaterial = new Material(shader) { name = "Wall Pass Colored Outline (Runtime)" };
+        wallPassOutlineMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 30;
+
+        foreach (Renderer source in wallPassSilhouetteRenderers)
+        {
+            if (source == null || !source.enabled || IsAuxiliaryRenderer(source)) continue;
+            if (source is SkinnedMeshRenderer skinned && skinned.sharedMesh != null)
+            {
+                GameObject outlineObject = CreateOutlineObject(source);
+                SkinnedMeshRenderer outline = outlineObject.AddComponent<SkinnedMeshRenderer>();
+                outline.sharedMesh = skinned.sharedMesh;
+                outline.bones = skinned.bones;
+                outline.rootBone = skinned.rootBone;
+                outline.localBounds = skinned.localBounds;
+                outline.updateWhenOffscreen = true;
+                outline.quality = skinned.quality;
+                outline.sharedMaterials = OutlineMaterials(skinned.sharedMesh.subMeshCount);
+                outline.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                outline.receiveShadows = false;
+                SkinnedMeshRenderer ghost = CreateGhostSkinnedRenderer(source, skinned);
+                wallPassSkinnedOutlines.Add(new SkinnedOutlinePair { Source = skinned, Outline = outline, Ghost = ghost });
+                continue;
+            }
+
+            MeshFilter sourceFilter = source.GetComponent<MeshFilter>();
+            if (sourceFilter == null || sourceFilter.sharedMesh == null) continue;
+            GameObject meshOutlineObject = CreateOutlineObject(source);
+            meshOutlineObject.AddComponent<MeshFilter>().sharedMesh = sourceFilter.sharedMesh;
+            MeshRenderer outlineRenderer = meshOutlineObject.AddComponent<MeshRenderer>();
+            outlineRenderer.sharedMaterials = OutlineMaterials(sourceFilter.sharedMesh.subMeshCount);
+            outlineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            outlineRenderer.receiveShadows = false;
+            outlineRenderer.sortingLayerID = source.sortingLayerID;
+            outlineRenderer.sortingOrder = source.sortingOrder;
+            CreateGhostMeshRenderer(source, sourceFilter.sharedMesh);
+        }
+    }
+
+    private SkinnedMeshRenderer CreateGhostSkinnedRenderer(Renderer source, SkinnedMeshRenderer sourceSkinned)
+    {
+        GameObject ghostObject = CreateGhostObject(source);
+        SkinnedMeshRenderer ghost = ghostObject.AddComponent<SkinnedMeshRenderer>();
+        ghost.sharedMesh = sourceSkinned.sharedMesh;
+        ghost.bones = sourceSkinned.bones;
+        ghost.rootBone = sourceSkinned.rootBone;
+        ghost.localBounds = sourceSkinned.localBounds;
+        ghost.updateWhenOffscreen = true;
+        ghost.quality = sourceSkinned.quality;
+        ghost.sharedMaterials = CreateGhostMaterials(source.sharedMaterials);
+        ghost.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        ghost.receiveShadows = false;
+        return ghost;
+    }
+
+    private void CreateGhostMeshRenderer(Renderer source, Mesh mesh)
+    {
+        GameObject ghostObject = CreateGhostObject(source);
+        ghostObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+        MeshRenderer ghost = ghostObject.AddComponent<MeshRenderer>();
+        ghost.sharedMaterials = CreateGhostMaterials(source.sharedMaterials);
+        ghost.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        ghost.receiveShadows = false;
+        ghost.sortingLayerID = source.sortingLayerID;
+        ghost.sortingOrder = source.sortingOrder;
+    }
+
+    private GameObject CreateGhostObject(Renderer source)
+    {
+        GameObject ghostObject = new(source.name + " Wall Pass Ghost");
+        ghostObject.layer = source.gameObject.layer;
+        ghostObject.transform.SetParent(source.transform.parent, false);
+        ghostObject.transform.localPosition = source.transform.localPosition;
+        ghostObject.transform.localRotation = source.transform.localRotation;
+        ghostObject.transform.localScale = source.transform.localScale;
+        wallPassGhostObjects.Add(ghostObject);
+        return ghostObject;
+    }
+
+    private Material[] CreateGhostMaterials(Material[] sources)
+    {
+        Shader shader = Resources.Load<Shader>("WallPassSilhouette");
+        if (shader == null) return System.Array.Empty<Material>();
+        Material[] ghosts = new Material[sources.Length];
+        for (int i = 0; i < sources.Length; i++)
+        {
+            Material mask = new(shader) { name = "Wall Pass Silhouette Mask (Runtime)" };
+            mask.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 20;
+            wallPassGhostMaterials.Add(mask);
+            ghosts[i] = mask;
+        }
+        return ghosts;
+    }
+
+    private GameObject CreateOutlineObject(Renderer source)
+    {
+        GameObject outlineObject = new(source.name + " Wall Pass Outline");
+        outlineObject.layer = source.gameObject.layer;
+        outlineObject.transform.SetParent(source.transform.parent, false);
+        outlineObject.transform.localPosition = source.transform.localPosition;
+        outlineObject.transform.localRotation = source.transform.localRotation;
+        outlineObject.transform.localScale = source.transform.localScale;
+        wallPassOutlineObjects.Add(outlineObject);
+        return outlineObject;
+    }
+
+    private Material[] OutlineMaterials(int submeshCount)
+    {
+        Material[] materials = new Material[Mathf.Max(1, submeshCount)];
+        for (int i = 0; i < materials.Length; i++) materials[i] = wallPassOutlineMaterial;
+        return materials;
+    }
+
+    private void DestroyOutlineShells()
+    {
+        foreach (GameObject outlineObject in wallPassOutlineObjects)
+            if (outlineObject != null) Destroy(outlineObject);
+        wallPassOutlineObjects.Clear();
+        foreach (GameObject ghostObject in wallPassGhostObjects)
+            if (ghostObject != null) Destroy(ghostObject);
+        wallPassGhostObjects.Clear();
+        wallPassSkinnedOutlines.Clear();
+        foreach (Material ghostMaterial in wallPassGhostMaterials)
+            if (ghostMaterial != null) Destroy(ghostMaterial);
+        wallPassGhostMaterials.Clear();
+        if (wallPassOutlineMaterial != null) Destroy(wallPassOutlineMaterial);
+        wallPassOutlineMaterial = null;
+    }
+
+    private static bool IsAuxiliaryRenderer(Renderer renderer)
+    {
+        return renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer;
+    }
+
+    private void RefreshOutlineShells()
+    {
+        if (!wallPassSilhouetteVisible || wallPassSilhouetteRenderers == null) return;
+        Color outlineColor = GetCurrentBlockContrastColor();
+        if (wallPassOutlineMaterial != null)
+        {
+            wallPassOutlineMaterial.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);
+            wallPassOutlineMaterial.SetFloat("_OutlineWidth", 0.045f);
+            const float glowIntensity = 2.2f;
+            // Keep enough HDR energy for Bloom without washing the block-specific hue toward white.
+            wallPassOutlineMaterial.SetColor("_OutlineColor", new Color(
+                outlineColor.r * glowIntensity,
+                outlineColor.g * glowIntensity,
+                outlineColor.b * glowIntensity,
+                outlineColor.a));
+        }
+        foreach (GameObject outlineObject in wallPassOutlineObjects)
+            if (outlineObject != null)
+                outlineObject.SetActive(true);
+        foreach (GameObject ghostObject in wallPassGhostObjects)
+            if (ghostObject != null)
+                ghostObject.SetActive(true);
+
+        foreach (SkinnedOutlinePair pair in wallPassSkinnedOutlines)
+        {
+            if (pair.Source == null || pair.Outline == null || pair.Source.sharedMesh == null) continue;
+            int count = Mathf.Min(pair.Source.sharedMesh.blendShapeCount, pair.Outline.sharedMesh.blendShapeCount);
+            for (int i = 0; i < count; i++)
+            {
+                pair.Outline.SetBlendShapeWeight(i, pair.Source.GetBlendShapeWeight(i));
+                if (pair.Ghost != null && i < pair.Ghost.sharedMesh.blendShapeCount)
+                    pair.Ghost.SetBlendShapeWeight(i, pair.Source.GetBlendShapeWeight(i));
+            }
+        }
+    }
+
+    private Color GetCurrentBlockContrastColor()
+    {
+        if (freeMoveMap == null) return new Color(0.08f, 0.92f, 1f, 1f);
+        Vector2Int cell = freeMoveMap.WorldToCell(transform.position);
+        Material blockMaterial = freeMoveMap.GetBlockMaterial(cell);
+        Color blockColor = GetMaterialColor(blockMaterial);
+        Color.RGBToHSV(blockColor, out float hue, out float saturation, out _);
+        const float outlineValue = 1f;
+        if (saturation < 0.25f)
+        {
+            string materialName = blockMaterial != null ? blockMaterial.name.ToLowerInvariant() : string.Empty;
+            string textureName = blockMaterial != null && blockMaterial.HasProperty("_BaseMap")
+                ? blockMaterial.GetTexture("_BaseMap")?.name.ToLowerInvariant() ?? string.Empty
+                : string.Empty;
+            if (materialName.Contains("s2destruct") || textureName.Contains("s2des"))
+                return Color.HSVToRGB(0.53f, 0.96f, outlineValue);
+
+            return Color.HSVToRGB(0.075f, 0.96f, outlineValue);
+        }
+
+        return Color.HSVToRGB(Mathf.Repeat(hue + 0.5f, 1f), Mathf.Max(0.9f, saturation), outlineValue);
+    }
+
+    protected virtual void OnDestroy()
+    {
+        DestroyOutlineShells();
     }
 
     public void GetParticleColors(out Color primaryColor, out Color secondaryColor)
@@ -244,7 +499,7 @@ public abstract class GridController : MonoBehaviour
                     continue;
                 }
 
-                Color color = material.color;
+                if (!TryGetMaterialColor(material, out Color color)) continue;
                 if (!foundPrimaryColor)
                 {
                     primaryColor = color;
@@ -260,6 +515,27 @@ public abstract class GridController : MonoBehaviour
                 }
             }
         }
+    }
+
+    private static Color GetMaterialColor(Material material)
+    {
+        return TryGetMaterialColor(material, out Color color) ? color : Color.white;
+    }
+
+    private static bool TryGetMaterialColor(Material material, out Color color)
+    {
+        if (material != null && material.HasProperty("_BaseColor"))
+        {
+            color = material.GetColor("_BaseColor");
+            return true;
+        }
+        if (material != null && material.HasProperty("_Color"))
+        {
+            color = material.GetColor("_Color");
+            return true;
+        }
+        color = Color.white;
+        return false;
     }
 
     private void AnimateWalkBob(float animationTime)

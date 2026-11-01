@@ -98,6 +98,29 @@ public sealed class BombermanMap
         }
     }
 
+    public GameObject TakeDestructibleForDissolve(Vector2Int cell)
+    {
+        if (GetCellKind(cell) != CellKind.Destructible) return null;
+
+        cells[cell] = CellKind.Empty;
+        GameObject block = null;
+        if (blocks.TryGetValue(cell, out block))
+        {
+            blocks.Remove(cell);
+            if (block != null)
+            {
+                foreach (Collider blockCollider in block.GetComponentsInChildren<Collider>(true))
+                    blockCollider.enabled = false;
+                block.transform.SetParent(null, true);
+            }
+        }
+
+        if (ExitDoor != null && ExitDoor.Cell == cell)
+            ExitDoor.Reveal();
+
+        return block;
+    }
+
     public void HideGrassAt(Vector2Int cell)
     {
         SetGrassVisibleAt(cell, false);
@@ -136,6 +159,73 @@ public sealed class BombermanMap
         }
 
         return null;
+    }
+
+    public bool IsWoodBurnBlock(Vector2Int cell)
+    {
+        return blocks.TryGetValue(cell, out GameObject block)
+            && block != null
+            && block.TryGetComponent(out CellObject cellObject)
+            && cellObject.UsesWoodBlockBurn;
+    }
+
+    public GameObject CreateBlockDebrisSource(Vector2Int cell)
+    {
+        if (!blocks.TryGetValue(cell, out GameObject block) || block == null) return null;
+
+        GameObject snapshot = new($"Debris Source {cell.x},{cell.y}");
+        snapshot.SetActive(false);
+        snapshot.transform.SetPositionAndRotation(block.transform.position, block.transform.rotation);
+        snapshot.transform.localScale = Vector3.one;
+        foreach (MeshFilter sourceFilter in block.GetComponentsInChildren<MeshFilter>())
+        {
+            MeshRenderer sourceRenderer = sourceFilter.GetComponent<MeshRenderer>();
+            if (sourceRenderer == null || !sourceRenderer.enabled || sourceFilter.sharedMesh == null) continue;
+
+            GameObject part = new(sourceFilter.gameObject.name);
+            part.transform.SetParent(snapshot.transform, false);
+            part.transform.position = sourceFilter.transform.position;
+            part.transform.rotation = sourceFilter.transform.rotation;
+            part.transform.localScale = sourceFilter.transform.lossyScale;
+            part.AddComponent<MeshFilter>().sharedMesh = sourceFilter.sharedMesh;
+            part.AddComponent<MeshRenderer>().sharedMaterials = sourceRenderer.sharedMaterials;
+        }
+
+        if (snapshot.transform.childCount == 0)
+        {
+            // Some theme blocks use skinned or non-mesh renderers. Provide a
+            // hidden readable box proxy so the blast can still produce debris.
+            Renderer sourceRenderer = null;
+            Bounds bounds = default;
+            foreach (Renderer renderer in block.GetComponentsInChildren<Renderer>())
+            {
+                if (renderer == null || !renderer.enabled) continue;
+                if (sourceRenderer == null)
+                {
+                    sourceRenderer = renderer;
+                    bounds = renderer.bounds;
+                }
+                else
+                {
+                    bounds.Encapsulate(renderer.bounds);
+                }
+            }
+
+            if (sourceRenderer == null)
+            {
+                UnityEngine.Object.Destroy(snapshot);
+                return null;
+            }
+
+            GameObject proxy = new("Debris Bounds Proxy");
+            proxy.transform.SetParent(snapshot.transform, false);
+            proxy.transform.position = bounds.center;
+            proxy.transform.rotation = Quaternion.identity;
+            proxy.transform.localScale = bounds.size;
+            proxy.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+            proxy.AddComponent<MeshRenderer>().sharedMaterials = sourceRenderer.sharedMaterials;
+        }
+        return snapshot;
     }
 
     public Vector3 CellToWorld(Vector2Int cell)
@@ -274,10 +364,15 @@ public sealed class BombermanMap
         block.transform.position = CellToWorld(cell) + new Vector3(0f, heightScale * 0.45f, 0f);
         block.transform.localScale = new Vector3(0.92f, heightScale, 0.92f);
         block.GetComponent<Renderer>().sharedMaterial = material;
-        if (visual != null && visual.Attach(block.transform, visualRandom)) block.GetComponent<Renderer>().enabled = false;
+        CellObject cellObject = block.AddComponent<CellObject>();
+        cellObject.Cell = cell;
+        if (visual != null && visual.Attach(block.transform, visualRandom, out StageTheme.BreakableBlockBurnMode burnMode))
+        {
+            block.GetComponent<Renderer>().enabled = false;
+            cellObject.UsesWoodBlockBurn = burnMode == StageTheme.BreakableBlockBurnMode.WoodBlock;
+        }
         BoxCollider collider = block.GetComponent<BoxCollider>();
         collider.size = Vector3.one;
-        block.AddComponent<CellObject>().Cell = cell;
         blocks[cell] = block;
         return block;
     }

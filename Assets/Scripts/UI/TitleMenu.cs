@@ -35,6 +35,7 @@ public sealed class TitleMenu : MonoBehaviour
 
     private void Start()
     {
+        SoundManager.Instance?.PlayTitleScreenBgm();
         bool hasSave = GameProgress.HasSave;
         if (continueButton != null)
         {

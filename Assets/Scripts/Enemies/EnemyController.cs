@@ -33,6 +33,9 @@ public abstract class EnemyController : GridController
     private int patrolRemaining;
     private float chaseRemaining, cooldown, unseen, outside, deathRemaining;
     private bool initialized, hasSpeed, hasMoving, hasDie, movingAsPatrol;
+    private Material[] burnMaterials;
+    private float bombBurnDuration;
+    private float bombBurnElapsed;
     private bool acquisitionChecked, selectingSafeMoves;
     private int lastChaseAxis;
     private const float BombRetreatSeconds = 2f;
@@ -80,6 +83,23 @@ public abstract class EnemyController : GridController
         if (IsDead)
         {
             deathRemaining -= Time.deltaTime;
+            if (bombBurnDuration > 0f)
+            {
+                bombBurnElapsed += Time.deltaTime;
+                float progress = Mathf.Clamp01(bombBurnElapsed / bombBurnDuration);
+                if (burnMaterials != null)
+                    foreach (Material material in burnMaterials)
+                        if (material != null) material.SetFloat("_BurnProgress", progress);
+                if (deathRemaining <= 0f)
+                {
+                    Transform effectParent = transform.parent;
+                    GameObject aftermath = BlastEffects.CreatePlayerBurnAftermath("Enemy Burn Smoke and Embers", transform.position);
+                    if (effectParent != null) aftermath.transform.SetParent(effectParent, true);
+                    Destroy(aftermath, BlastEffects.BurnAftermathDuration);
+                    Destroy(gameObject);
+                }
+                return;
+            }
             if (deathRemaining <= 0f) Destroy(gameObject);
             return;
         }
@@ -358,6 +378,20 @@ public abstract class EnemyController : GridController
     }
     public override void Die()
     {
+        BeginDeath();
+    }
+
+    public void DieFromBomb(float dissolveDuration)
+    {
+        if (IsDead) return;
+        BeginDeath();
+        bombBurnDuration = Mathf.Max(0.1f, dissolveDuration);
+        deathRemaining = Mathf.Max(deathRemaining, bombBurnDuration);
+        ApplyBombBurnMaterials();
+    }
+
+    private void BeginDeath()
+    {
         if (IsDead) return;
         // Per-enemy-type death SFX (SoundManager.PlayEnemyDeath switches on GetType().Name,
         // e.g. "DahlEnemy" -> Dahl Dead.mp3, falling back to fallbackDeath for unassigned types).
@@ -369,5 +403,61 @@ public abstract class EnemyController : GridController
         SetAnimation();
         if (ModelAnimator != null && hasDie) ModelAnimator.SetTrigger(DieId);
         deathRemaining = DeathSeconds;
+    }
+
+    private void ApplyBombBurnMaterials()
+    {
+        Shader shader = Shader.Find("Bomberman/Player Burn");
+        if (shader == null) return;
+        List<Material> created = new();
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
+        {
+            if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer
+                || renderer.name.Contains("Wall Pass")) continue;
+            Material[] sourceMaterials = renderer.sharedMaterials;
+            Material[] replacements = new Material[sourceMaterials.Length];
+            for (int i = 0; i < sourceMaterials.Length; i++)
+            {
+                Material source = sourceMaterials[i];
+                if (source == null) continue;
+                Material burn = new(shader) { name = source.name + " Bomb Burn" };
+                burn.SetFloat("_NoiseScale", 7f);
+                burn.SetFloat("_EdgeWidth", 0.18f);
+                burn.SetColor("_EdgeColor", new Color(5f, 0.65f, 0.035f, 1f));
+                burn.SetColor("_CoreColor", new Color(8f, 3.2f, 0.35f, 1f));
+                Texture baseMap = GetMaterialTexture(source);
+                Color baseColor = GetMaterialColor(source);
+                if (baseMap != null) burn.SetTexture("_BaseMap", baseMap);
+                burn.SetColor("_BaseColor", baseColor);
+                replacements[i] = burn;
+                created.Add(burn);
+            }
+            if (replacements.Length > 0) renderer.materials = replacements;
+        }
+        burnMaterials = created.ToArray();
+    }
+
+    private static Texture GetMaterialTexture(Material material)
+    {
+        string[] properties = { "_BaseMap", "_MainTex", "_BaseColorMap", "_ColorMap" };
+        foreach (string property in properties)
+            if (material.HasProperty(property) && material.GetTexture(property) != null)
+                return material.GetTexture(property);
+        return null;
+    }
+
+    private static Color GetMaterialColor(Material material)
+    {
+        if (material.HasProperty("_BaseColor")) return material.GetColor("_BaseColor");
+        if (material.HasProperty("_Color")) return material.GetColor("_Color");
+        return Color.white;
+    }
+
+    protected override void OnDestroy()
+    {
+        if (burnMaterials != null)
+            foreach (Material material in burnMaterials)
+                if (material != null) Destroy(material);
+        base.OnDestroy();
     }
 }

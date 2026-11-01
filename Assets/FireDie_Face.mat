@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: FireDie_Face
-  m_Shader: {fileID: -6465566751694194690, guid: 77c789f76db09ee4ea515e6e34d6d035, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 72e4ae586073ca84dafa35d3eeb721c4, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -50,11 +50,12 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Clipping: 0.335
+    - _Clipping: 0.536
     - _Edge: 0.14
     - _Power: 3.61
     - _QueueControl: 0
     - _QueueOffset: 0
+    - _Range: 0.34
     m_Colors:
     - _Color: {r: 38.350174, g: 6.224374, b: 0, a: 1}
     - _Tilting: {r: 1, g: 1, b: 0, a: 0}
