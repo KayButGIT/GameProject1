@@ -125,7 +125,9 @@ public static class BlastEffects
         return root;
     }
 
-    public static GameObject CreateDebris(string objectName, Vector3 groundPosition, Material blockMaterial, int step, GameObject source = null, bool collapseToAsh = false, float collapseStartDelay = 0f)
+    public static GameObject CreateDebris(string objectName, Vector3 groundPosition, Material blockMaterial, int step,
+        GameObject source = null, bool collapseToAsh = false, float collapseStartDelay = 0f,
+        bool particleChunksOnly = false, bool playChunkBurstImmediately = true)
     {
         GameObject root = new(objectName);
         root.transform.position = groundPosition;
@@ -176,8 +178,8 @@ public static class BlastEffects
         bool emittedMeshFragments = false;
         int meshFragmentCount = 0;
         Bounds sourceBounds = default;
-        bool hasSourceBounds = !collapseToAsh && TryGetSourceBounds(source, out sourceBounds);
-        if (!collapseToAsh && source != null)
+        bool hasSourceBounds = !collapseToAsh && !particleChunksOnly && TryGetSourceBounds(source, out sourceBounds);
+        if (!collapseToAsh && !particleChunksOnly && source != null)
         {
             foreach (MeshFilter filter in source.GetComponentsInChildren<MeshFilter>(true))
             {
@@ -194,14 +196,14 @@ public static class BlastEffects
             }
         }
         if (source != null) UnityEngine.Object.Destroy(source);
-        if (!collapseToAsh && !emittedMeshFragments && hasSourceBounds)
+        if (!collapseToAsh && !particleChunksOnly && !emittedMeshFragments && hasSourceBounds)
         {
             // Imported wall models are often not CPU-readable. Throw visible,
             // textured mesh chunks from their bounds instead of leaving only
             // the dissolve behind when the source mesh cannot be split.
             EmitBoxFallbackFragments(root.transform, sourceBounds, blockMaterial, fragmentDelay, 14, collapseToAsh);
         }
-        if (emittedMeshFragments && !collapseToAsh)
+        if (emittedMeshFragments && !collapseToAsh && !particleChunksOnly)
         {
             int extraChunks = Mathf.Max(4, 18 - meshFragmentCount);
             CreateChunkBurst("Chunk Accents", root.transform, blockMaterial, delay, extraChunks, 2f, 3.5f, 0.9f);
@@ -234,7 +236,7 @@ public static class BlastEffects
 
         Activate(root.transform);
         // Keep the original twenty-piece particle burst whether or not mesh fragments were also emitted.
-        chunks.Play();
+        if (playChunkBurstImmediately) chunks.Play();
         return root;
     }
 
@@ -322,6 +324,61 @@ public static class BlastEffects
         SetSize(smoke, new Keyframe(0f, 0.35f), new Keyframe(1f, 1.3f));
         SetSpin(smoke, 0.35f);
         smoke.gameObject.SetActive(true);
+    }
+
+    public static void AddWoodChunkBurnVfx(Transform debrisRoot, int step)
+    {
+        if (debrisRoot == null) return;
+        float delay = Mathf.Max(0, step) * SpreadDelay;
+
+        Transform chunksTransform = debrisRoot.Find("Chunks");
+        if (chunksTransform == null || !chunksTransform.TryGetComponent(out ParticleSystem chunks)) return;
+
+        ParticleSystem flame = CreateSystem(debrisRoot, "Wood Chunk Flames", Vector3.zero, FireMaterial, 0f);
+        ParticleSystem smoke = CreateSystem(debrisRoot, "Wood Chunk Smoke", Vector3.zero, SmokeMaterial, 0f);
+        ConfigureWoodChunkBurnEmitter(flame, true);
+        ConfigureWoodChunkBurnEmitter(smoke, false);
+        flame.gameObject.SetActive(true);
+        smoke.gameObject.SetActive(true);
+        flame.Play();
+        smoke.Play();
+
+        debrisRoot.gameObject.AddComponent<WoodChunkAttachedBurnVfx>()
+            .Initialize(chunks, flame, smoke, delay, 2.6f);
+    }
+
+    private static void ConfigureWoodChunkBurnEmitter(ParticleSystem system, bool flame)
+    {
+        ParticleSystem.MainModule main = system.main;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.startLifetime = flame
+            ? new ParticleSystem.MinMaxCurve(0.22f, 0.42f)
+            : new ParticleSystem.MinMaxCurve(0.55f, 0.9f);
+        main.startSpeed = 0f;
+        main.startSize = flame
+            ? new ParticleSystem.MinMaxCurve(0.09f, 0.17f)
+            : new ParticleSystem.MinMaxCurve(0.12f, 0.22f);
+        main.gravityModifier = flame ? -0.1f : -0.035f;
+
+        ParticleSystem.EmissionModule emission = system.emission;
+        emission.rateOverTime = 0f;
+        if (flame)
+        {
+            SetColor(system,
+                new[] { Key(1f, 0.98f, 0.62f, 0f), Key(1f, 0.42f, 0.08f, 0.55f), Key(0.35f, 0.06f, 0.01f, 1f) },
+                new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.65f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            SetSize(system, new Keyframe(0f, 0.45f), new Keyframe(0.25f, 1f), new Keyframe(1f, 0.2f));
+        }
+        else
+        {
+            SetColor(system,
+                new[] { Key(0.72f, 0.66f, 0.58f, 0f), Key(0.42f, 0.37f, 0.33f, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.42f, 0.15f), new GradientAlphaKey(0.24f, 0.55f), new GradientAlphaKey(0f, 1f) });
+            SetSize(system, new Keyframe(0f, 0.3f), new Keyframe(1f, 1.15f));
+            SetSpin(system, 0.25f);
+        }
     }
 
     public static GameObject CreateWoodCollapseSections(GameObject source, Transform parent, Material burnMaterial,
@@ -1088,6 +1145,70 @@ public sealed class WoodCollapseSection : MonoBehaviour
         transform.rotation = Quaternion.Slerp(startRotation, collapsedRotation, eased);
     }
 
+}
+
+public sealed class WoodChunkAttachedBurnVfx : MonoBehaviour
+{
+    private const int MaxChunkParticles = 80;
+    private readonly ParticleSystem.Particle[] chunkParticles = new ParticleSystem.Particle[MaxChunkParticles];
+    private ParticleSystem chunks;
+    private ParticleSystem flames;
+    private ParticleSystem smoke;
+    private float startDelay;
+    private float emissionDuration;
+    private float elapsed;
+    private float emitTimer;
+
+    public void Initialize(ParticleSystem chunkSystem, ParticleSystem flameSystem, ParticleSystem smokeSystem,
+        float delay, float duration)
+    {
+        chunks = chunkSystem;
+        flames = flameSystem;
+        smoke = smokeSystem;
+        startDelay = Mathf.Max(0f, delay);
+        emissionDuration = Mathf.Max(0f, duration);
+        emitTimer = 0f;
+    }
+
+    private void LateUpdate()
+    {
+        elapsed += Time.deltaTime;
+        float burnTime = elapsed - startDelay;
+        if (burnTime < 0f || burnTime > emissionDuration || chunks == null || flames == null || smoke == null)
+            return;
+
+        emitTimer -= Time.deltaTime;
+        if (emitTimer > 0f) return;
+        emitTimer = 0.12f;
+
+        int particleCount = chunks.GetParticles(chunkParticles);
+        if (particleCount <= 0) return;
+
+        int emissionCount = Mathf.Min(4, particleCount);
+        for (int i = 0; i < emissionCount; i++)
+        {
+            Vector3 chunkPosition = chunkParticles[UnityEngine.Random.Range(0, particleCount)].position;
+            EmitAt(flames, chunkPosition + Vector3.up * 0.025f,
+                Vector3.up * UnityEngine.Random.Range(0.12f, 0.28f) + UnityEngine.Random.insideUnitSphere * 0.04f,
+                UnityEngine.Random.Range(0.22f, 0.42f), UnityEngine.Random.Range(0.09f, 0.17f));
+            EmitAt(smoke, chunkPosition + Vector3.up * 0.06f,
+                Vector3.up * UnityEngine.Random.Range(0.16f, 0.34f) + UnityEngine.Random.insideUnitSphere * 0.035f,
+                UnityEngine.Random.Range(0.55f, 0.9f), UnityEngine.Random.Range(0.12f, 0.22f));
+        }
+    }
+
+    private static void EmitAt(ParticleSystem system, Vector3 position, Vector3 velocity, float lifetime, float size)
+    {
+        ParticleSystem.EmitParams emit = new()
+        {
+            position = position,
+            velocity = velocity,
+            startLifetime = lifetime,
+            startSize = size,
+            startColor = Color.white
+        };
+        system.Emit(emit, 1);
+    }
 }
 
 public sealed class WallShockwave : MonoBehaviour

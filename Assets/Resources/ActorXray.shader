@@ -18,7 +18,7 @@ Shader "Bomberman/Actor Xray"
         Tags
         {
             "RenderType" = "Transparent"
-            "Queue" = "Transparent+20"
+            "Queue" = "Transparent+19"
             "RenderPipeline" = "UniversalPipeline"
             "IgnoreProjector" = "True"
         }

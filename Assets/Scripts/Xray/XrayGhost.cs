@@ -16,6 +16,8 @@ public sealed class XrayVision : MonoBehaviour
     private static readonly int ColorId = Shader.PropertyToID("_XrayColor");
     private static readonly int IntensityId = Shader.PropertyToID("_Intensity");
     private static readonly int OpacityId = Shader.PropertyToID("_Opacity");
+    private static readonly int OutlinePixelsId = Shader.PropertyToID("_OutlinePixels");
+    private static readonly int OutlineBrightnessId = Shader.PropertyToID("_OutlineBrightness");
     private static readonly int OverlapBoundsMinId = Shader.PropertyToID("_OverlapBoundsMin");
     private static readonly int OverlapBoundsMaxId = Shader.PropertyToID("_OverlapBoundsMax");
     private static readonly int OverlapBoundsCountId = Shader.PropertyToID("_OverlapBoundsCount");
@@ -23,6 +25,7 @@ public sealed class XrayVision : MonoBehaviour
     private GridController actor;
     private BombermanPrototype game;
     private Material material;
+    private Material outlineMaterial;
     private readonly List<GameObject> ghosts = new();
     private bool built;
     private bool ghostsVisible;
@@ -63,10 +66,21 @@ public sealed class XrayVision : MonoBehaviour
 
         material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
         material.SetFloat(OpacityId, game.XrayOpacity);
+        if (outlineMaterial != null)
+        {
+            outlineMaterial.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
+            outlineMaterial.SetFloat(OpacityId, game.XrayOpacity);
+            outlineMaterial.SetFloat(OutlinePixelsId, game.XrayOutlineWidthPixels);
+            outlineMaterial.SetFloat(OutlineBrightnessId, game.XrayOutlineBrightness);
+        }
         blend = Mathf.MoveTowards(blend, wanted ? 1f : 0f, Time.unscaledDeltaTime / FadeSeconds);
         material.SetFloat(IntensityId, blend);
+        if (outlineMaterial != null) outlineMaterial.SetFloat(IntensityId, blend);
         if (!wanted && blend <= 0.001f)
+        {
             material.SetFloat(OverlapBoundsCountId, 0f);
+            if (outlineMaterial != null) outlineMaterial.SetFloat(OverlapBoundsCountId, 0f);
+        }
         SetGhostsVisible(blend > 0.001f);
     }
 
@@ -91,6 +105,12 @@ public sealed class XrayVision : MonoBehaviour
         material.SetVectorArray(OverlapBoundsMinId, overlapBoundsMin);
         material.SetVectorArray(OverlapBoundsMaxId, overlapBoundsMax);
         material.SetFloat(OverlapBoundsCountId, count);
+        if (outlineMaterial != null)
+        {
+            outlineMaterial.SetVectorArray(OverlapBoundsMinId, overlapBoundsMin);
+            outlineMaterial.SetVectorArray(OverlapBoundsMaxId, overlapBoundsMax);
+            outlineMaterial.SetFloat(OverlapBoundsCountId, count);
+        }
     }
 
     private void SetGhostsVisible(bool visible)
@@ -118,15 +138,39 @@ public sealed class XrayVision : MonoBehaviour
         material.SetFloat(OpacityId, game.XrayOpacity);
         material.SetFloat(IntensityId, 0f);
 
+        Shader outlineShader = Resources.Load<Shader>("ActorXrayOutline");
+        if (outlineShader == null) outlineShader = Shader.Find("Bomberman/Actor Xray Outline");
+        if (outlineShader != null)
+        {
+            outlineMaterial = new Material(outlineShader) { name = "Actor Xray Outline" };
+            outlineMaterial.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
+            outlineMaterial.SetFloat(OpacityId, game.XrayOpacity);
+            outlineMaterial.SetFloat(OutlinePixelsId, game.XrayOutlineWidthPixels);
+            outlineMaterial.SetFloat(OutlineBrightnessId, game.XrayOutlineBrightness);
+            outlineMaterial.SetFloat(IntensityId, 0f);
+        }
+        else
+        {
+            Debug.LogWarning("Xray outline shader is missing. Put ActorXrayOutline.shader in Assets/Resources.", this);
+        }
+
         foreach (Renderer source in actor.GetComponentsInChildren<Renderer>(true))
         {
             if (source == null || IsGhost(source) || !source.enabled || !source.gameObject.activeInHierarchy) continue;
-            if (source is SkinnedMeshRenderer skinned) AddSkinnedGhost(skinned);
-            else if (source is MeshRenderer && source.TryGetComponent(out MeshFilter filter)) AddMeshGhost(source, filter.sharedMesh);
+            if (source is SkinnedMeshRenderer skinned)
+            {
+                AddSkinnedGhost(skinned, material);
+                if (outlineMaterial != null) AddSkinnedGhost(skinned, outlineMaterial);
+            }
+            else if (source is MeshRenderer && source.TryGetComponent(out MeshFilter filter))
+            {
+                AddMeshGhost(source, filter.sharedMesh, material);
+                if (outlineMaterial != null) AddMeshGhost(source, filter.sharedMesh, outlineMaterial);
+            }
         }
     }
 
-    private void AddSkinnedGhost(SkinnedMeshRenderer source)
+    private void AddSkinnedGhost(SkinnedMeshRenderer source, Material ghostMaterial)
     {
         Mesh mesh = source.sharedMesh;
         if (mesh == null) return;
@@ -139,17 +183,17 @@ public sealed class XrayVision : MonoBehaviour
         copy.localBounds = source.localBounds;
         copy.updateWhenOffscreen = source.updateWhenOffscreen;
         copy.quality = source.quality;
-        ConfigureGhost(copy, mesh);
+        ConfigureGhost(copy, mesh, ghostMaterial);
     }
 
-    private void AddMeshGhost(Renderer source, Mesh mesh)
+    private void AddMeshGhost(Renderer source, Mesh mesh, Material ghostMaterial)
     {
         if (mesh == null) return;
 
         GameObject ghost = CreateGhostObject(source);
         ghost.AddComponent<MeshFilter>().sharedMesh = mesh;
         MeshRenderer copy = ghost.AddComponent<MeshRenderer>();
-        ConfigureGhost(copy, mesh);
+        ConfigureGhost(copy, mesh, ghostMaterial);
     }
 
     private GameObject CreateGhostObject(Renderer source)
@@ -163,10 +207,10 @@ public sealed class XrayVision : MonoBehaviour
         return ghost;
     }
 
-    private void ConfigureGhost(Renderer copy, Mesh mesh)
+    private void ConfigureGhost(Renderer copy, Mesh mesh, Material ghostMaterial)
     {
         Material[] materials = new Material[Mathf.Max(1, mesh.subMeshCount)];
-        for (int i = 0; i < materials.Length; i++) materials[i] = material;
+        for (int i = 0; i < materials.Length; i++) materials[i] = ghostMaterial;
         copy.sharedMaterials = materials;
         copy.shadowCastingMode = ShadowCastingMode.Off;
         copy.receiveShadows = false;
@@ -177,6 +221,8 @@ public sealed class XrayVision : MonoBehaviour
     private void OnDisable()
     {
         blend = 0f;
+        if (material != null) material.SetFloat(IntensityId, 0f);
+        if (outlineMaterial != null) outlineMaterial.SetFloat(IntensityId, 0f);
         SetGhostsVisible(false);
     }
 
@@ -184,5 +230,6 @@ public sealed class XrayVision : MonoBehaviour
     {
         SetGhostsVisible(false);
         if (material != null) Destroy(material);
+        if (outlineMaterial != null) Destroy(outlineMaterial);
     }
 }

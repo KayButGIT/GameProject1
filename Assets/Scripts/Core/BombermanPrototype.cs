@@ -26,6 +26,8 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     public Color GetXrayColor(bool isPlayer) => isPlayer ? playerXrayColor : enemyXrayColor;
     public float XrayOpacity => xrayOpacity;
+    public float XrayOutlineWidthPixels => xrayOutlineWidthPixels;
+    public float XrayOutlineBrightness => xrayOutlineBrightness;
 
     [Header("Map")]
     [SerializeField] private int width = 31;
@@ -94,6 +96,10 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private Color enemyXrayColor = new(1f, 0.4f, 0.3f, 1f);
     [Tooltip("Transparency of the X-ray highlight while it is fully visible.")]
     [SerializeField, Range(0f, 1f)] private float xrayOpacity = 0.22f;
+    [Tooltip("Screen-space thickness of the X-ray outer outline, in pixels.")]
+    [SerializeField, Range(1f, 8f)] private float xrayOutlineWidthPixels = 2f;
+    [Tooltip("Brightness of the X-ray outer outline, independent of the silhouette opacity.")]
+    [SerializeField, Range(0f, 3f)] private float xrayOutlineBrightness = 1f;
 
     [Header("Scoring")]
     [Tooltip("Score for killing each enemy type.")]
@@ -1329,66 +1335,77 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         float spreadDelay = step * BlastEffects.SpreadDelay;
         float burnDuration = playerBurnDissolveTime;
+        const float woodChunkGroundHold = 2f;
+        const float woodChunkDissolveDuration = 1.2f;
         Material woodBurnMaterial = wallDebrisBurnMaterial;
-        bool useFireDissolve = isWoodBurnBlock && woodBurnMaterial != null;
+        bool dissolveDebris = isWoodBurnBlock && woodBurnMaterial != null;
         if (dissolvingBlock != null)
             dissolvingBlock.transform.SetParent(stageRoot.transform, true);
 
-        if (useFireDissolve && dissolvingBlock != null)
-            WallDebrisBurn.Apply(dissolvingBlock, woodBurnMaterial, spreadDelay, burnDuration, 1f, 0f);
-
         GameObject debris = BlastEffects.CreateDebris($"Debris {cell.x},{cell.y}", map.CellToWorld(cell), blockMaterial, step,
-            debrisSource);
+            debrisSource,
+            particleChunksOnly: isWoodBurnBlock,
+            playChunkBurstImmediately: !dissolveDebris);
         debris.transform.SetParent(stageRoot.transform, true);
-        if (useFireDissolve)
+        if (dissolveDebris)
         {
-            float debrisDelay = Mathf.Min(0.15f, burnDuration * 0.1f);
-            float debrisDuration = Mathf.Max(0.05f, burnDuration - debrisDelay);
-            WallDebrisBurn.Apply(debris, woodBurnMaterial, spreadDelay + debrisDelay, debrisDuration, 1f, 0f, 0.5f);
+            BlastEffects.AddWoodChunkBurnVfx(debris.transform, step);
+
+            // Keep the normal block debris unchanged; only dissolve particle-system chunks.
             Transform chunks = debris.transform.Find("Chunks");
             if (chunks != null)
             {
-                if (chunks.TryGetComponent(out ParticleSystemRenderer chunkRenderer))
-                    WallDebrisBurn.ApplyParticleRenderer(chunkRenderer, woodBurnMaterial, spreadDelay + debrisDelay,
-                        debrisDuration, 1f, 0f, 0.5f);
                 if (chunks.TryGetComponent(out ParticleSystem chunkSystem))
                 {
                     ParticleSystem.MainModule chunkMain = chunkSystem.main;
+                    chunkMain.gravityModifier = 1.8f;
+                    ParticleSystem.RotationOverLifetimeModule chunkRotation = chunkSystem.rotationOverLifetime;
+                    chunkRotation.enabled = false;
                     chunkMain.startLifetime = new ParticleSystem.MinMaxCurve(
-                        Mathf.Max(0.1f, burnDuration * 0.9f), burnDuration + 0.1f);
+                        woodChunkGroundHold + woodChunkDissolveDuration + 0.25f,
+                        woodChunkGroundHold + woodChunkDissolveDuration + 0.65f);
+
+                    ParticleSystem.CollisionModule collision = chunkSystem.collision;
+                    collision.enabled = true;
+                    collision.type = ParticleSystemCollisionType.World;
+                    collision.mode = ParticleSystemCollisionMode.Collision3D;
+                    collision.quality = ParticleSystemCollisionQuality.High;
+                    collision.enableDynamicColliders = true;
+                    collision.collidesWith = Physics.AllLayers;
+                    collision.bounce = 0.58f;
+                    collision.dampen = 0.16f;
+                    collision.radiusScale = 0.9f;
+
+                    ParticleSystem.SizeOverLifetimeModule sizeOverLifetime = chunkSystem.sizeOverLifetime;
+                    sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(
+                        new Keyframe(0f, 1.1f),
+                        new Keyframe(0.82f, 1f),
+                        new Keyframe(0.92f, 1f),
+                        new Keyframe(1f, 0f)));
                 }
+                if (chunks.TryGetComponent(out ParticleSystemRenderer chunkRenderer))
+                    WallDebrisBurn.ApplyParticleRenderer(chunkRenderer, woodBurnMaterial,
+                        spreadDelay + woodChunkGroundHold, woodChunkDissolveDuration, 1f, 0f, 0.25f);
+                if (chunks.TryGetComponent(out ParticleSystem burst)) burst.Play();
             }
-            Transform accents = debris.transform.Find("Chunk Accents");
-            if (accents != null && accents.TryGetComponent(out ParticleSystemRenderer accentRenderer))
-                WallDebrisBurn.ApplyParticleRenderer(accentRenderer, woodBurnMaterial, spreadDelay + debrisDelay,
-                    debrisDuration, 1f, 0f, 0.5f);
         }
 
-        GameObject lingeringFragments = null;
-        if (!useFireDissolve)
-        {
-            lingeringFragments = BlastEffects.CreateBlastWallFragments(
-                $"Blast Thrown Debris {cell.x},{cell.y}",
-                map.CellToWorld(cell),
-                map.CellToWorld(blastOrigin),
-                blockMaterial,
-                step);
-            lingeringFragments.transform.SetParent(stageRoot.transform, true);
-        }
+        GameObject lingeringFragments = BlastEffects.CreateBlastWallFragments(
+            $"Blast Thrown Debris {cell.x},{cell.y}",
+            map.CellToWorld(cell),
+            map.CellToWorld(blastOrigin),
+            blockMaterial,
+            step);
+        lingeringFragments.transform.SetParent(stageRoot.transform, true);
         ExplosionFlash.Create(map.CellToWorld(cell) + new Vector3(0f, 0.65f, 0f), new Color(1f, 0.42f, 0.1f), 3.5f, 1.5f, stageRoot.transform);
         ShakeCamera(0.008f, 0.06f);
         yield return WaitForGameplaySeconds(spreadDelay);
-        if (useFireDissolve)
-            yield return WaitForGameplaySeconds(burnDuration);
-        else
+        if (dissolvingBlock != null)
         {
-            if (dissolvingBlock != null)
-            {
-                foreach (Renderer renderer in dissolvingBlock.GetComponentsInChildren<Renderer>(true))
-                    renderer.enabled = false;
-            }
-            yield return WaitForGameplaySeconds(playerBurnDissolveDelay + playerBurnDissolveTime);
+            foreach (Renderer renderer in dissolvingBlock.GetComponentsInChildren<Renderer>(true))
+                renderer.enabled = false;
         }
+        yield return WaitForGameplaySeconds(playerBurnDissolveDelay + playerBurnDissolveTime);
         if (dissolvingBlock != null) Destroy(dissolvingBlock);
         float dissolveWait = playerBurnDissolveDelay + burnDuration;
         yield return WaitForGameplaySeconds(Mathf.Max(0f, BlastEffects.Duration - dissolveWait));
