@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3842995042792430626}
   - component: {fileID: 2402347451449323153}
   - component: {fileID: 8900957715125540223}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Facing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -100,7 +100,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8689519514720146708}
   - component: {fileID: 1738299741339862613}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -154,7 +154,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8972958124778362326}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: VisualRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -188,7 +188,7 @@ GameObject:
   - component: {fileID: 7197771039407860056}
   - component: {fileID: 8468113046393223708}
   - component: {fileID: 6914731762061281385}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -278,7 +278,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3746260896570936345}
   - component: {fileID: 5289937365063296213}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Dahl
   m_TagString: Untagged
   m_Icon: {fileID: 0}

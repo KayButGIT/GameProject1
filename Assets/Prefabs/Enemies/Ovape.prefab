@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7435949227708694602}
   - component: {fileID: 7057797805197994696}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ovape
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -76,7 +76,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5921960340613823210}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: VisualRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -110,7 +110,7 @@ GameObject:
   - component: {fileID: 2210586732886288497}
   - component: {fileID: 7446306553198016119}
   - component: {fileID: 5980538758528101662}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Facing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -199,7 +199,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8223091620608611649}
   - component: {fileID: 339704858671913083}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -255,7 +255,7 @@ GameObject:
   - component: {fileID: 9148721368989518073}
   - component: {fileID: 2202123668720841471}
   - component: {fileID: 8748074568974600749}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}

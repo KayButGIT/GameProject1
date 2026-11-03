@@ -20,9 +20,9 @@ RenderSettings:
   m_FogDensity: 0.01
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.55, g: 0.65, b: 0.8, a: 1}
-  m_AmbientEquatorColor: {r: 0.42, g: 0.44, b: 0.45, a: 1}
-  m_AmbientGroundColor: {r: 0.18, g: 0.2, b: 0.16, a: 1}
+  m_AmbientSkyColor: {r: 0.6688323, g: 0.74204844, b: 0.8490566, a: 1}
+  m_AmbientEquatorColor: {r: 1, g: 0.8358384, b: 0.6367924, a: 1}
+  m_AmbientGroundColor: {r: 0.46226418, g: 0.38726756, b: 0.22022964, a: 1}
   m_AmbientIntensity: 0.3
   m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.41960785, g: 0.5189268, b: 0.627451, a: 1}
@@ -324,7 +324,7 @@ MonoBehaviour:
   playerFaceDeadBurntMaterial: {fileID: 2100000, guid: e1633b51609fb7d4c97c76220aacdc3c, type: 2}
   playerBodyFireDissolveMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
   playerFaceFireDissolveMaterial: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
-  wallDebrisBurnMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
+  wallDebrisBurnMaterial: {fileID: 2100000, guid: a170af1a343008f4ba25c52992dc160b, type: 2}
   playerBurnDissolveStart: 1
   playerBurnDissolveEnd: 0.3
   bombModelPrefab: {fileID: 8546483925264540944, guid: 45e7cc8140221fe45bb714a5bcab685c, type: 3}
@@ -344,6 +344,11 @@ MonoBehaviour:
   playerBurnDissolveDelay: 0.5
   playerBurnDissolveTime: 1.8
   playerRestartDelay: 1
+  playerXrayColor: {r: 1, g: 1, b: 1, a: 1}
+  enemyXrayColor: {r: 1, g: 0.4, b: 0.3, a: 1}
+  xrayOpacity: 0.312
+  xrayOutlineWidthPixels: 2.1
+  xrayOutlineBrightness: 3
   valcomScore: 100
   onealScore: 200
   dahlScore: 400

@@ -176,7 +176,7 @@ public sealed class PlayerController : GridController
         {
             Renderer renderer = burnRenderers[rendererIndex];
             if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer
-                || renderer.name.Contains("Wall Pass")) continue;
+                || XrayVision.IsGhost(renderer)) continue;
             originalMaterials[rendererIndex] = renderer.sharedMaterials;
             if (!renderer.enabled) continue;
             Material[] replacement = new Material[renderer.sharedMaterials.Length];

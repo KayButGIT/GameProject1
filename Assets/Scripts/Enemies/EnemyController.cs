@@ -413,7 +413,7 @@ public abstract class EnemyController : GridController
         foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
         {
             if (renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer
-                || renderer.name.Contains("Wall Pass")) continue;
+                || XrayVision.IsGhost(renderer)) continue;
             Material[] sourceMaterials = renderer.sharedMaterials;
             Material[] replacements = new Material[sourceMaterials.Length];
             for (int i = 0; i < sourceMaterials.Length; i++)

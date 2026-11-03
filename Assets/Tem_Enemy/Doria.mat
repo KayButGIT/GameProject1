@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Doria
+  m_Shader: {fileID: 4800000, guid: 1cdb3e88c105f7c44a5a6f2f23f0a089, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _VERTEX_WIGGLE
+  m_InvalidKeywords:
+  - _PREPASSZWRITE_ON
+  - _RECEIVESHADOWS_ON
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseNormalTex:
+        m_Texture: {fileID: 2800000, guid: 6c4a01f0ca373ae4e99bf2879e54b47a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BaseTex:
+        m_Texture: {fileID: 2800000, guid: 0106893bf0f11a244abc9cdb9fdacd6c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MatcapTex:
+        m_Texture: {fileID: 2800000, guid: a0ccb6f706bcd4e4fb15c95228c2baff, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BaseNormalIntensity: 1
+    - _EmissionMultiply: 1
+    - _EmissionMultiplyBase: 0
+    - _FresnelIntensity: 1
+    - _FresnelPower: 3
+    - _HueShift: 0
+    - _HueShiftSpeed: 0
+    - _MatcapBlend: 0.8
+    - _MatcapDesaturate: 0
+    - _ObjectSpace: 0
+    - _Opacity: 0.85
+    - _OverallTilesMultiply: 0.3
+    - _PrepassZWrite: 1
+    - _ReceiveShadows: 1
+    - _RoundRadius: 0.5
+    - _Roundness: 0
+    - _Smooth: 0.85
+    - _Spec: 0.6
+    - _TopEdgeNoise: 0.25
+    - _TopFalloffErosion: -0.51
+    - _TopFalloffSmoothness: 1
+    - _TopOffset: 0.04
+    - _Translucency: 0.6
+    - _UseMatcapTex: 0
+    - _VertexScale: 2
+    - _VertexSpeed: 1.5
+    - _VertexStrength: 0.03
+    - _VertexWiggle: 1
+    - _WaveAmplitude: 0.04
+    - _WaveFrequency: 6
+    - _WaveSpeed: 3
+    - _WiggleNormalStrength: 1
+    - _WiggleScale: 12
+    - _WiggleSpeed: 1.5
+    m_Colors:
+    - _ColorBase: {r: 0.29999998, g: 0.75, b: 1, a: 1}
+    - _ColorDeep: {r: 0.079999976, g: 0.37999994, b: 0.85, a: 1}
+    - _ColorTop: {r: 0.65, g: 0.92, b: 1, a: 1}
+    - _EmissionColor: {r: 0.24999997, g: 0.65, b: 1, a: 1}
+    - _FresnelColor: {r: 0.85, g: 0.96999997, b: 1, a: 1}
+    - _MatcapTint: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

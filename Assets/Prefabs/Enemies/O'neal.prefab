@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3489036907818044175}
   - component: {fileID: 5245165445925774320}
   - component: {fileID: 3777424256668814952}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -101,7 +101,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6993850391172235921}
   - component: {fileID: 1161696780468328565}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: O'neal
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -169,7 +169,7 @@ GameObject:
   - component: {fileID: 6999917965448406287}
   - component: {fileID: 4648925061061449446}
   - component: {fileID: 556410094900579565}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Facing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -257,7 +257,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 101774398086838062}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: VisualRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -290,7 +290,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5114956526513159850}
   - component: {fileID: 3889571932472555614}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Model
   m_TagString: Untagged
   m_Icon: {fileID: 0}
