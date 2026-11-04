@@ -7,7 +7,7 @@ using UnityEngine.UI;
 public sealed class TitleMenu : MonoBehaviour
 {
     private const float SelectionAnimationSeconds = 1.2f;
-    private static readonly int SelectTrigger = Animator.StringToHash("Select");
+        private static readonly int SelectTrigger = Animator.StringToHash("Select");
     private static readonly int DeadTrigger = Animator.StringToHash("Dead");
 
     [Tooltip("Scene that runs the game. It must be in Build Settings.")]
@@ -19,13 +19,23 @@ public sealed class TitleMenu : MonoBehaviour
     [Tooltip("Text of the Continue label. {0} is the saved stage number.")]
     [SerializeField] private string continueLabelFormat = "Continue (Stage {0})";
     [Tooltip("Seconds for the short fade-to-black before loading the game scene.")]
-    [SerializeField, Min(0f)] private float preLoadFadeSeconds = 0.5f;
+    [SerializeField, Min(0f)] private float preLoadFadeSeconds = 0.8f;
     [SerializeField] private Transform titlePlayer;
     [SerializeField] private Material burntBodyMaterial;
     [SerializeField] private Material burntFaceMaterial;
+    [SerializeField] private Material irisTransitionMaterial;
+
+    [Header("Iris Transition")]
+    [SerializeField, Min(0.5f)] private float irisStartRadius = 1.5f;
+    [SerializeField, Min(0.05f)] private float irisPauseRadius = 0.25f;
+    [SerializeField, Min(0.05f)] private float irisCloseToPauseSeconds = 0.35f;
+    [SerializeField, Min(0f)] private float irisHoldSeconds = 1f;
+    [SerializeField, Min(0.05f)] private float irisFinalCloseSeconds = 0.75f;
+    [SerializeField] private float irisCenterHeight = 1.2f;
+    [SerializeField] private float irisExitCenterHeight = 0.6f;
 
     private Animator titleAnimator;
-    private bool actionPending;
+    private bool actionPending; 
     private ScreenTransitionOverlay transitionOverlay;
     private Renderer titleBodyRenderer;
     private Renderer titleHeadRenderer;
@@ -37,7 +47,7 @@ public sealed class TitleMenu : MonoBehaviour
     {
         titleAnimator = FindFirstObjectByType<Animator>();
         // Create or reuse the transition overlay; start hidden and transparent.
-        transitionOverlay = ScreenTransitionOverlay.Create();
+        transitionOverlay = ScreenTransitionOverlay.Create(irisTransitionMaterial);
         transitionOverlay.SetAlpha(0f);
         transitionOverlay.Hide();
     }
@@ -45,7 +55,9 @@ public sealed class TitleMenu : MonoBehaviour
     private void Start()
     {
         SoundManager.Instance?.PlayTitleScreenBgm();
+
         bool hasSave = GameProgress.HasSave;
+
         if (continueButton != null)
         {
             continueButton.interactable = hasSave;
@@ -53,7 +65,10 @@ public sealed class TitleMenu : MonoBehaviour
 
         if (continueLabel != null && hasSave)
         {
-            continueLabel.text = string.Format(continueLabelFormat, GameProgress.SavedStage);
+            continueLabel.text = string.Format(
+                continueLabelFormat,
+                GameProgress.SavedStage);
+
             continueLabel.fontSize = 30;
         }
 
@@ -71,7 +86,7 @@ public sealed class TitleMenu : MonoBehaviour
         yield return new WaitForSecondsRealtime(SelectionAnimationSeconds);
         // short fade to black, then load scene so the stage transition in the game can take over
         transitionOverlay.Show("", 0f);
-        yield return FadeToBlackRealtime(preLoadFadeSeconds);
+        yield return FadeToBlackRealtime(preLoadFadeSeconds, irisCenterHeight);
 
         GameProgress.Clear();
         GameProgress.RequestedStage = 1;
@@ -89,7 +104,9 @@ public sealed class TitleMenu : MonoBehaviour
     {
         yield return new WaitForSecondsRealtime(SelectionAnimationSeconds);
         transitionOverlay.Show("", 0f);
-        yield return FadeToBlackRealtime(preLoadFadeSeconds);
+        yield return FadeToBlackRealtime(
+    preLoadFadeSeconds,
+    irisCenterHeight);
 
         GameProgress.RequestedStage = GameProgress.SavedStage;
         SceneManager.LoadScene(gameSceneName);
@@ -114,7 +131,9 @@ public sealed class TitleMenu : MonoBehaviour
     {
         yield return new WaitForSecondsRealtime(SelectionAnimationSeconds);
         transitionOverlay.Show("", 0f);
-        yield return FadeToBlackRealtime(preLoadFadeSeconds);
+        yield return FadeToBlackRealtime(
+    preLoadFadeSeconds,
+    irisExitCenterHeight);
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #endif
@@ -138,19 +157,73 @@ public sealed class TitleMenu : MonoBehaviour
     }
 
     // Short unscaled fade to black.
-    private IEnumerator FadeToBlackRealtime(float seconds)
+    private IEnumerator FadeToBlackRealtime(
+        float seconds,
+        float centerHeight)
     {
+        Camera mainCamera = Camera.main;
+
+        if (mainCamera == null || titlePlayer == null)
+        {
+            transitionOverlay.Show("", 1f);
+            yield break;
+        }
+
+        Vector3 screenPosition = mainCamera.WorldToScreenPoint(
+            titlePlayer.position + Vector3.up * centerHeight);
+
+        Vector2 center = new(
+            screenPosition.x / Screen.width,
+            screenPosition.y / Screen.height);
+
+        // Start large enough that the screen is completely visible.
+        transitionOverlay.ShowIris(center, irisStartRadius);
+
+        // Slowly close inward to the pause size.
         float elapsed = 0f;
-        transitionOverlay.SetAlpha(0f);
-        transitionOverlay.Show("", 0f);
-        while (elapsed < seconds)
+
+        while (elapsed < irisCloseToPauseSeconds)
         {
             elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / Mathf.Max(0.0001f, seconds));
-            transitionOverlay.SetAlpha(Mathf.Lerp(0f, 1f, t));
+
+            float progress = Mathf.Clamp01(
+                elapsed / irisCloseToPauseSeconds);
+
+            float radius = Mathf.Lerp(
+                irisStartRadius,
+                irisPauseRadius,
+                progress);
+
+            transitionOverlay.SetIris(center, radius);
+
             yield return null;
         }
-        transitionOverlay.SetAlpha(1f);
+
+        // Pause around the player.
+        transitionOverlay.SetIris(center, irisPauseRadius);
+        yield return new WaitForSecondsRealtime(irisHoldSeconds);
+
+        // Slowly continue closing to black.
+        elapsed = 0f;
+
+        while (elapsed < irisFinalCloseSeconds)
+        {
+            elapsed += Time.unscaledDeltaTime;
+
+            float progress = Mathf.Clamp01(
+                elapsed / irisFinalCloseSeconds);
+
+            float radius = Mathf.Lerp(
+                irisPauseRadius,
+                0f,
+                progress);
+
+            transitionOverlay.SetIris(center, radius);
+
+            yield return null;
+        }
+
+        transitionOverlay.SetIris(center, 0f);
     }
 
     private void PlayExitExplosion()

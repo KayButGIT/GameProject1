@@ -2313,6 +2313,14 @@ MonoBehaviour:
   titlePlayer: {fileID: 1956187178}
   burntBodyMaterial: {fileID: 2100000, guid: af91f09c9346b6b41af532a19c72c3b6, type: 2}
   burntFaceMaterial: {fileID: 2100000, guid: e1633b51609fb7d4c97c76220aacdc3c, type: 2}
+  irisTransitionMaterial: {fileID: 2100000, guid: c3e74ed9d08c83b4989ee60c62fea944, type: 2}
+  irisStartRadius: 1.5
+  irisPauseRadius: 0.25
+  irisCloseToPauseSeconds: 0.35
+  irisHoldSeconds: 0.7
+  irisFinalCloseSeconds: 0.75
+  irisCenterHeight: 1.2
+  irisExitCenterHeight: 0.2
 --- !u!4 &1801374250
 Transform:
   m_ObjectHideFlags: 0
