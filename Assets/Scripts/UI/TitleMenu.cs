@@ -8,6 +8,7 @@ public sealed class TitleMenu : MonoBehaviour
 {
     private const float SelectionAnimationSeconds = 1.2f;
     private static readonly int SelectTrigger = Animator.StringToHash("Select");
+    private static readonly int DeadTrigger = Animator.StringToHash("Dead");
 
     [Tooltip("Scene that runs the game. It must be in Build Settings.")]
     [SerializeField] private string gameSceneName = "Prototype";
@@ -45,6 +46,7 @@ public sealed class TitleMenu : MonoBehaviour
         if (continueLabel != null && hasSave)
         {
             continueLabel.text = string.Format(continueLabelFormat, GameProgress.SavedStage);
+            continueLabel.fontSize = 30;
         }
     }
 
@@ -85,7 +87,7 @@ public sealed class TitleMenu : MonoBehaviour
 
     public void QuitGame()
     {
-        if (!BeginButtonAction()) return;
+        if (!BeginButtonAction(true)) return;
         StartCoroutine(QuitAfterSelection());
     }
 
@@ -100,11 +102,19 @@ public sealed class TitleMenu : MonoBehaviour
         Application.Quit();
     }
 
-    private bool BeginButtonAction()
+    private bool BeginButtonAction(bool useDeadAnimation = false)
     {
         if (actionPending) return false;
+
         actionPending = true;
-        if (titleAnimator != null) titleAnimator.SetTrigger(SelectTrigger);
+
+        if (titleAnimator != null)
+        {
+            titleAnimator.ResetTrigger(SelectTrigger);
+            titleAnimator.ResetTrigger(DeadTrigger);
+            titleAnimator.SetTrigger(useDeadAnimation ? DeadTrigger : SelectTrigger);
+        }
+
         return true;
     }
 
