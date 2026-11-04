@@ -20,6 +20,7 @@ public sealed class TitleMenu : MonoBehaviour
     [SerializeField] private string continueLabelFormat = "Continue (Stage {0})";
     [Tooltip("Seconds for the short fade-to-black before loading the game scene.")]
     [SerializeField, Min(0f)] private float preLoadFadeSeconds = 0.5f;
+    [SerializeField] private Transform titlePlayer;
 
     private Animator titleAnimator;
     private bool actionPending;
@@ -87,7 +88,12 @@ public sealed class TitleMenu : MonoBehaviour
 
     public void QuitGame()
     {
-        if (!BeginButtonAction(true)) return;
+        if (!BeginButtonAction(true))
+        {
+            return;
+        }
+
+        PlayExitExplosion();
         StartCoroutine(QuitAfterSelection());
     }
 
@@ -132,5 +138,28 @@ public sealed class TitleMenu : MonoBehaviour
             yield return null;
         }
         transitionOverlay.SetAlpha(1f);
+    }
+
+    private void PlayExitExplosion()
+    {
+        if (titlePlayer == null)
+        {
+            Debug.LogWarning("Title Player is not assigned on TitleMenu.", this);
+            return;
+        }
+
+        Vector3 explosionPosition = titlePlayer.position;
+
+        BlastEffects.CreateFire(
+            "Title Exit Explosion",
+            explosionPosition,
+            0);
+
+        ExplosionFlash.Create(
+            explosionPosition + Vector3.up,
+            new Color(1f, 0.42f, 0.1f),
+            3.5f,
+            2.5f,
+            transform);
     }
 }
