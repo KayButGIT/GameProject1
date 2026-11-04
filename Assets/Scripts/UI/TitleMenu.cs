@@ -21,10 +21,17 @@ public sealed class TitleMenu : MonoBehaviour
     [Tooltip("Seconds for the short fade-to-black before loading the game scene.")]
     [SerializeField, Min(0f)] private float preLoadFadeSeconds = 0.5f;
     [SerializeField] private Transform titlePlayer;
+    [SerializeField] private Material burntBodyMaterial;
+    [SerializeField] private Material burntFaceMaterial;
 
     private Animator titleAnimator;
     private bool actionPending;
     private ScreenTransitionOverlay transitionOverlay;
+    private Renderer titleBodyRenderer;
+    private Renderer titleHeadRenderer;
+    private int titleBodyMaterialIndex = -1;
+    private int titleFaceMaterialIndex = -1;
+    private bool keepBurntMaterialsApplied;
 
     private void Awake()
     {
@@ -49,6 +56,8 @@ public sealed class TitleMenu : MonoBehaviour
             continueLabel.text = string.Format(continueLabelFormat, GameProgress.SavedStage);
             continueLabel.fontSize = 30;
         }
+
+        CacheTitlePlayerRenderers();
     }
 
     public void StartNewGame()
@@ -94,6 +103,10 @@ public sealed class TitleMenu : MonoBehaviour
         }
 
         PlayExitExplosion();
+
+        keepBurntMaterialsApplied = true;
+        ApplyBurntDeathMaterials();
+
         StartCoroutine(QuitAfterSelection());
     }
 
@@ -161,5 +174,140 @@ public sealed class TitleMenu : MonoBehaviour
             3.5f,
             2.5f,
             transform);
+    }
+
+    private void CacheTitlePlayerRenderers()
+    {
+        if (titlePlayer == null)
+        {
+            Debug.LogWarning("Title Player is not assigned.", this);
+            return;
+        }
+
+        Transform body = FindChild(titlePlayer, "Body");
+        Transform head = FindChild(titlePlayer, "Head");
+
+        titleBodyRenderer = body != null
+            ? body.GetComponentInChildren<Renderer>(true)
+            : null;
+
+        titleHeadRenderer = head != null
+            ? head.GetComponentInChildren<Renderer>(true)
+            : null;
+
+        titleBodyMaterialIndex = titleBodyRenderer != null ? 0 : -1;
+        titleFaceMaterialIndex = titleHeadRenderer != null ? 1 : -1;
+
+        Debug.Log(
+            $"Title materials cached. Body renderer: {titleBodyRenderer}, Head renderer: {titleHeadRenderer}, Face slot: {titleFaceMaterialIndex}",
+            this);
+    }
+
+    private IEnumerator ApplyBurntMaterialsDuringDeath()
+    {
+        float elapsed = 0f;
+
+        while (elapsed < SelectionAnimationSeconds)
+        {
+            yield return new WaitForEndOfFrame();
+
+            ApplyBurntDeathMaterials();
+            elapsed += Time.unscaledDeltaTime;
+        }
+    }
+
+    private void ApplyBurntDeathMaterials()
+    {
+        if (titleBodyRenderer != null && burntBodyMaterial != null)
+        {
+            Material[] bodyMaterials = titleBodyRenderer.materials;
+
+            if (bodyMaterials.Length > 0)
+            {
+                bodyMaterials[0] = burntBodyMaterial;
+                titleBodyRenderer.materials = bodyMaterials;
+            }
+        }
+
+        if (titleHeadRenderer == null)
+        {
+            return;
+        }
+
+        Material[] headMaterials = titleHeadRenderer.materials;
+
+        if (headMaterials.Length > 0 && burntBodyMaterial != null)
+        {
+            // Head Element 0 is the head/body surface.
+            headMaterials[0] = burntBodyMaterial;
+        }
+
+        if (headMaterials.Length > 1 && burntFaceMaterial != null)
+        {
+            // Head Element 1 is the visible face.
+            headMaterials[1] = burntFaceMaterial;
+        }
+
+        titleHeadRenderer.materials = headMaterials;
+    }
+
+    private static void SetRendererMaterial(
+        Renderer renderer,
+        int materialIndex,
+        Material material)
+    {
+        Material[] materials = renderer.materials;
+
+        if (materialIndex < 0 || materialIndex >= materials.Length)
+        {
+            return;
+        }
+
+        materials[materialIndex] = material;
+        renderer.materials = materials;
+    }
+
+    private static int FindMaterialIndex(
+        Renderer renderer,
+        string materialName,
+        int fallbackIndex)
+    {
+        Material[] materials = renderer.sharedMaterials;
+
+        for (int i = 0; i < materials.Length; i++)
+        {
+            if (materials[i] != null &&
+                materials[i].name.ToLowerInvariant().Contains(materialName))
+            {
+                return i;
+            }
+        }
+
+        return fallbackIndex < materials.Length ? fallbackIndex : -1;
+    }
+
+    private static Transform FindChild(
+        Transform root,
+        string childName)
+    {
+        foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name.Equals(
+                childName,
+                System.StringComparison.OrdinalIgnoreCase))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private void LateUpdate()
+    {
+        if (keepBurntMaterialsApplied)
+        {
+            ApplyBurntDeathMaterials();
+        }
     }
 }
