@@ -172,7 +172,6 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private readonly Dictionary<Vector2Int, Bomb> bombs = new();
     private readonly List<GridController> actors = new();
-    private readonly HashSet<Vector2Int> wallPassShakingCells = new();
 
     private BombermanMaterials materials;
     private BombermanMap map;
@@ -344,8 +343,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         actors.Clear();
         activeBombs = 0;
         player = null;
-        stageRoot = new GameObject(stageManager != null && stageManager.IsBonusStage
-            ? $"Bonus {stageManager.BonusRoundNumber}" : $"Stage {stage}");
+        stageRoot = new GameObject($"Stage {stage}");
         stageRoot.transform.SetParent(transform, false);
         ApplyScenery(theme);
         int layoutSeed = hasRestartLayoutSeed ? restartLayoutSeed : GetStageSeed(sessionSeed, stage);
@@ -364,7 +362,7 @@ public sealed class BombermanPrototype : MonoBehaviour
                 RegisterEnemy(enemy);
             firstStage = false;
         }
-        else if (stageManager == null || !stageManager.IsBonusStage)
+        else
         {
             foreach (Transform template in sceneEnemyTemplates.transform)
             {
@@ -375,11 +373,8 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
         if (spawnEnemies) SpawnEnemies(stage);
         int campaignLength = stageManager != null ? stageManager.TotalStages : 0;
-        exitWaveEnemyType = stageManager != null && stageManager.IsBonusStage
-            ? null : OriginalStageEnemies.GetExitEnemy(stage, campaignLength);
-        LogSpawnEvent(stageManager != null && stageManager.IsBonusStage
-            ? $"Bonus {stageManager.BonusRoundNumber} starts with {DescribeEnemies()}."
-            : $"Stage {stage} starts with {DescribeEnemies()}. Bombing the open exit releases {exitWaveEnemyType.Name}.");
+        exitWaveEnemyType = OriginalStageEnemies.GetExitEnemy(stage, campaignLength);
+        LogSpawnEvent($"Stage {stage} starts with {DescribeEnemies()}. Bombing the open exit releases {exitWaveEnemyType.Name}.");
         StartCoroutine(StageIntroSequence(stage, stageWasCleared));
     }
 
@@ -474,7 +469,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         if (timeLeft <= 0f)
         {
             timeUp = true;
-            if (stageManager == null || !stageManager.IsBonusStage) SpawnTimeOutPontans();
+            SpawnTimeOutPontans();
         }
     }
 
@@ -551,27 +546,6 @@ public sealed class BombermanPrototype : MonoBehaviour
         KillPlayerIfEnemyTouches();
         UpdateExitDoor();
         UpdateXray();
-        UpdateWallPassBlockShakes();
-    }
-
-    private void UpdateWallPassBlockShakes()
-    {
-        wallPassShakingCells.Clear();
-        if (map != null && !paused)
-        {
-            foreach (GridController actor in actors)
-            {
-                if (actor == null || actor.IsDead || !actor.CanPassDestructibleWalls) continue;
-                bool moving = actor.IsMoving || actor.CurrentActualMoveSpeed > 0.001f;
-                if (!moving) continue;
-
-                Vector2Int cell = map.WorldToCell(actor.transform.position);
-                if (map.GetCellKind(cell) == CellKind.Destructible)
-                    wallPassShakingCells.Add(cell);
-            }
-        }
-
-        map?.SetWallPassBlockShaking(wallPassShakingCells);
     }
 
     // Gives every Wall Pass actor its see-through silhouette, and turns the solid-block masks on only while one is showing.
@@ -754,12 +728,6 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void SpawnEnemies(int stage)
     {
-        if (stageManager != null && stageManager.IsBonusStage)
-        {
-            SpawnEnemyGroup(stageManager.BonusEnemyType, 1, () => FindOriginalSpawnCell(5));
-            return;
-        }
-
         if (useOriginalStageEnemies)
         {
             // Original rule: stage enemies start at least five columns from the player's corner.
@@ -1173,8 +1141,7 @@ public sealed class BombermanPrototype : MonoBehaviour
             LogSpawnEvent($"Blast from {origin} uncovered the exit at {exitDoor.Cell}. No enemies released.");
         }
 
-        if ((stageManager == null || !stageManager.IsBonusStage)
-            && exitWasRevealed && exitDoorPopulationCap > 0 && blastCells.Contains(exitDoor.Cell))
+        if (exitWasRevealed && exitDoorPopulationCap > 0 && blastCells.Contains(exitDoor.Cell))
         {
             int requestedAmount = 3 + exitDoorHitCount;
             int amount = Mathf.Min(requestedAmount, Mathf.Clamp(exitDoorPopulationCap, 0, OriginalStageEnemies.StageEnemyCap));
@@ -1198,7 +1165,6 @@ public sealed class BombermanPrototype : MonoBehaviour
             powerUps.Remove(item);
             map.ShowGrassAt(cell);
             Destroy(item.gameObject);
-            if (stageManager != null && stageManager.IsBonusStage) continue;
             LogSpawnEvent($"Blast destroyed the {item.Type} power-up at {cell}. Queued one {exitWaveEnemyType.Name}.");
             powerUpEnemySpawnCells.Enqueue(cell);
             pendingPowerUpEnemySpawns++;
@@ -2000,7 +1966,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         stageWinIntroPending = true;
-        stageManager.AdvanceAfterClear();
+        stageManager.NextStage();
     }
 
     // The run is won, so the ending reads like GAME OVER without being one.
@@ -2145,8 +2111,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         transitionActive = true;
         Time.timeScale = 0f;
-        transitionOverlay.Show(stageManager != null && stageManager.IsBonusStage
-            ? $"BONUS {stageManager.BonusRoundNumber}" : $"STAGE {stage}", 1f);
+        transitionOverlay.Show($"STAGE {stage}", 1f);
         yield return new WaitForSecondsRealtime(StageCardHoldSeconds);
         if (!stageWasCleared)
         {

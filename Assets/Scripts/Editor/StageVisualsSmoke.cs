@@ -127,13 +127,9 @@ public static class StageVisualsSmoke
                     if (item.menuItem.StartsWith("Tools/Bomberman/")) paths.Add(item.menuItem);
 
         paths.Sort();
-        string[] expected = { "Tools/Bomberman/Enemy Config", "Tools/Bomberman/Stage Config", "Tools/Bomberman/Sound Manager" };
+        string[] expected = { "Tools/Bomberman/Stage Config", "Tools/Bomberman/Sound Manager" };
         Check(paths.SequenceEqual(expected),
-            "Tools > Bomberman has Enemy Config, Stage Config and Sound Manager, found: " + string.Join(", ", paths));
-        EnemyConfigWindow enemyWindow = EnemyConfigWindow.Open();
-        Check(enemyWindow.EnemyCount == 8 && enemyWindow.SelectedEnemyEditor != null,
-            "Enemy Config lists the eight enemy prefabs and draws the selected controller inspector");
-        enemyWindow.Close();
+            "Tools > Bomberman has Stage Config and Sound Manager, found: " + string.Join(", ", paths));
         Check(AssetDatabase.LoadAssetAtPath<SoundManagerSettings>("Assets/Resources/BombermanSoundSettings.asset") != null,
             "Sound Manager has a shared Resources settings asset");
     }

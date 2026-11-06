@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
@@ -86,98 +85,6 @@ public static class StagePlaySmoke
     private static string Layout() => string.Join(",", Enumerable.Range(0, 63).Select(i => Map.GetCellKind(new Vector2Int(i / 7, i % 7)).ToString()));
     private static T[] All<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
 
-    private static void CheckWallPassBlockShake(CellObject breakable)
-    {
-        WallPassBlockShake shake = breakable.GetComponent<WallPassBlockShake>();
-        Transform visual = breakable.transform.Find("Visual") ?? breakable.transform.Find("Block Visual");
-        Check(shake != null && visual != null, "Breakable block has a shakeable visual and fixed collider root");
-        Vector3 visualStart = visual.localPosition;
-        Vector3 blockStart = breakable.transform.position;
-        Bounds colliderStart = breakable.GetComponent<BoxCollider>().bounds;
-        Bounds[] xrayBoundsBefore = new Bounds[9];
-        int xrayBoundsCount = Map.GetNearbyDestructibleBounds(Map.CellToWorld(breakable.Cell), xrayBoundsBefore);
-        List<GridController> actors = (List<GridController>)typeof(BombermanPrototype).GetField("actors", Private).GetValue(game);
-        DoriaEnemy first = CreateWallPassTestActor(breakable);
-        DoriaEnemy second = CreateWallPassTestActor(breakable);
-        ValcomEnemy nonWallPass = new GameObject("Non Wall Pass Shake Test Actor").AddComponent<ValcomEnemy>();
-        nonWallPass.enabled = false;
-        nonWallPass.transform.position = Map.CellToWorld(breakable.Cell);
-        nonWallPass.StartMove(breakable.Cell, Map.CellToWorld(breakable.Cell));
-        actors.Add(first);
-        actors.Add(second);
-        actors.Add(nonWallPass);
-        try
-        {
-            Call("UpdateWallPassBlockShakes");
-            Check(!shake.IsShaking, "Stationary wall-pass actors do not shake their block");
-
-            nonWallPass.transform.position = Map.CellToWorld(breakable.Cell);
-            Call("UpdateWallPassBlockShakes");
-            Check(!shake.IsShaking, "Moving non-wall-pass actors do not shake a block");
-
-            first.StartMove(breakable.Cell, Map.CellToWorld(breakable.Cell));
-            Call("UpdateWallPassBlockShakes");
-            shake.SendMessage("LateUpdate");
-            Bounds[] xrayBoundsDuringShake = new Bounds[9];
-            int xrayBoundsDuringShakeCount = Map.GetNearbyDestructibleBounds(Map.CellToWorld(breakable.Cell), xrayBoundsDuringShake);
-            Check(shake.IsShaking && (visual.localPosition - visualStart).sqrMagnitude > 0.0000001f
-                && breakable.transform.position == blockStart
-                && breakable.GetComponent<BoxCollider>().bounds.center == colliderStart.center
-                && xrayBoundsDuringShakeCount == xrayBoundsCount
-                && Enumerable.Range(0, xrayBoundsCount).All(i => xrayBoundsDuringShake[i].Equals(xrayBoundsBefore[i])),
-                "Wall shakes the visual without moving its collider or x-ray cutout bounds");
-
-            second.StartMove(breakable.Cell, Map.CellToWorld(breakable.Cell));
-            first.transform.position = Map.CellToWorld(breakable.Cell + Vector2Int.right);
-            Call("UpdateWallPassBlockShakes");
-            Check(shake.IsShaking, "A second wall-pass actor keeps the block shaking");
-
-            second.transform.position = Map.CellToWorld(breakable.Cell + Vector2Int.right);
-            Call("UpdateWallPassBlockShakes");
-            Check(!shake.IsShaking && visual.localPosition == visualStart, "Leaving the block stops shake and restores its visual");
-
-            second.transform.position = Map.CellToWorld(breakable.Cell);
-            Call("UpdateWallPassBlockShakes");
-            Check(shake.IsShaking, "Wall-pass occupancy resumes after re-entering the block");
-
-            Call("SetPaused", true);
-            Call("UpdateWallPassBlockShakes");
-            Check(!shake.IsShaking && visual.localPosition == visualStart, "Pausing stops shake and restores the exact visual position");
-            Call("SetPaused", false);
-
-            first.transform.position = Map.CellToWorld(breakable.Cell);
-            second.transform.position = Map.CellToWorld(breakable.Cell);
-            Call("UpdateWallPassBlockShakes");
-            Check(shake.IsShaking, "Wall-pass occupancy resumes after unpausing");
-
-            typeof(GridController).GetProperty(nameof(GridController.IsDead)).GetSetMethod(true).Invoke(first, new object[] { true });
-            typeof(GridController).GetProperty(nameof(GridController.IsDead)).GetSetMethod(true).Invoke(second, new object[] { true });
-            Call("UpdateWallPassBlockShakes");
-            Check(!shake.IsShaking && visual.localPosition == visualStart, "Dead actors stop shake and restore the exact visual position");
-        }
-        finally
-        {
-            if (game.IsPaused) Call("SetPaused", false);
-            actors.Remove(first);
-            actors.Remove(second);
-            actors.Remove(nonWallPass);
-            Call("UpdateWallPassBlockShakes");
-            UnityEngine.Object.DestroyImmediate(first.gameObject);
-            UnityEngine.Object.DestroyImmediate(second.gameObject);
-            UnityEngine.Object.DestroyImmediate(nonWallPass.gameObject);
-        }
-    }
-
-    private static DoriaEnemy CreateWallPassTestActor(CellObject breakable)
-    {
-        GameObject actorObject = new("Wall Pass Shake Test Actor");
-        actorObject.transform.position = Map.CellToWorld(breakable.Cell);
-        DoriaEnemy actor = actorObject.AddComponent<DoriaEnemy>();
-        actor.enabled = false;
-        actor.Cell = breakable.Cell;
-        return actor;
-    }
-
     private static void Tick()
     {
         try
@@ -202,16 +109,8 @@ public static class StagePlaySmoke
                 Bounds bounds = solid.transform.Find("Visual").GetComponentInChildren<Renderer>().bounds;
                 Check(Mathf.Abs(bounds.size.x - 1f) < 0.01f && Mathf.Abs(bounds.size.y - 1f) < 0.01f, "Example model keeps its own size");
                 CellObject breakable = All<CellObject>().First(c => Map.GetCellKind(c.Cell) == CellKind.Destructible);
-                CheckWallPassBlockShake(breakable);
-                WallPassBlockShake breakableShake = breakable.GetComponent<WallPassBlockShake>();
-                Transform breakableVisual = breakable.transform.Find("Visual") ?? breakable.transform.Find("Block Visual");
-                Vector3 breakableVisualStart = breakableVisual.localPosition;
-                Map.SetWallPassBlockShaking(new HashSet<Vector2Int> { breakable.Cell });
-                breakableShake.SendMessage("LateUpdate");
                 Map.DestroyDestructibleAt(breakable.Cell);
-                Check(Map.IsWalkable(breakable.Cell) && !breakable.gameObject.activeSelf
-                    && breakableVisual.localPosition == breakableVisualStart,
-                    "Breakable destruction restores the visual and removes its block");
+                Check(Map.IsWalkable(breakable.Cell) && !breakable.gameObject.activeSelf, "Breakable destruction");
                 manager.LoadStage(11);
                 Check(manager.CurrentTheme.name == "Concrete", "Theme transition");
                 layout = Layout();
@@ -249,7 +148,7 @@ public static class StagePlaySmoke
                 Check(manager.CurrentStage == 11 && game.HasLivingPlayer && game.IsPaused && TransitionText == "STAGE 11" && Layout() == layout, "Death restarts current stage with its intro card");
                 manager.LoadStage(61);
                 Check(manager.CurrentTheme.name == "Snow", "Last theme persists");
-                Check(All<CellObject>().All(c => c.GetComponentsInChildren<Renderer>().Any(r => r.enabled)), "Missing visual slots use primitives");
+                Check(All<CellObject>().All(c => c.GetComponent<Renderer>().enabled), "Missing visual slots use primitives");
                 manager.NextStage();
                 Check(manager.CurrentStage == 62, "Manual next stage");
                 StageTheme floorTheme = ScriptableObject.CreateInstance<StageTheme>();
@@ -267,7 +166,7 @@ public static class StagePlaySmoke
                 settings.ApplyModifiedPropertiesWithoutUndo();
                 manager.LoadStage(1);
                 Check(manager.CurrentTheme == null && manager.CurrentPhase == 0, "No sequence fallback");
-                Check(All<CellObject>().All(c => c.GetComponentsInChildren<Renderer>().Any(r => r.enabled)), "Original blocks without sequence");
+                Check(All<CellObject>().All(c => c.GetComponent<Renderer>().enabled), "Original blocks without sequence");
                 UnityEngine.Object.Destroy(floorSequence);
                 UnityEngine.Object.Destroy(floorTheme);
                 Debug.Log("STAGE_SMOKE_PASS: boundaries, edited lengths, validation, model fit, rails, collision, destruction, cleanup, scene enemies, stable restart, pause, death, fallback.");

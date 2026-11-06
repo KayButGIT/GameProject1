@@ -36,9 +36,8 @@ public static class EnemyValidation
         PlayerController player = playerObject.AddComponent<PlayerController>();
         Set(game, typeof(BombermanPrototype), "map", map);
         Set(game, typeof(BombermanPrototype), "player", player);
-        Set(game, typeof(BombermanPrototype), "stageRoot", host);
         string[] names = { "Valcom", "O'neal", "Dahl", "Minuo", "Ovape", "Doria", "Pass", "Pontan" };
-        float[] speeds = { 1.5f, 2.75f, 2.75f, 3f, 1.5f, 0.7f, 3.3f, 3.3f };
+        float[] speeds = { 2f, 3.5f, 3.5f, 4f, 1.5f, 1f, 4.5f, 5.5f };
         try
         {
             for (int i = 0; i < names.Length; i++)

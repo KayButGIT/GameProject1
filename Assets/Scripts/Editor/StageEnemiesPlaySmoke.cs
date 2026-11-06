@@ -90,15 +90,6 @@ public static class StageEnemiesPlaySmoke
 
     private static void CheckDifficultyMapping()
     {
-        int[] bonusAfterStages = { 5, 10, 15, 20, 25, 29 };
-        Type[] bonusEnemies = { typeof(ValcomEnemy), typeof(OnealEnemy), typeof(MinuoEnemy), typeof(OvapeEnemy), typeof(PassEnemy), typeof(PontanEnemy) };
-        for (int i = 0; i < bonusAfterStages.Length; i++)
-        {
-            Check(StageManager.TryGetBonusAfter(bonusAfterStages[i], out int round, out Type enemy)
-                && round == i + 1 && enemy == bonusEnemies[i], $"Bonus round {i + 1} follows stage {bonusAfterStages[i]} with the requested enemy");
-        }
-        Check(!StageManager.TryGetBonusAfter(30, out _, out _), "No bonus round follows the final main stage");
-
         Check(OriginalStageEnemies.ResolveReferenceStage(1, 1) == 1, "One-stage campaign uses NES Stage 1");
         Check(OriginalStageEnemies.ResolveReferenceStage(1, 30) == 1, "Finite campaign begins at NES Stage 1");
         Check(OriginalStageEnemies.ResolveReferenceStage(15, 30) == 19, "30-stage campaign eases into the reference curve");
