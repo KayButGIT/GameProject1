@@ -40,6 +40,15 @@ public sealed class SoundManagerSettingsEditor : Editor
                 continue;
             }
 
+            if (iterator.propertyPath == "bonusStageBgm")
+            {
+                DrawBonusStageBgm(iterator.Copy(), serializedObject.FindProperty("bonusStageBgmVolume"));
+                continue;
+            }
+
+            if (iterator.propertyPath == "bonusStageBgmVolume")
+                continue;
+
             if (iterator.propertyPath == "m_Script")
                 continue;
 
@@ -68,6 +77,18 @@ public sealed class SoundManagerSettingsEditor : Editor
                 EditorGUILayout.PropertyField(phase.FindPropertyRelative("volume"), new GUIContent("BGM Volume"));
             }
         }
+    }
+
+    private static void DrawBonusStageBgm(SerializedProperty clip, SerializedProperty volume)
+    {
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Bonus Stage BGM", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(clip, new GUIContent("Bonus Stage BGM"));
+        volume.floatValue = EditorGUILayout.Slider(
+            new GUIContent("Bonus Stage BGM Volume"),
+            volume.floatValue,
+            0f,
+            1f);
     }
 
     private static void DrawFootstepPhases(SerializedProperty phases, StageSequence sequence, int phaseCount)

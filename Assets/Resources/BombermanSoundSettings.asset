@@ -24,6 +24,8 @@ MonoBehaviour:
     volume: 0.55
   - clip: {fileID: 0}
     volume: 0.55
+  bonusStageBgm: {fileID: 8300000, guid: c7a7c00c6561f6a4092ea81c29c5ffb4, type: 3}
+  bonusStageBgmVolume: 0.5
   deadBgm: {fileID: 0}
   deadBgmVolume: 0.65
   gameOverBgm: {fileID: 0}
