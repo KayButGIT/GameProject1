@@ -130,6 +130,7 @@ MonoBehaviour:
   EscapeRange: 7
   EscapeSeconds: 2
   ModelAnimator: {fileID: 3220860527681509362}
+  WalkAnimationSpeedMultiplier: 3.5
   DeathSeconds: 0.8
 --- !u!1001 &1053969800773299702
 PrefabInstance:

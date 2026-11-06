@@ -66,6 +66,7 @@ MonoBehaviour:
   EscapeRange: 7
   EscapeSeconds: 2
   ModelAnimator: {fileID: 8768670485203438443}
+  WalkAnimationSpeedMultiplier: 4
   DeathSeconds: 0.8
 --- !u!1 &4089155900910554348
 GameObject:
