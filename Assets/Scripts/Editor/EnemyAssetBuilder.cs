@@ -25,11 +25,14 @@ public static class EnemyAssetBuilder
         {
             controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
             controller.AddParameter("Speed", AnimatorControllerParameterType.Float);
+            controller.AddParameter("WalkAnimSpeed", AnimatorControllerParameterType.Float);
             controller.AddParameter("IsMoving", AnimatorControllerParameterType.Bool);
             controller.AddParameter("Die", AnimatorControllerParameterType.Trigger);
             AnimatorStateMachine machine = controller.layers[0].stateMachine;
             AnimatorState idleState = machine.AddState("Idle"); idleState.motion = idle;
             AnimatorState walkState = machine.AddState("Walk"); walkState.motion = walk;
+            walkState.speedParameter = "WalkAnimSpeed";
+            walkState.speedParameterActive = true;
             AnimatorState deathState = machine.AddState("Death"); deathState.motion = death;
             machine.defaultState = idleState;
             Transition(idleState.AddTransition(walkState), "IsMoving", AnimatorConditionMode.If);

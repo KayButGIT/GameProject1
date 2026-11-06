@@ -25,6 +25,8 @@ public abstract class EnemyController : GridController
     [Min(0f)] public float EscapeSeconds = 2f;
     [Header("Presentation")]
     public Animator ModelAnimator;
+    [Tooltip("Scales the walk animation relative to movement speed. 1 matches movement; values above or below tune the visual cycle.")]
+    [Min(0f)] public float WalkAnimationSpeedMultiplier = 1f;
     [Min(0f)] public float DeathSeconds = 0.8f;
     public bool IsChasing { get; private set; }
     protected virtual bool UseShortestPathChase => false;
@@ -42,6 +44,7 @@ public abstract class EnemyController : GridController
     private float bombRetreatRemaining;
     private readonly HashSet<Vector2Int> respondedBombCells = new();
     private static readonly int SpeedId = Animator.StringToHash("Speed");
+    private static readonly int WalkAnimationSpeedId = Animator.StringToHash("WalkAnimSpeed");
     private static readonly int MovingId = Animator.StringToHash("IsMoving");
     private static readonly int DieId = Animator.StringToHash("Die");
 
@@ -72,6 +75,7 @@ public abstract class EnemyController : GridController
                     hasMoving |= p.nameHash == MovingId && p.type == AnimatorControllerParameterType.Bool;
                     hasDie |= p.nameHash == DieId && p.type == AnimatorControllerParameterType.Trigger;
                 }
+            UpdateWalkAnimationSpeed();
         }
     }
 
@@ -374,7 +378,15 @@ public abstract class EnemyController : GridController
     {
         if (ModelAnimator == null) return;
         if (hasSpeed) ModelAnimator.SetFloat(SpeedId, IsMoving ? MoveSpeed : 0f);
+        UpdateWalkAnimationSpeed();
         if (hasMoving) ModelAnimator.SetBool(MovingId, IsMoving && !IsDead);
+    }
+
+    private void UpdateWalkAnimationSpeed()
+    {
+        if (ModelAnimator == null) return;
+        // Enemy speeds are measured in cells per second; scale around the original 3.3 speed.
+        ModelAnimator.SetFloat(WalkAnimationSpeedId, Mathf.Max(0f, MoveSpeed / 3.3f * WalkAnimationSpeedMultiplier));
     }
     public override void Die()
     {
