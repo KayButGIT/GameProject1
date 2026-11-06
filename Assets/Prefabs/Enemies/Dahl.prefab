@@ -134,7 +134,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DahlEnemy
   Cell: {x: 0, y: 0}
   MoveSpeed: 2.75
-  BodyRenderer: {fileID: 0}
+  BodyRenderer: {fileID: 81675737183550131}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28
   FreeMoveDeceleration: 36
@@ -153,6 +153,7 @@ MonoBehaviour:
   EscapeRange: 7
   EscapeSeconds: 2
   ModelAnimator: {fileID: 4334971893732006203}
+  WalkAnimationSpeedMultiplier: 3
   DeathSeconds: 0.8
 --- !u!1001 &1649370828627076663
 PrefabInstance:
@@ -234,6 +235,11 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 4334971893732006203}
   m_SourcePrefab: {fileID: 100100000, guid: 1c8e34e84f931e34fb9d16fb7c4da5fb, type: 3}
+--- !u!23 &81675737183550131 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: 1c8e34e84f931e34fb9d16fb7c4da5fb, type: 3}
+  m_PrefabInstance: {fileID: 1649370828627076663}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &1254542195416367580 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1c8e34e84f931e34fb9d16fb7c4da5fb, type: 3}

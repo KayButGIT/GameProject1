@@ -47,7 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OvapeEnemy
   Cell: {x: 0, y: 0}
   MoveSpeed: 1.5
-  BodyRenderer: {fileID: 0}
+  BodyRenderer: {fileID: 7605252732934696903}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28
   FreeMoveDeceleration: 36
@@ -66,6 +66,7 @@ MonoBehaviour:
   EscapeRange: 7
   EscapeSeconds: 2
   ModelAnimator: {fileID: 339704858671913083}
+  WalkAnimationSpeedMultiplier: 1
   DeathSeconds: 0.8
 --- !u!1 &3089553335163007461
 GameObject:
@@ -231,6 +232,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 882a1791a3eb3d548a46a544e09fb0a2, type: 3}
+--- !u!23 &7605252732934696903 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: 882a1791a3eb3d548a46a544e09fb0a2, type: 3}
+  m_PrefabInstance: {fileID: 9100328650477581123}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &8773124002470941864 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 882a1791a3eb3d548a46a544e09fb0a2, type: 3}

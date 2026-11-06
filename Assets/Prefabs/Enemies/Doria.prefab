@@ -79,7 +79,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DoriaEnemy
   Cell: {x: 0, y: 0}
   MoveSpeed: 0.7
-  BodyRenderer: {fileID: 0}
+  BodyRenderer: {fileID: 7797302423966728359}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28
   FreeMoveDeceleration: 36
@@ -231,5 +231,10 @@ PrefabInstance:
 --- !u!4 &7485834903000857332 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7642833827525590043, guid: 34a42fd90c201a144996c4573759b6c1, type: 3}
+  m_PrefabInstance: {fileID: 1005371380592953071}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &7797302423966728359 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 7045422912454657608, guid: 34a42fd90c201a144996c4573759b6c1, type: 3}
   m_PrefabInstance: {fileID: 1005371380592953071}
   m_PrefabAsset: {fileID: 0}

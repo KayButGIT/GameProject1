@@ -134,7 +134,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ValcomEnemy
   Cell: {x: 0, y: 0}
   MoveSpeed: 1.5
-  BodyRenderer: {fileID: 0}
+  BodyRenderer: {fileID: 1047452658457884997}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28
   FreeMoveDeceleration: 36
@@ -153,6 +153,7 @@ MonoBehaviour:
   EscapeRange: 7
   EscapeSeconds: 2
   ModelAnimator: {fileID: 4022499382873656918}
+  WalkAnimationSpeedMultiplier: 3
   DeathSeconds: 0.8
 --- !u!1001 &1821944666795877825
 PrefabInstance:
@@ -231,6 +232,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 89c7cbae33ac46f499c3b1e1cc1c673d, type: 3}
+--- !u!23 &1047452658457884997 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: 89c7cbae33ac46f499c3b1e1cc1c673d, type: 3}
+  m_PrefabInstance: {fileID: 1821944666795877825}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2216440035240329770 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 89c7cbae33ac46f499c3b1e1cc1c673d, type: 3}

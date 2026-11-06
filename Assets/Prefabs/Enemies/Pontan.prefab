@@ -684,7 +684,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PontanEnemy
   Cell: {x: 0, y: 0}
   MoveSpeed: 3.3
-  BodyRenderer: {fileID: 0}
+  BodyRenderer: {fileID: 3553136015978296103}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28
   FreeMoveDeceleration: 36
@@ -703,7 +703,7 @@ MonoBehaviour:
   EscapeRange: 7
   EscapeSeconds: 2
   ModelAnimator: {fileID: 967824263437525296}
-  WalkAnimationSpeedMultiplier: 1.5
+  WalkAnimationSpeedMultiplier: 2
   DeathSeconds: 0.8
 --- !u!1 &9043699469847153141
 GameObject:

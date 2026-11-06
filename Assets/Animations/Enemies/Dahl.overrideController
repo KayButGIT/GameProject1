@@ -8,4 +8,6 @@ AnimatorOverrideController:
   m_PrefabAsset: {fileID: 0}
   m_Name: Dahl
   m_Controller: {fileID: 9100000, guid: 79e744de4d0187c4e8fe1ba6fee4c634, type: 2}
-  m_Clips: []
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 5e368bd0af9187043b9a907a316d4826, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: c0e85851963fb4042bf637c1603d28ec, type: 2}

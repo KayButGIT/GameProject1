@@ -111,7 +111,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MinuoEnemy
   Cell: {x: 0, y: 0}
   MoveSpeed: 3
-  BodyRenderer: {fileID: 0}
+  BodyRenderer: {fileID: 800696827283731238}
   DeadMaterial: {fileID: 0}
   FreeMoveAcceleration: 28
   FreeMoveDeceleration: 36
@@ -246,5 +246,10 @@ Animator:
 --- !u!4 &660563008302975517 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
+  m_PrefabInstance: {fileID: 1053969800773299702}
+  m_PrefabAsset: {fileID: 0}
+--- !u!137 &800696827283731238 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 413441071059803856, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
   m_PrefabInstance: {fileID: 1053969800773299702}
   m_PrefabAsset: {fileID: 0}
