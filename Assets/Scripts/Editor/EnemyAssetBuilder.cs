@@ -120,7 +120,6 @@ public static class EnemyAssetBuilder
         AssetDatabase.CreateAsset(material, path);
         return material;
     }
-
     // Run from the smoke tests and from -executeMethod; no menu entry on purpose.
     public static void RepairPlaceholderAppearance()
     {

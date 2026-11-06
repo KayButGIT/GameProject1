@@ -404,6 +404,11 @@ public abstract class EnemyController : GridController
 
     private void BeginDeath()
     {
+        BeginDeath(playDeathAnimation: true);
+    }
+
+    private void BeginDeath(bool playDeathAnimation)
+    {
         if (IsDead) return;
         // Per-enemy-type death SFX (SoundManager.PlayEnemyDeath switches on GetType().Name,
         // e.g. "DahlEnemy" -> Dahl Dead.mp3, falling back to fallbackDeath for unassigned types).
@@ -411,15 +416,23 @@ public abstract class EnemyController : GridController
         IsDead = true;
         IsMoving = false;
         IsChasing = false;
+        SetLayerRecursively(gameObject, LayerMask.NameToLayer("Default"));
         foreach (Collider collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
         SetAnimation();
         if (ModelAnimator != null && hasDie) ModelAnimator.SetTrigger(DieId);
         deathRemaining = DeathSeconds;
     }
 
+    private static void SetLayerRecursively(GameObject target, int layer)
+    {
+        target.layer = layer;
+        foreach (Transform child in target.transform)
+            SetLayerRecursively(child.gameObject, layer);
+    }
+
     private void ApplyBombBurnMaterials()
     {
-        Shader shader = Shader.Find("Bomberman/Player Burn");
+        Shader shader = Shader.Find("Bomberman/Enemy Fire Dissolve");
         if (shader == null) return;
         List<Material> created = new();
         foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
@@ -432,15 +445,15 @@ public abstract class EnemyController : GridController
             {
                 Material source = sourceMaterials[i];
                 if (source == null) continue;
-                Material burn = new(shader) { name = source.name + " Bomb Burn" };
-                burn.SetFloat("_NoiseScale", 7f);
-                burn.SetFloat("_EdgeWidth", 0.18f);
-                burn.SetColor("_EdgeColor", new Color(5f, 0.65f, 0.035f, 1f));
-                burn.SetColor("_CoreColor", new Color(8f, 3.2f, 0.35f, 1f));
+                Material burn = new(shader) { name = source.name + " Enemy Fire Dissolve" };
                 Texture baseMap = GetMaterialTexture(source);
                 Color baseColor = GetMaterialColor(source);
-                if (baseMap != null) burn.SetTexture("_BaseMap", baseMap);
-                burn.SetColor("_BaseColor", baseColor);
+                if (baseMap != null)
+                {
+                    if (burn.HasProperty("_BaseMap")) burn.SetTexture("_BaseMap", baseMap);
+                }
+                if (burn.HasProperty("_BaseColor")) burn.SetColor("_BaseColor", baseColor);
+                burn.SetFloat("_NoiseScale", 4f);
                 replacements[i] = burn;
                 created.Add(burn);
             }
