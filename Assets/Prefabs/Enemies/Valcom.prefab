@@ -222,6 +222,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Valcom
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 89c7cbae33ac46f499c3b1e1cc1c673d, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

@@ -41,7 +41,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2450059264091473711}
-  - component: {fileID: 7662294321563916286}
   m_Layer: 6
   m_Name: Model
   m_TagString: Untagged
@@ -65,28 +64,6 @@ Transform:
   - {fileID: 660563008302975517}
   m_Father: {fileID: 8158229033995989775}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!95 &7662294321563916286
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4045366355756106537}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 22100000, guid: 7e8cb11e02b7c6941b1405c52e773117, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &7334091654874988687
 GameObject:
   m_ObjectHideFlags: 0
@@ -202,9 +179,33 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -5796967515010875672, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -5270204793909079871, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -2989483965280376655, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -2482716831542467094, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
       propertyPath: m_Name
       value: Minuo_Rig_Withwalk
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2600986533379822636, guid: 854bbf6404e0ded4985760f8a550153c, type: 3}
+      propertyPath: m_Layer
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
