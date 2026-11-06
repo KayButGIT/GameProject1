@@ -9,6 +9,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 {
     private const float TransitionFadeSeconds = 0.5f;
     private const float StageCardHoldSeconds = 1f;
+    private const float BonusStageTimeLimit = 30f;
 
     private enum PlayerDeathCause
     {
@@ -225,6 +226,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private int baseBlastRange;
     private int bombSequence;
     private float mysteryTimeLeft;
+    private float bonusSpawnCooldown;
     private bool hasHiddenPowerUp;
     private Vector2Int hiddenPowerUpCell;
     private PowerUpType hiddenPowerUpType;
@@ -236,6 +238,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     public bool HasLivingPlayer => player != null && !player.IsDead;
     public bool IsReady => map != null && player != null;
     public bool IsLastStage => stageManager != null && stageManager.OnLastStage;
+    public bool IsBonusStage => stageManager != null && stageManager.IsBonusStage;
     public bool GodModeEnabled => godMode;
     public Vector2Int PlayerCell => player != null ? player.Cell : Vector2Int.zero;
     public int Score => score;
@@ -297,7 +300,9 @@ public sealed class BombermanPrototype : MonoBehaviour
         StopAllCoroutines();
         bool stageWasCleared = stageWinIntroPending;
         stageWinIntroPending = false;
-        if (!stageWasCleared)
+        if (IsBonusStage)
+            SoundManager.Instance?.PlayBonusStageBgm();
+        else if (!stageWasCleared)
             SoundManager.Instance?.PlayStageStartIntroBgm();
         if (cheatMenuOpen)
         {
@@ -316,10 +321,11 @@ public sealed class BombermanPrototype : MonoBehaviour
         powerUpEnemySpawning = false;
         pendingPowerUpEnemySpawns = 0;
         exitDoorHitCount = 0;
-        timeLeft = stageTimeLimit;
+        timeLeft = IsBonusStage ? BonusStageTimeLimit : stageTimeLimit;
         timeUp = false;
+        bonusSpawnCooldown = 0f;
         stageHud.SetVisible(true);
-        stageHud.SetTimeVisible(stageTimeLimit > 0f);
+        stageHud.SetTimeVisible(IsBonusStage || stageTimeLimit > 0f);
         stageHud.SetTime(timeLeft);
         stageHud.SetScore(score);
         stageHud.SetLives(livesLeft);
@@ -349,12 +355,13 @@ public sealed class BombermanPrototype : MonoBehaviour
         int layoutSeed = hasRestartLayoutSeed ? restartLayoutSeed : GetStageSeed(sessionSeed, stage);
         hasRestartLayoutSeed = false;
         SoundManager.Instance?.ResetExitOpenForStage();
-        map = new BombermanMap(width, height, destructibleDensity, layoutSeed, materials, theme, stageRoot.transform);
+        map = new BombermanMap(width, height, IsBonusStage ? 0f : destructibleDensity, layoutSeed, materials, theme, stageRoot.transform, !IsBonusStage);
         ConfigureCamera();
         currentLighting = theme != null ? theme.Lighting : null;
         stageLighting.Apply(currentLighting, mainCamera);
         map.Generate();
-        PlanHiddenPowerUp(stage, layoutSeed);
+        if (!IsBonusStage)
+            PlanHiddenPowerUp(stage, layoutSeed);
         SpawnPlayer();
         if (firstStage)
         {
@@ -371,10 +378,20 @@ public sealed class BombermanPrototype : MonoBehaviour
                 RegisterEnemy(instance.GetComponent<EnemyController>());
             }
         }
-        if (spawnEnemies) SpawnEnemies(stage);
+        if (IsBonusStage)
+            SpawnEnemyGroup(stageManager.BonusEnemyType, OriginalStageEnemies.StageEnemyCap, () => FindOriginalSpawnCell(5));
+        else if (spawnEnemies)
+            SpawnEnemies(stage);
         int campaignLength = stageManager != null ? stageManager.TotalStages : 0;
-        exitWaveEnemyType = OriginalStageEnemies.GetExitEnemy(stage, campaignLength);
-        LogSpawnEvent($"Stage {stage} starts with {DescribeEnemies()}. Bombing the open exit releases {exitWaveEnemyType.Name}.");
+        if (!IsBonusStage)
+        {
+            exitWaveEnemyType = OriginalStageEnemies.GetExitEnemy(stage, campaignLength);
+            LogSpawnEvent($"Stage {stage} starts with {DescribeEnemies()}. Bombing the open exit releases {exitWaveEnemyType.Name}.");
+        }
+        else
+        {
+            LogSpawnEvent($"Bonus stage {stageManager.BonusRoundNumber} starts with {DescribeEnemies()} for {BonusStageTimeLimit:0} seconds.");
+        }
         StartCoroutine(StageIntroSequence(stage, stageWasCleared));
     }
 
@@ -455,11 +472,21 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         UpdateStageTimer();
         UpdatePowerUps();
+
+        if (IsBonusStage && !IsPaused && !stageClearing && HasLivingPlayer)
+        {
+            bonusSpawnCooldown = Mathf.Max(0f, bonusSpawnCooldown - Time.deltaTime);
+            if (bonusSpawnCooldown <= 0f && CountLivingEnemies() < OriginalStageEnemies.StageEnemyCap)
+            {
+                SpawnEnemyGroup(stageManager.BonusEnemyType, 1, () => FindOriginalSpawnCell(5));
+                bonusSpawnCooldown = 0.5f;
+            }
+        }
     }
 
     private void UpdateStageTimer()
     {
-        if (stageTimeLimit <= 0f || timeUp || IsPaused || restarting || stageClearing || !HasLivingPlayer)
+        if ((IsBonusStage ? BonusStageTimeLimit : stageTimeLimit) <= 0f || timeUp || IsPaused || restarting || stageClearing || !HasLivingPlayer)
         {
             return;
         }
@@ -469,7 +496,15 @@ public sealed class BombermanPrototype : MonoBehaviour
         if (timeLeft <= 0f)
         {
             timeUp = true;
-            SpawnTimeOutPontans();
+            if (IsBonusStage)
+            {
+                stageClearing = true;
+                stageManager.AdvanceAfterClear();
+            }
+            else
+            {
+                SpawnTimeOutPontans();
+            }
         }
     }
 
@@ -1428,7 +1463,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         {
             if (actor != null && !actor.IsDead && actor.Cell == cell)
             {
-                if (actor.IsPlayer && (!playerCanDieFromBomb || powerUpState.flamePass))
+                if (actor.IsPlayer && (IsBonusStage || !playerCanDieFromBomb || powerUpState.flamePass))
                 {
                     continue;
                 }
@@ -1468,7 +1503,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private void PlanHiddenPowerUp(int stage, int layoutSeed)
     {
         hasHiddenPowerUp = false;
-        if (!spawnPowerUps || map == null) return;
+        if (IsBonusStage || !spawnPowerUps || map == null) return;
 
         Vector2Int exitCell = map.ExitDoor != null ? map.ExitDoor.Cell : new Vector2Int(-1, -1);
         List<Vector2Int> hidingCells = new();
@@ -1882,7 +1917,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void KillPlayerIfEnemyTouches()
     {
-        if (IsPaused || restarting || player == null || player.IsDead)
+        if (IsBonusStage || IsPaused || restarting || player == null || player.IsDead)
         {
             return;
         }
@@ -1966,7 +2001,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         stageWinIntroPending = true;
-        stageManager.NextStage();
+        stageManager.AdvanceAfterClear();
     }
 
     // The run is won, so the ending reads like GAME OVER without being one.
@@ -2106,12 +2141,14 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private IEnumerator StageIntroSequence(int stage, bool stageWasCleared)
     {
-        if (stageWasCleared)
+        if (IsBonusStage)
+            SoundManager.Instance?.PlayBonusStageBgm();
+        else if (stageWasCleared)
             SoundManager.Instance?.PlayStageWinBgm();
 
         transitionActive = true;
         Time.timeScale = 0f;
-        transitionOverlay.Show($"STAGE {stage}", 1f);
+        transitionOverlay.Show(IsBonusStage ? "BONUS STAGE" : $"STAGE {stage}", 1f);
         yield return new WaitForSecondsRealtime(StageCardHoldSeconds);
         if (!stageWasCleared)
         {
@@ -2123,7 +2160,8 @@ public sealed class BombermanPrototype : MonoBehaviour
         transitionOverlay.Hide();
         transitionActive = false;
         Time.timeScale = paused ? 0f : 1f;
-        SoundManager.Instance?.PlayMapBgm(CurrentStagePhase);
+        if (!IsBonusStage)
+            SoundManager.Instance?.PlayMapBgm(CurrentStagePhase);
     }
 
     private IEnumerator ShowEndingCard(string message, float holdDuration)

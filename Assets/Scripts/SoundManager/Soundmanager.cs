@@ -120,6 +120,7 @@ public sealed class SoundManager : MonoBehaviour
 
     public void PlayTitleScreenBgm() => PlayMusic(settings != null ? settings.titleScreenBgm : null, settings != null ? settings.titleScreenBgmVolume : 0f);
     public void PlayStageStartIntroBgm() => PlayMusic(settings != null ? settings.stageStartIntroBgm : null, settings != null ? settings.stageStartIntroBgmVolume : 0f, false);
+    public void PlayBonusStageBgm() => PlayMusic(settings != null ? settings.bonusStageBgm : null, settings != null ? settings.bonusStageBgmVolume : 0f);
     public bool IsStageStartIntroBgmPlaying => musicSource != null && settings != null && musicSource.clip == settings.stageStartIntroBgm && musicSource.isPlaying;
     public void PlayDeadBgm() => PlayMusic(settings != null ? settings.deadBgm : null, settings != null ? settings.deadBgmVolume : 0f, false);
     public bool IsDeadBgmPlaying => musicSource != null && settings != null && musicSource.clip == settings.deadBgm && musicSource.isPlaying;

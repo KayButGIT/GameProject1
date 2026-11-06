@@ -10,6 +10,7 @@ public sealed class BombermanMap
     private readonly BombermanMaterials materials;
     private readonly StageTheme theme;
     private readonly Transform parent;
+    private readonly bool createExitDoor;
     private System.Random layoutRandom;
     private System.Random visualRandom;
     private readonly Dictionary<Vector2Int, GameObject> blocks = new();
@@ -19,7 +20,7 @@ public sealed class BombermanMap
     private static Material xrayBreakableOccluderMaterial;
     private GameObject xrayOccluders;
 
-    public BombermanMap(int width, int height, float destructibleDensity, int randomSeed, BombermanMaterials materials, StageTheme theme = null, Transform parent = null)
+    public BombermanMap(int width, int height, float destructibleDensity, int randomSeed, BombermanMaterials materials, StageTheme theme = null, Transform parent = null, bool createExitDoor = true)
     {
         this.width = width;
         this.height = height;
@@ -28,6 +29,7 @@ public sealed class BombermanMap
         this.materials = materials;
         this.theme = theme;
         this.parent = parent;
+        this.createExitDoor = createExitDoor;
     }
 
     public float LeftWorldX => CellToWorld(new Vector2Int(0, 0)).x;
@@ -66,7 +68,7 @@ public sealed class BombermanMap
             }
         }
 
-        ExitDoor = CreateExitDoor(mapRoot.transform);
+        ExitDoor = createExitDoor ? CreateExitDoor(mapRoot.transform) : null;
         CreateArenaBorder(mapRoot.transform);
         if (Application.isPlaying) CreateXrayOccluders(mapRoot.transform);
     }

@@ -27,6 +27,8 @@ public sealed class SoundManagerSettings : ScriptableObject
     [Range(0f, 1f)] public float titleScreenBgmVolume = 1f;
     public AudioClip stageStartIntroBgm;
     [Range(0f, 1f)] public float stageStartIntroBgmVolume = 1f;
+    public AudioClip bonusStageBgm;
+    [Range(0f, 1f)] public float bonusStageBgmVolume = 1f;
     public List<MapMusicPhase> mapBgmPhases = new() { new MapMusicPhase() };
     public AudioClip deadBgm;
     [Range(0f, 1f)] public float deadBgmVolume = 1f;
