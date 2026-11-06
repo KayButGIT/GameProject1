@@ -4,6 +4,7 @@ using UnityEngine;
 public abstract class EnemyController : GridController
 {
     public enum ChaseMode { None, Timed, Escape, Memory, PersistentAfterSight, Always }
+    public enum DeathPresentation { RagdollBurnDissolve, DebrisBurnDissolve, BalloonPop, FluidBurst }
     [Header("Enemy behavior")]
     [Tooltip("Timed pursues briefly; Escape/Memory can lose the target; PersistentAfterSight locks on after detection; Always tracks across the map.")]
     public ChaseMode Chase;
@@ -25,6 +26,7 @@ public abstract class EnemyController : GridController
     [Min(0f)] public float EscapeSeconds = 2f;
     [Header("Presentation")]
     public Animator ModelAnimator;
+    public DeathPresentation DeathEffect = DeathPresentation.RagdollBurnDissolve;
     [Min(0f)] public float DeathSeconds = 0.8f;
     public bool IsChasing { get; private set; }
     protected virtual bool UseShortestPathChase => false;
@@ -37,6 +39,7 @@ public abstract class EnemyController : GridController
     private float bombBurnDuration;
     private float bombBurnElapsed;
     private bool acquisitionChecked, selectingSafeMoves;
+    private bool deathDissolves;
     private int lastChaseAxis;
     private const float BombRetreatSeconds = 2f;
     private float bombRetreatRemaining;
@@ -378,19 +381,16 @@ public abstract class EnemyController : GridController
     }
     public override void Die()
     {
-        BeginDeath();
+        BeginDeath(DeathSeconds);
     }
 
     public void DieFromBomb(float dissolveDuration)
     {
         if (IsDead) return;
-        BeginDeath();
-        bombBurnDuration = Mathf.Max(0.1f, dissolveDuration);
-        deathRemaining = Mathf.Max(deathRemaining, bombBurnDuration);
-        ApplyBombBurnMaterials();
+        BeginDeath(Mathf.Max(DeathSeconds, dissolveDuration));
     }
 
-    private void BeginDeath()
+    private void BeginDeath(float duration)
     {
         if (IsDead) return;
         // Per-enemy-type death SFX (SoundManager.PlayEnemyDeath switches on GetType().Name,
@@ -400,10 +400,18 @@ public abstract class EnemyController : GridController
         IsMoving = false;
         IsChasing = false;
         foreach (Collider collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
-        SetAnimation();
-        if (ModelAnimator != null && hasDie) ModelAnimator.SetTrigger(DieId);
-        deathRemaining = DeathSeconds;
+        deathDissolves = DeathEffect == DeathPresentation.RagdollBurnDissolve
+            || DeathEffect == DeathPresentation.DebrisBurnDissolve;
+        deathRemaining = Mathf.Max(0.1f, duration);
+        EnemyDeathPresentation.Begin(this);
+        if (deathDissolves)
+        {
+            bombBurnDuration = deathRemaining;
+            ApplyBombBurnMaterials();
+        }
     }
+
+    internal bool DeathUsesDissolve => deathDissolves;
 
     private void ApplyBombBurnMaterials()
     {

@@ -8,4 +8,10 @@ AnimatorOverrideController:
   m_PrefabAsset: {fileID: 0}
   m_Name: Pontan
   m_Controller: {fileID: 9100000, guid: 79e744de4d0187c4e8fe1ba6fee4c634, type: 2}
-  m_Clips: []
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: ed5b3f8678ba4cf4cbea269ae2eeeeb0, type: 2}
+    m_OverrideClip: {fileID: 0}
+  - m_OriginalClip: {fileID: 7400000, guid: d9c40bb2ad93cea45b8b59be939f6d48, type: 2}
+    m_OverrideClip: {fileID: 0}
+  - m_OriginalClip: {fileID: 7400000, guid: 5e368bd0af9187043b9a907a316d4826, type: 2}
+    m_OverrideClip: {fileID: 110800000, guid: 88f3cca2d083a9a4b912defc1ab377b5, type: 2}

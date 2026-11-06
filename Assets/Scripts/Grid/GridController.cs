@@ -14,6 +14,7 @@ public abstract class GridController : MonoBehaviour
     public virtual bool IsPlayer => false;
     public virtual bool CanPassDestructibleWalls => false;
     public float CurrentFreeMoveSpeed => visualFreeMoveVelocity.magnitude;
+    public float CurrentActualMoveSpeed => actualFreeMoveVelocity.magnitude;
 
     private const float BodyIdleHeight = 0.55f;
 
