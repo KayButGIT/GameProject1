@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 public sealed class BombermanPrototype : MonoBehaviour
 {
     private const float TransitionFadeSeconds = 0.5f;
-    private const float StageCardHoldSeconds = 2f;
+    private const float StageCardHoldSeconds = 1f;
 
     private enum PlayerDeathCause
     {
