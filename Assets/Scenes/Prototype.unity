@@ -456,7 +456,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &970108991
 Transform:
   m_ObjectHideFlags: 0
@@ -893,15 +893,15 @@ MonoBehaviour:
   speedUpLimit: 1
   mysteryDuration: 35
   spawnEnemies: 1
-  useOriginalStageEnemies: 1
-  onealCount: 0
-  dahlCount: 0
+  useOriginalStageEnemies: 0
+  onealCount: 1
+  dahlCount: 1
   pontanCount: 1
-  passCount: 0
-  valcomCount: 0
-  ovapeCount: 0
-  doriaCount: 0
-  minuoCount: 0
+  passCount: 1
+  valcomCount: 1
+  ovapeCount: 1
+  doriaCount: 1
+  minuoCount: 1
   enemyPlayerHitDistance: 0.3
   logSpawnEvents: 1
   enemyPrefabs:
