@@ -154,6 +154,9 @@ public static class EnemyPlaySmoke
                 Check(dying.IsDead && !dying.IsMoving, "Death gameplay state failed.");
                 Check(dying.GetComponent<Rigidbody>() != null && !dying.GetComponent<Rigidbody>().isKinematic,
                     "Knockback death did not enable the single-body physics response.");
+                Check(Mathf.Approximately(dying.DeathKnockbackForce, 5.25f)
+                    && dying.GetComponent<Rigidbody>().linearVelocity.magnitude > 5.3f,
+                    "Bomb death did not apply the increased knockback impulse.");
                 CheckDeathCollisionsIgnored(dying);
                 phase = 3; deadline = Time.timeAsDouble + 0.6;
             }
@@ -343,6 +346,10 @@ public static class EnemyPlaySmoke
         Rigidbody[] bodies = jointedDying.GetComponentsInChildren<Rigidbody>(true);
         Check(jointedDying.GetComponent<Rigidbody>() == null && bodies.Length == ragdollTransforms.Length + 1
             && bodies.All(body => !body.isKinematic), enemyType.Name + " ragdoll Rigidbody setup is invalid.");
+        Rigidbody rootBody = ragdollTransforms[0].GetComponent<Rigidbody>();
+        Check(Mathf.Approximately(jointedDying.DeathKnockbackForce, 5.25f)
+            && rootBody.linearVelocity.magnitude > 4f,
+            enemyType.Name + " ragdoll did not receive the increased death impulse.");
         CheckDeathCollisionsIgnored(jointedDying);
         CaptureRagdollPositions();
     }

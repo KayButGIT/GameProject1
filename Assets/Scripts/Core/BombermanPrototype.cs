@@ -173,6 +173,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private readonly Dictionary<Vector2Int, Bomb> bombs = new();
     private readonly List<GridController> actors = new();
+    private readonly HashSet<Vector2Int> wallPassShakingCells = new();
 
     private BombermanMaterials materials;
     private BombermanMap map;
@@ -581,6 +582,27 @@ public sealed class BombermanPrototype : MonoBehaviour
         KillPlayerIfEnemyTouches();
         UpdateExitDoor();
         UpdateXray();
+        UpdateWallPassBlockShakes();
+    }
+
+    private void UpdateWallPassBlockShakes()
+    {
+        wallPassShakingCells.Clear();
+        if (map != null && !paused)
+        {
+            foreach (GridController actor in actors)
+            {
+                if (actor == null || actor.IsDead || !actor.CanPassDestructibleWalls) continue;
+                bool moving = actor.IsMoving || actor.CurrentActualMoveSpeed > 0.001f;
+                if (!moving) continue;
+
+                Vector2Int cell = map.WorldToCell(actor.transform.position);
+                if (map.GetCellKind(cell) == CellKind.Destructible)
+                    wallPassShakingCells.Add(cell);
+            }
+        }
+
+        map?.SetWallPassBlockShaking(wallPassShakingCells);
     }
 
     // Gives every Wall Pass actor its see-through silhouette, and turns the solid-block masks on only while one is showing.

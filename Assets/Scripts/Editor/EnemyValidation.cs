@@ -61,6 +61,9 @@ public static class EnemyValidation
                 var presentationProperty = typeof(EnemyController).GetProperty("Presentation", Private);
                 Check((EnemyController.DeathPresentation)presentationProperty.GetValue(enemy) == expectedPresentation,
                     names[i] + " death presentation");
+                if (expectedPresentation == EnemyController.DeathPresentation.KnockbackAndDissolve)
+                    Check(Mathf.Approximately(enemy.DeathKnockbackForce, 5.25f),
+                        names[i] + " uses the stronger default death knockback force");
                 Check(enemy.FireDissolveBodyMaterial == playerBurnBody && enemy.FireDissolveFaceMaterial == playerBurnFace,
                     names[i] + " uses the Player dissolve templates");
                 game.RegisterEnemy(enemy); game.RegisterEnemy(enemy);

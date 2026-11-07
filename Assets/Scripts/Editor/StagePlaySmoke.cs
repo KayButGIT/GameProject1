@@ -14,6 +14,15 @@ public static class StagePlaySmoke
     private static int phase;
     private static double deadline, watchdog;
     private static bool failed;
+    private static CellObject shakeTestWall;
+    private static WallPassBlockShake shakeTest;
+    private static Transform shakeTestVisual;
+    private static Vector3 shakeTestVisualRest;
+    private static PlayerController shakeTestPlayer;
+    private static Vector3 shakeTestPlayerPosition;
+    private static Vector2Int shakeTestPlayerCell;
+    private static bool shakeTestPlayerWallPass;
+    private static Vector3 shakeTestPlayerActualVelocity;
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
 
     public static void Run()
@@ -82,6 +91,13 @@ public static class StagePlaySmoke
     private static BombermanMap Map => (BombermanMap)typeof(BombermanPrototype).GetField("map", Private).GetValue(game);
     private static string TransitionText => GameObject.Find("Transition Canvas")?.GetComponentInChildren<UnityEngine.UI.Text>(true)?.text;
     private static void Call(string name, params object[] args) => typeof(BombermanPrototype).GetMethod(name, Private).Invoke(game, args);
+    private static void UpdateWallPassBlockShakes() => Call("UpdateWallPassBlockShakes");
+    private static void SetField(object target, Type owner, string name, object value) => owner
+        .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
+    private static void SetActorMoving(GridController actor, bool moving) => typeof(GridController)
+        .GetField("<IsMoving>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(actor, moving);
+    private static void SetActorDead(GridController actor, bool dead) => typeof(GridController)
+        .GetField("<IsDead>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(actor, dead);
     private static string Layout() => string.Join(",", Enumerable.Range(0, 63).Select(i => Map.GetCellKind(new Vector2Int(i / 7, i % 7)).ToString()));
     private static T[] All<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
 
@@ -121,6 +137,112 @@ public static class StagePlaySmoke
             else if (phase == 10 && EditorApplication.timeSinceStartup >= deadline)
             {
                 Check(!game.IsPaused, "Stage card fades out before gameplay resumes");
+                shakeTestWall = All<CellObject>().First(c => Map.GetCellKind(c.Cell) == CellKind.Destructible);
+                shakeTest = shakeTestWall.GetComponent<WallPassBlockShake>();
+                shakeTestVisual = shakeTestWall.transform.Find("Visual");
+                Check(shakeTest != null && shakeTestVisual != null, "Breakable block has a dedicated visual shake");
+                shakeTestVisualRest = shakeTestVisual.localPosition;
+                shakeTestPlayer = All<PlayerController>().First();
+                shakeTestPlayerPosition = shakeTestPlayer.transform.position;
+                shakeTestPlayerCell = shakeTestPlayer.Cell;
+                shakeTestPlayerWallPass = shakeTestPlayer.WallPass;
+                shakeTestPlayerActualVelocity = (Vector3)typeof(GridController)
+                    .GetField("actualFreeMoveVelocity", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(shakeTestPlayer);
+                shakeTestPlayer.transform.position = Map.CellToWorld(shakeTestWall.Cell);
+                shakeTestPlayer.Cell = shakeTestWall.Cell;
+                SetField(shakeTestPlayer, typeof(GridController), "actualFreeMoveVelocity", Vector3.forward);
+                shakeTestPlayer.WallPass = false;
+                UpdateWallPassBlockShakes();
+                Check(!shakeTest.IsShaking, "Player without Wall Pass does not shake a breakable block");
+                shakeTestPlayer.WallPass = true;
+                UpdateWallPassBlockShakes();
+                Check(shakeTest.IsShaking, "Moving Player with Wall Pass starts a breakable block shake");
+                Check(shakeTest.TryGetStableVisualBounds(out Bounds stableBounds) && stableBounds.size.sqrMagnitude > 0f,
+                    "Breakable block keeps stable visual bounds while shaking");
+                phase = 100;
+                deadline = EditorApplication.timeSinceStartup + 0.08;
+            }
+            else if (phase == 100 && EditorApplication.timeSinceStartup >= deadline)
+            {
+                Check(Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) > 0.001f,
+                    "Breakable block shakes continuously while the Player passes through");
+                Call("SetPaused", true);
+                UpdateWallPassBlockShakes();
+                Check(!shakeTest.IsShaking && Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) < 0.0001f,
+                    "Pausing stops and restores the block shake");
+                phase = 101;
+                deadline = EditorApplication.timeSinceStartup + 0.08;
+            }
+            else if (phase == 101 && EditorApplication.timeSinceStartup >= deadline)
+            {
+                Check(Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) < 0.0001f,
+                    "Paused block visual remains at its original position");
+                Call("SetPaused", false);
+                UpdateWallPassBlockShakes();
+                Check(shakeTest.IsShaking, "Block shake resumes when the moving Player resumes Wall Pass");
+                phase = 102;
+                deadline = EditorApplication.timeSinceStartup + 0.08;
+            }
+            else if (phase == 102 && EditorApplication.timeSinceStartup >= deadline)
+            {
+                Check(Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) > 0.001f,
+                    "Block shake continues after gameplay resumes");
+                shakeTestPlayer.WallPass = false;
+                SetField(shakeTestPlayer, typeof(GridController), "actualFreeMoveVelocity", Vector3.zero);
+                UpdateWallPassBlockShakes();
+                Check(!shakeTest.IsShaking && Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) < 0.0001f,
+                    "Shake stops and restores the visual when the Player leaves");
+
+                var actors = (System.Collections.Generic.List<GridController>)typeof(BombermanPrototype)
+                    .GetField("actors", Private).GetValue(game);
+                GameObject passerObject = new("Wall pass enemy probe");
+                OvapeEnemy wallPassEnemy = passerObject.AddComponent<OvapeEnemy>();
+                wallPassEnemy.transform.position = Map.CellToWorld(shakeTestWall.Cell);
+                wallPassEnemy.Cell = shakeTestWall.Cell;
+                SetActorMoving(wallPassEnemy, true);
+                actors.Add(wallPassEnemy);
+                UpdateWallPassBlockShakes();
+                Check(shakeTest.IsShaking, "Moving wall-passing enemy starts the continuous shake");
+                SetActorDead(wallPassEnemy, true);
+                UpdateWallPassBlockShakes();
+                Check(!shakeTest.IsShaking, "Enemy death stops and restores the block shake");
+                SetActorDead(wallPassEnemy, false);
+                SetActorMoving(wallPassEnemy, false);
+                UpdateWallPassBlockShakes();
+                Check(!shakeTest.IsShaking, "Enemy leaving the wall stops the continuous shake");
+
+                GameObject ordinaryObject = new("Ordinary enemy probe");
+                DahlEnemy ordinaryEnemy = ordinaryObject.AddComponent<DahlEnemy>();
+                ordinaryEnemy.transform.position = Map.CellToWorld(shakeTestWall.Cell);
+                ordinaryEnemy.Cell = shakeTestWall.Cell;
+                SetActorMoving(ordinaryEnemy, true);
+                actors.Add(ordinaryEnemy);
+                UpdateWallPassBlockShakes();
+                Check(!shakeTest.IsShaking, "Moving ordinary enemy does not shake a breakable block");
+                actors.Remove(ordinaryEnemy);
+                UnityEngine.Object.DestroyImmediate(ordinaryObject);
+
+                CellObject solidWall = All<CellObject>().First(c => Map.GetCellKind(c.Cell) == CellKind.Solid);
+                wallPassEnemy.transform.position = Map.CellToWorld(solidWall.Cell);
+                wallPassEnemy.Cell = solidWall.Cell;
+                SetActorMoving(wallPassEnemy, true);
+                UpdateWallPassBlockShakes();
+                Check(!shakeTest.IsShaking, "Moving wall-passing enemy does not shake a solid wall");
+
+                wallPassEnemy.transform.position = Map.CellToWorld(shakeTestWall.Cell);
+                wallPassEnemy.Cell = shakeTestWall.Cell;
+                UpdateWallPassBlockShakes();
+                Check(shakeTest.IsShaking, "Wall shakes before the block is destroyed");
+                Map.DestroyDestructibleAt(shakeTestWall.Cell);
+                Check(!shakeTest.IsShaking && Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) < 0.0001f,
+                    "Destroying a shaking wall restores its visual");
+                actors.Remove(wallPassEnemy);
+                UnityEngine.Object.DestroyImmediate(passerObject);
+
+                shakeTestPlayer.transform.position = shakeTestPlayerPosition;
+                shakeTestPlayer.Cell = shakeTestPlayerCell;
+                shakeTestPlayer.WallPass = shakeTestPlayerWallPass;
+                SetField(shakeTestPlayer, typeof(GridController), "actualFreeMoveVelocity", shakeTestPlayerActualVelocity);
                 game.TryDropBomb();
                 Check(All<Bomb>().Length == 1, "Bomb created");
                 Call("Explode", new Vector2Int(1, 2));
@@ -148,7 +270,7 @@ public static class StagePlaySmoke
                 Check(manager.CurrentStage == 11 && game.HasLivingPlayer && game.IsPaused && TransitionText == "STAGE 11" && Layout() == layout, "Death restarts current stage with its intro card");
                 manager.LoadStage(61);
                 Check(manager.CurrentTheme.name == "Snow", "Last theme persists");
-                Check(All<CellObject>().All(c => c.GetComponent<Renderer>().enabled), "Missing visual slots use primitives");
+                Check(All<CellObject>().All(c => c.GetComponentsInChildren<Renderer>().Any(r => r.enabled)), "Missing visual slots use primitives");
                 manager.NextStage();
                 Check(manager.CurrentStage == 62, "Manual next stage");
                 StageTheme floorTheme = ScriptableObject.CreateInstance<StageTheme>();
@@ -166,7 +288,7 @@ public static class StagePlaySmoke
                 settings.ApplyModifiedPropertiesWithoutUndo();
                 manager.LoadStage(1);
                 Check(manager.CurrentTheme == null && manager.CurrentPhase == 0, "No sequence fallback");
-                Check(All<CellObject>().All(c => c.GetComponent<Renderer>().enabled), "Original blocks without sequence");
+                Check(All<CellObject>().All(c => c.GetComponentsInChildren<Renderer>().Any(r => r.enabled)), "Original blocks without sequence");
                 UnityEngine.Object.Destroy(floorSequence);
                 UnityEngine.Object.Destroy(floorTheme);
                 Debug.Log("STAGE_SMOKE_PASS: boundaries, edited lengths, validation, model fit, rails, collision, destruction, cleanup, scene enemies, stable restart, pause, death, fallback.");

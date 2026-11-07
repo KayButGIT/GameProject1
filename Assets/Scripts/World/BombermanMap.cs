@@ -80,6 +80,16 @@ public sealed class BombermanMap
         if (xrayOccluders != null && xrayOccluders.activeSelf != active) xrayOccluders.SetActive(active);
     }
 
+    public void SetWallPassBlockShaking(ISet<Vector2Int> shakingCells)
+    {
+        foreach (KeyValuePair<Vector2Int, GameObject> entry in blocks)
+        {
+            if (GetCellKind(entry.Key) != CellKind.Destructible || entry.Value == null) continue;
+            WallPassBlockShake shake = entry.Value.GetComponent<WallPassBlockShake>();
+            if (shake != null) shake.SetShaking(shakingCells != null && shakingCells.Contains(entry.Key));
+        }
+    }
+
     // Invisible copies of the solid blocks and the border model that only mark the stencil buffer.
     // The Actor Xray shader skips marked pixels, so the silhouette shows through breakable blocks but never through these.
     private void CreateXrayOccluders(Transform mapRoot)
@@ -168,8 +178,12 @@ public sealed class BombermanMap
         cells[cell] = CellKind.Empty;
         if (blocks.TryGetValue(cell, out GameObject block))
         {
-            block.SetActive(false);
-            UnityEngine.Object.Destroy(block);
+            if (block != null)
+            {
+                if (block.TryGetComponent(out WallPassBlockShake shake)) shake.SetShaking(false);
+                block.SetActive(false);
+                UnityEngine.Object.Destroy(block);
+            }
             blocks.Remove(cell);
         }
 
@@ -190,6 +204,7 @@ public sealed class BombermanMap
             blocks.Remove(cell);
             if (block != null)
             {
+                if (block.TryGetComponent(out WallPassBlockShake shake)) shake.SetShaking(false);
                 foreach (Collider blockCollider in block.GetComponentsInChildren<Collider>(true))
                     blockCollider.enabled = false;
                 block.transform.SetParent(null, true);
@@ -340,6 +355,13 @@ public sealed class BombermanMap
                 Collider blockCollider = block.GetComponent<Collider>();
                 if (blockCollider == null || !blockCollider.enabled) continue;
 
+                WallPassBlockShake shake = block.GetComponent<WallPassBlockShake>();
+                if (shake != null && shake.TryGetStableVisualBounds(out Bounds stableVisualBounds))
+                {
+                    results[count++] = stableVisualBounds;
+                    continue;
+                }
+
                 bool hasRenderedBounds = false;
                 Bounds renderedBounds = default;
                 foreach (Renderer renderer in block.GetComponentsInChildren<Renderer>())
@@ -484,16 +506,37 @@ public sealed class BombermanMap
         block.transform.SetParent(parent);
         block.transform.position = CellToWorld(cell) + new Vector3(0f, heightScale * 0.45f, 0f);
         block.transform.localScale = new Vector3(0.92f, heightScale, 0.92f);
-        block.GetComponent<Renderer>().sharedMaterial = material;
+        Renderer rootRenderer = block.GetComponent<Renderer>();
+        MeshFilter rootMesh = block.GetComponent<MeshFilter>();
+        GameObject fallbackVisual = new("Fallback Visual");
+        fallbackVisual.transform.SetParent(block.transform, false);
+        MeshFilter visualMesh = fallbackVisual.AddComponent<MeshFilter>();
+        visualMesh.sharedMesh = rootMesh.sharedMesh;
+        MeshRenderer visualRenderer = fallbackVisual.AddComponent<MeshRenderer>();
+        visualRenderer.sharedMaterials = new[] { material };
+        rootRenderer.enabled = false;
+
         CellObject cellObject = block.AddComponent<CellObject>();
         cellObject.Cell = cell;
-        if (visual != null && visual.Attach(block.transform, visualRandom, out StageTheme.BreakableBlockBurnMode burnMode))
+        StageTheme.BreakableBlockBurnMode burnMode = StageTheme.BreakableBlockBurnMode.NormalBlock;
+        bool hasThemeVisual = visual != null && visual.Attach(block.transform, visualRandom, out burnMode);
+        if (hasThemeVisual)
         {
-            block.GetComponent<Renderer>().enabled = false;
+            fallbackVisual.SetActive(false);
             cellObject.UsesWoodBlockBurn = burnMode == StageTheme.BreakableBlockBurnMode.WoodBlock;
+        }
+        else
+        {
+            fallbackVisual.name = "Visual";
         }
         BoxCollider collider = block.GetComponent<BoxCollider>();
         collider.size = Vector3.one;
+        if (blockName == "Destructible Wall")
+        {
+            Transform blockVisual = block.transform.Find("Visual");
+            WallPassBlockShake shake = block.AddComponent<WallPassBlockShake>();
+            shake.Initialize(blockVisual);
+        }
         blocks[cell] = block;
         return block;
     }

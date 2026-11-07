@@ -33,7 +33,7 @@ public abstract class EnemyController : GridController
     [Min(0f)] public float DeathSeconds = 0.8f;
     [Min(0f)] public float DeathDissolveDelay = 0.5f;
     [Min(0.05f)] public float DeathDissolveDuration = 3f;
-    [Min(0f)] public float DeathKnockbackForce = 3.5f;
+    [Min(0f)] public float DeathKnockbackForce = 5.25f;
     public bool IsChasing { get; private set; }
     protected virtual bool UseShortestPathChase => false;
     protected virtual DeathPresentation Presentation => DeathPresentation.KnockbackAndDissolve;
