@@ -70,6 +70,7 @@ MonoBehaviour:
   FireDissolveBodyMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
   FireDissolveFaceMaterial: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
   DeathSeconds: 0.8
+  DeathDissolveDelay: 0.15
 --- !u!1 &3089553335163007461
 GameObject:
   m_ObjectHideFlags: 0

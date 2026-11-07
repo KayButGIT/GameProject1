@@ -61,6 +61,11 @@ public static class EnemyValidation
                 var presentationProperty = typeof(EnemyController).GetProperty("Presentation", Private);
                 Check((EnemyController.DeathPresentation)presentationProperty.GetValue(enemy) == expectedPresentation,
                     names[i] + " death presentation");
+                bool hasRagdollDeath = enemy is PassEnemy || enemy is PontanEnemy
+                    || enemy is DahlEnemy || enemy is MinuoEnemy || enemy is OvapeEnemy;
+                float expectedDissolveDelay = hasRagdollDeath ? 0.15f : 0.5f;
+                Check(Mathf.Approximately(enemy.DeathDissolveDelay, expectedDissolveDelay),
+                    names[i] + " death dissolve delay");
                 if (expectedPresentation == EnemyController.DeathPresentation.KnockbackAndDissolve)
                     Check(Mathf.Approximately(enemy.DeathKnockbackForce, 5.25f),
                         names[i] + " uses the stronger default death knockback force");
@@ -201,6 +206,8 @@ public static class EnemyValidation
                 Set(game, typeof(BombermanPrototype), "paused", false);
                 enemy.Die(); enemy.Die();
                 Check(enemy.IsDead && !enemy.IsMoving && !enemy.IsChasing && enemy != null, "death immediate gameplay stop, delayed removal");
+                Check(Mathf.Approximately(Get<float>(enemy, typeof(EnemyController), "deathDelay"), expectedDissolveDelay),
+                    names[i] + " applies its configured death dissolve delay");
                 if (expectedPresentation == EnemyController.DeathPresentation.KnockbackAndDissolve)
                 {
                     if (enemy is PassEnemy || enemy is PontanEnemy)
@@ -215,7 +222,7 @@ public static class EnemyValidation
                     }
                     else
                         Check(enemy.GetComponent<Rigidbody>() != null && !enemy.GetComponent<Rigidbody>().isKinematic,
-                            names[i] + " centered fallback Rigidbody is active");
+                            names[i] + " whole-body physics ragdoll fallback is active");
                 }
                 else if (expectedPresentation == EnemyController.DeathPresentation.DebrisAndDissolve)
                 {

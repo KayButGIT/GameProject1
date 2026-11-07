@@ -134,6 +134,7 @@ MonoBehaviour:
   FireDissolveFaceMaterial: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
   WalkAnimationSpeedMultiplier: 3.5
   DeathSeconds: 0.8
+  DeathDissolveDelay: 0.15
 --- !u!1001 &1053969800773299702
 PrefabInstance:
   m_ObjectHideFlags: 0

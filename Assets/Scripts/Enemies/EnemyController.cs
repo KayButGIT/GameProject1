@@ -471,6 +471,8 @@ public abstract class EnemyController : GridController
         }
         else
         {
+            // Articulated profiles are available for Pass and Pontan. Imported enemies without
+            // a full body skeleton use a whole-body physics fall until their models are rigged.
             if (!EnemyRagdollUtility.TryActivate(this, forceOrigin, fromBomb, DeathKnockbackForce, out deathRagdollRoot))
                 EnableDeathKnockback(forceOrigin, fromBomb);
             IgnorePlayerDeathCollisions();
