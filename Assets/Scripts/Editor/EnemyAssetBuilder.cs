@@ -14,6 +14,8 @@ public static class EnemyAssetBuilder
         Directory.CreateDirectory("Assets/Animations/Enemies");
         Directory.CreateDirectory("Assets/Materials/Enemies");
         AssetDatabase.Refresh();
+        Material fireDissolveBody = AssetDatabase.LoadAssetAtPath<Material>("Assets/Shaders/FireDie_Body.mat");
+        Material fireDissolveFace = AssetDatabase.LoadAssetAtPath<Material>("Assets/Shaders/FireDie_Face.mat");
         Material faceMaterial = GetFaceMaterial();
         const string animationFolder = "Assets/Animations/Enemies/";
         AnimationClip idle = Clip(animationFolder + "EnemyIdle.anim", "Idle", true, false);
@@ -67,6 +69,8 @@ public static class EnemyAssetBuilder
             GameObject root = new(names[i]);
             EnemyController enemy = (EnemyController)root.AddComponent(types[i]);
             enemy.MoveSpeed = speeds[i];
+            enemy.FireDissolveBodyMaterial = fireDissolveBody;
+            enemy.FireDissolveFaceMaterial = fireDissolveFace;
             enemy.DetectionRange = ranges[i];
             enemy.Chase = i == 1 || i == 4 ? EnemyController.ChaseMode.Timed : i == 3 ? EnemyController.ChaseMode.Escape
                 : i == 5 ? EnemyController.ChaseMode.Memory : i == 6 ? EnemyController.ChaseMode.PersistentAfterSight

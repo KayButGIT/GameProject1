@@ -6,6 +6,49 @@ public static class ExplosionParticleFactory
     private static Material yellowMaterial;
     private static Material redMaterial;
     private static Material whiteMaterial;
+    private static Material balloonMaterial;
+    private static Material balloonHighlightMaterial;
+    private static Material fluidMaterial;
+    private static Material fluidHighlightMaterial;
+
+    public static GameObject CreateBalloonPopBurst(string objectName, Vector3 position)
+    {
+        balloonMaterial ??= MakeParticleMaterial("Valcom Balloon Yellow", new Color(1f, 0.78f, 0.08f));
+        balloonHighlightMaterial ??= MakeParticleMaterial("Valcom Balloon Highlight Yellow", new Color(1f, 0.96f, 0.48f));
+        return CreateSphereBurst(objectName, position, balloonMaterial, balloonHighlightMaterial, 26, 0.11f, 0.23f, 3.3f);
+    }
+
+    public static GameObject CreateFluidBurst(string objectName, Vector3 position)
+    {
+        fluidMaterial ??= MakeParticleMaterial("Doria Fluid Blue", new Color(0.1f, 0.78f, 0.95f));
+        fluidHighlightMaterial ??= MakeParticleMaterial("Doria Fluid Highlight", new Color(0.68f, 0.96f, 1f));
+        return CreateSphereBurst(objectName, position, fluidMaterial, fluidHighlightMaterial, 38, 0.08f, 0.19f, 2.3f);
+    }
+
+    private static GameObject CreateSphereBurst(string objectName, Vector3 position, Material primary, Material secondary,
+        int count, float minSize, float maxSize, float speed)
+    {
+        GameObject root = new(objectName);
+        root.transform.position = position + new Vector3(0f, 0.45f, 0f);
+        for (int i = 0; i < count; i++)
+        {
+            GameObject piece = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            piece.name = objectName + " Particle";
+            piece.transform.SetParent(root.transform, false);
+            piece.transform.localPosition = new Vector3(Random.Range(-0.18f, 0.18f), Random.Range(-0.08f, 0.2f), Random.Range(-0.18f, 0.18f));
+            float size = Random.Range(minSize, maxSize);
+            piece.transform.localScale = new Vector3(size * Random.Range(0.75f, 1.25f), size * Random.Range(1f, 1.8f), size);
+            piece.GetComponent<Renderer>().sharedMaterial = Random.value > 0.28f ? primary : secondary;
+            Object.Destroy(piece.GetComponent<Collider>());
+            Vector3 direction = Random.onUnitSphere;
+            direction.y = Mathf.Abs(direction.y) + 0.25f;
+            piece.AddComponent<ExplosionParticlePiece>().Initialize(
+                direction.normalized * Random.Range(speed * 0.55f, speed),
+                Random.insideUnitSphere * 360f,
+                Random.Range(0.45f, 0.9f));
+        }
+        return root;
+    }
 
     public static GameObject CreatePlayerDeathBurst(string objectName, Vector3 groundPosition, bool fromBomb)
     {

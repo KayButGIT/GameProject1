@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -28,6 +29,9 @@ public static class EnemyValidation
         GameObject host = new("Enemy test host");
         UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(host, scene);
         BombermanPrototype game = host.AddComponent<BombermanPrototype>();
+        Material playerBurnBody = AssetDatabase.LoadAssetAtPath<Material>("Assets/Shaders/FireDie_Body.mat");
+        Material playerBurnFace = AssetDatabase.LoadAssetAtPath<Material>("Assets/Shaders/FireDie_Face.mat");
+        Check(playerBurnBody != null && playerBurnFace != null, "Player dissolve templates exist");
         BombermanMap map = new(15, 15, 0f, 1, null);
         Dictionary<Vector2Int, CellKind> cells = Get<Dictionary<Vector2Int, CellKind>>(map, typeof(BombermanMap), "cells");
         for (int x = 0; x < 15; x++) for (int y = 0; y < 15; y++)
@@ -47,6 +51,18 @@ public static class EnemyValidation
                 GameObject instance = UnityEngine.Object.Instantiate(prefab, host.transform);
                 EnemyController enemy = instance.GetComponent<EnemyController>();
                 enemy.transform.position = map.CellToWorld(new Vector2Int(5, 5));
+                EnemyController.DeathPresentation expectedPresentation = names[i] switch
+                {
+                    "O'neal" => EnemyController.DeathPresentation.DebrisAndDissolve,
+                    "Valcom" => EnemyController.DeathPresentation.BalloonPop,
+                    "Doria" => EnemyController.DeathPresentation.FluidBurst,
+                    _ => EnemyController.DeathPresentation.KnockbackAndDissolve
+                };
+                var presentationProperty = typeof(EnemyController).GetProperty("Presentation", Private);
+                Check((EnemyController.DeathPresentation)presentationProperty.GetValue(enemy) == expectedPresentation,
+                    names[i] + " death presentation");
+                Check(enemy.FireDissolveBodyMaterial == playerBurnBody && enemy.FireDissolveFaceMaterial == playerBurnFace,
+                    names[i] + " uses the Player dissolve templates");
                 game.RegisterEnemy(enemy); game.RegisterEnemy(enemy);
                 Check(Get<List<GridController>>(game, typeof(BombermanPrototype), "actors").FindAll(a => a == enemy).Count == 1, "registration is idempotent");
                 Check(enemy.MoveSpeed == speeds[i], names[i] + " speed");
@@ -182,6 +198,59 @@ public static class EnemyValidation
                 Set(game, typeof(BombermanPrototype), "paused", false);
                 enemy.Die(); enemy.Die();
                 Check(enemy.IsDead && !enemy.IsMoving && !enemy.IsChasing && enemy != null, "death immediate gameplay stop, delayed removal");
+                if (expectedPresentation == EnemyController.DeathPresentation.KnockbackAndDissolve)
+                {
+                    if (enemy is PassEnemy || enemy is PontanEnemy)
+                    {
+                        Rigidbody[] ragdollBodies = instance.GetComponentsInChildren<Rigidbody>(true);
+                        CharacterJoint[] ragdollJoints = instance.GetComponentsInChildren<CharacterJoint>(true);
+                        Check(instance.GetComponent<Rigidbody>() == null && ragdollBodies.Length >= 8
+                            && ragdollJoints.Length == ragdollBodies.Length - 1,
+                            names[i] + " activates its articulated ragdoll instead of a root body");
+                        Check(ragdollBodies.All(body => !body.isKinematic),
+                            names[i] + " ragdoll bodies become dynamic");
+                    }
+                    else
+                        Check(enemy.GetComponent<Rigidbody>() != null && !enemy.GetComponent<Rigidbody>().isKinematic,
+                            names[i] + " centered fallback Rigidbody is active");
+                }
+                else if (expectedPresentation == EnemyController.DeathPresentation.DebrisAndDissolve)
+                {
+                    Transform debris = host.GetComponentsInChildren<Transform>().FirstOrDefault(t => t.name == "O'neal Death Debris");
+                    Check(debris != null, "O'neal debris presentation spawned");
+                    ParticleSystem chunks = debris.Find("Chunks")?.GetComponent<ParticleSystem>();
+                    Check(chunks != null && chunks.GetComponent<ParticleSystemRenderer>()?.GetComponent<WallDebrisBurn>() != null,
+                        "O'neal uses wall-style mesh chunks with burn dissolve");
+                }
+                else if (expectedPresentation == EnemyController.DeathPresentation.BalloonPop)
+                    Check(host.GetComponentsInChildren<Transform>().Any(t => t.name == "Valcom Balloon Pop"),
+                        "Valcom balloon particles spawned");
+                else if (expectedPresentation == EnemyController.DeathPresentation.FluidBurst)
+                    Check(host.GetComponentsInChildren<Transform>().Any(t => t.name == "Doria Fluid Burst"),
+                        "Doria fluid particles spawned");
+
+                bool particleOnly = expectedPresentation == EnemyController.DeathPresentation.BalloonPop
+                    || expectedPresentation == EnemyController.DeathPresentation.FluidBurst;
+                if (particleOnly)
+                {
+                    Check(Get<bool>(enemy, typeof(EnemyController), "deathBurstPending"),
+                        names[i] + " stays in its particle-only death presentation");
+                    Check(!Get<bool>(enemy, typeof(EnemyController), "deathDissolving"),
+                        names[i] + " does not dissolve after its burst");
+                    Check(Get<Material[]>(enemy, typeof(EnemyController), "burnMaterials") == null,
+                        names[i] + " does not create burn materials");
+                    Check(!instance.GetComponentsInChildren<Renderer>().Any(r => r.enabled && r is not ParticleSystemRenderer),
+                        names[i] + " hides its model during the particle-only death");
+                }
+                else
+                {
+                    Set(enemy, typeof(EnemyController), "deathElapsed", enemy.DeathDissolveDelay + 0.01f);
+                    Call(enemy, "Update");
+                    Check(Get<bool>(enemy, typeof(EnemyController), "deathDissolving"),
+                        names[i] + " enters dissolve after its death presentation");
+                    Check(Get<Material[]>(enemy, typeof(EnemyController), "burnMaterials").Length > 0,
+                        names[i] + " creates runtime dissolve materials");
+                }
                 UnityEngine.Object.DestroyImmediate(instance);
             }
             Debug.Log($"ENEMY VALIDATION PASSED: {checks} checks");

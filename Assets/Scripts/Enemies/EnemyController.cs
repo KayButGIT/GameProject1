@@ -4,6 +4,7 @@ using UnityEngine;
 public abstract class EnemyController : GridController
 {
     public enum ChaseMode { None, Timed, Escape, Memory, PersistentAfterSight, Always }
+    public enum DeathPresentation { KnockbackAndDissolve, DebrisAndDissolve, BalloonPop, FluidBurst }
     [Header("Enemy behavior")]
     [Tooltip("Timed pursues briefly; Escape/Memory can lose the target; PersistentAfterSight locks on after detection; Always tracks across the map.")]
     public ChaseMode Chase;
@@ -25,19 +26,29 @@ public abstract class EnemyController : GridController
     [Min(0f)] public float EscapeSeconds = 2f;
     [Header("Presentation")]
     public Animator ModelAnimator;
+    public Material FireDissolveBodyMaterial;
+    public Material FireDissolveFaceMaterial;
     [Tooltip("Scales the walk animation relative to movement speed. 1 matches movement; values above or below tune the visual cycle.")]
     [Min(0f)] public float WalkAnimationSpeedMultiplier = 1f;
     [Min(0f)] public float DeathSeconds = 0.8f;
+    [Min(0f)] public float DeathDissolveDelay = 0.5f;
+    [Min(0.05f)] public float DeathDissolveDuration = 3f;
+    [Min(0f)] public float DeathKnockbackForce = 3.5f;
     public bool IsChasing { get; private set; }
     protected virtual bool UseShortestPathChase => false;
+    protected virtual DeathPresentation Presentation => DeathPresentation.KnockbackAndDissolve;
     protected BombermanPrototype Game { get; private set; }
     private Vector2Int heading, lastSeen;
     private int patrolRemaining;
     private float chaseRemaining, cooldown, unseen, outside, deathRemaining;
-    private bool initialized, hasSpeed, hasMoving, hasDie, movingAsPatrol;
+    private bool initialized, hasSpeed, hasMoving, movingAsPatrol;
     private Material[] burnMaterials;
-    private float bombBurnDuration;
-    private float bombBurnElapsed;
+    private float deathElapsed;
+    private float deathDelay;
+    private float deathDissolveDuration;
+    private bool deathDissolving;
+    private bool deathBurstPending;
+    private Transform deathRagdollRoot;
     private bool acquisitionChecked, selectingSafeMoves;
     private int lastChaseAxis;
     private const float BombRetreatSeconds = 2f;
@@ -46,7 +57,8 @@ public abstract class EnemyController : GridController
     private static readonly int SpeedId = Animator.StringToHash("Speed");
     private static readonly int WalkAnimationSpeedId = Animator.StringToHash("WalkAnimSpeed");
     private static readonly int MovingId = Animator.StringToHash("IsMoving");
-    private static readonly int DieId = Animator.StringToHash("Die");
+    private static readonly int DissolveClippingId = Shader.PropertyToID("_Clipping");
+    private const float OnealDebrisLeadInSeconds = 0.15f;
 
     protected virtual void Start()
     {
@@ -73,7 +85,6 @@ public abstract class EnemyController : GridController
                 {
                     hasSpeed |= p.nameHash == SpeedId && p.type == AnimatorControllerParameterType.Float;
                     hasMoving |= p.nameHash == MovingId && p.type == AnimatorControllerParameterType.Bool;
-                    hasDie |= p.nameHash == DieId && p.type == AnimatorControllerParameterType.Trigger;
                 }
             UpdateWalkAnimationSpeed();
         }
@@ -86,25 +97,36 @@ public abstract class EnemyController : GridController
         if (Game.IsPaused) return;
         if (IsDead)
         {
-            deathRemaining -= Time.deltaTime;
-            if (bombBurnDuration > 0f)
+            deathElapsed += Time.deltaTime;
+            if (deathBurstPending)
             {
-                bombBurnElapsed += Time.deltaTime;
-                float progress = Mathf.Clamp01(bombBurnElapsed / bombBurnDuration);
+                if (deathElapsed >= deathRemaining) Destroy(gameObject);
+                return;
+            }
+            if (!deathDissolving && deathElapsed >= deathDelay)
+            {
+                deathDissolving = true;
+                deathElapsed = 0f;
+                ApplyBombBurnMaterials();
+            }
+            if (deathDissolving)
+            {
+                float progress = Mathf.Clamp01(deathElapsed / deathDissolveDuration);
+                float easedProgress = Mathf.SmoothStep(0f, 1f, progress);
+                float clipping = Mathf.Lerp(1f, 0f, easedProgress);
                 if (burnMaterials != null)
                     foreach (Material material in burnMaterials)
-                        if (material != null) material.SetFloat("_BurnProgress", progress);
-                if (deathRemaining <= 0f)
+                        if (material != null && material.HasProperty(DissolveClippingId))
+                            material.SetFloat(DissolveClippingId, clipping);
+                if (progress >= 1f)
                 {
-                    Transform effectParent = transform.parent;
-                    GameObject aftermath = BlastEffects.CreatePlayerBurnAftermath("Enemy Burn Smoke and Embers", transform.position);
-                    if (effectParent != null) aftermath.transform.SetParent(effectParent, true);
+                    Vector3 aftermathPosition = deathRagdollRoot != null ? deathRagdollRoot.position : transform.position;
+                    GameObject aftermath = BlastEffects.CreatePlayerBurnAftermath("Enemy Burn Smoke and Embers", aftermathPosition);
+                    if (transform.parent != null) aftermath.transform.SetParent(transform.parent, true);
                     Destroy(aftermath, BlastEffects.BurnAftermathDuration);
                     Destroy(gameObject);
                 }
-                return;
             }
-            if (deathRemaining <= 0f) Destroy(gameObject);
             return;
         }
         bool wasMoving = IsMoving;
@@ -390,24 +412,89 @@ public abstract class EnemyController : GridController
     }
     public override void Die()
     {
-        BeginDeath();
+        if (IsDead) return;
+        BeginDeathPresentation(Vector3.zero, false);
     }
 
     public void DieFromBomb(float dissolveDuration)
     {
+        DieFromBomb(dissolveDuration, Vector3.zero);
+    }
+
+    public void DieFromBomb(float dissolveDuration, Vector3 blastOrigin)
+    {
         if (IsDead) return;
+        BeginDeathPresentation(blastOrigin, true, dissolveDuration);
+    }
+
+    private void BeginDeathPresentation(Vector3 forceOrigin, bool fromBomb, float dissolveDuration = -1f)
+    {
+        DeathPresentation presentation = Presentation;
         BeginDeath();
-        bombBurnDuration = Mathf.Max(0.1f, dissolveDuration);
-        deathRemaining = Mathf.Max(deathRemaining, bombBurnDuration);
-        ApplyBombBurnMaterials();
+        deathElapsed = 0f;
+        deathDissolveDuration = Mathf.Max(0.05f, dissolveDuration > 0f ? dissolveDuration : DeathDissolveDuration);
+        deathDelay = presentation == DeathPresentation.KnockbackAndDissolve ? DeathDissolveDelay : 0f;
+        deathDissolving = false;
+        deathBurstPending = presentation == DeathPresentation.BalloonPop || presentation == DeathPresentation.FluidBurst;
+
+        if (deathBurstPending)
+        {
+            GameObject burst = presentation == DeathPresentation.BalloonPop
+                ? ExplosionParticleFactory.CreateBalloonPopBurst("Valcom Balloon Pop", transform.position)
+                : ExplosionParticleFactory.CreateFluidBurst("Doria Fluid Burst", transform.position);
+            if (transform.parent != null) burst.transform.SetParent(transform.parent, true);
+            Destroy(burst, 1.2f);
+            deathRemaining = 0.9f;
+            HideCharacterRenderers();
+            return;
+        }
+
+        if (presentation == DeathPresentation.DebrisAndDissolve)
+        {
+            Material debrisMaterial = GetDebrisMaterial();
+            GameObject debris = BlastEffects.CreateWoodBurningDebrisChunks("O'neal Death Debris",
+                transform.position, debrisMaterial, FireDissolveBodyMaterial, 0, 0.5f, 1f);
+            if (debris != null && transform.parent != null) debris.transform.SetParent(transform.parent, true);
+            if (debris != null) Destroy(debris, 2.8f);
+            if (fromBomb)
+            {
+                // Bomb-hit O'neal disappears like Doria while its detached,
+                // wall-style chunks continue their own burn-dissolve effect.
+                deathBurstPending = true;
+                deathRemaining = 0.9f;
+                HideCharacterRenderers();
+                return;
+            }
+            // Let the debris burst read first, then dissolve the character while
+            // the last pieces are still moving so O'neal does not hold a frozen pose.
+            deathDelay = OnealDebrisLeadInSeconds;
+        }
+        else
+        {
+            if (!EnemyRagdollUtility.TryActivate(this, forceOrigin, fromBomb, DeathKnockbackForce, out deathRagdollRoot))
+                EnableDeathKnockback(forceOrigin, fromBomb);
+            IgnorePlayerDeathCollisions();
+        }
+    }
+
+    private void IgnorePlayerDeathCollisions()
+    {
+        PlayerController[] players = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+        foreach (PlayerController player in players)
+        {
+            if (player.gameObject.scene != gameObject.scene) continue;
+            Collider[] playerColliders = player.GetComponentsInChildren<Collider>(true);
+            foreach (Collider enemyCollider in GetComponentsInChildren<Collider>(true))
+            {
+                if (enemyCollider == null || !enemyCollider.enabled) continue;
+                foreach (Collider playerCollider in playerColliders)
+                    if (playerCollider != null)
+                        Physics.IgnoreCollision(enemyCollider, playerCollider, true);
+            }
+        }
     }
 
     private void BeginDeath()
-    {
-        BeginDeath(playDeathAnimation: true);
-    }
-
-    private void BeginDeath(bool playDeathAnimation)
     {
         if (IsDead) return;
         // Per-enemy-type death SFX (SoundManager.PlayEnemyDeath switches on GetType().Name,
@@ -418,9 +505,77 @@ public abstract class EnemyController : GridController
         IsChasing = false;
         SetLayerRecursively(gameObject, LayerMask.NameToLayer("Default"));
         foreach (Collider collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
-        SetAnimation();
-        if (ModelAnimator != null && hasDie) ModelAnimator.SetTrigger(DieId);
+        if (ModelAnimator != null) ModelAnimator.enabled = false;
         deathRemaining = DeathSeconds;
+    }
+
+    private void HideCharacterRenderers()
+    {
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
+            if (renderer != null && renderer is not ParticleSystemRenderer) renderer.enabled = false;
+    }
+
+    private Material GetDebrisMaterial()
+    {
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
+            if (renderer != null && renderer.sharedMaterial != null) return renderer.sharedMaterial;
+        return FireDissolveBodyMaterial;
+    }
+
+    private void EnableDeathKnockback(Vector3 forceOrigin, bool fromBomb)
+    {
+        Rigidbody body = GetComponent<Rigidbody>();
+        if (body == null) body = gameObject.AddComponent<Rigidbody>();
+        CapsuleCollider capsule = GetComponent<CapsuleCollider>();
+        if (capsule == null) capsule = gameObject.AddComponent<CapsuleCollider>();
+        capsule.enabled = true;
+        capsule.isTrigger = false;
+        Bounds bounds = GetVisualBounds();
+        Vector3 center = transform.InverseTransformPoint(bounds.center);
+        Vector3 scale = transform.lossyScale;
+        float horizontalScale = Mathf.Max(0.001f, Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z)));
+        float verticalScale = Mathf.Max(0.001f, Mathf.Abs(scale.y));
+        capsule.center = center;
+        capsule.height = Mathf.Max(0.1f, bounds.size.y / verticalScale);
+        capsule.radius = Mathf.Min(capsule.height * 0.48f,
+            Mathf.Max(0.035f, Mathf.Min(bounds.size.x, bounds.size.z) * 0.42f / horizontalScale));
+        body.isKinematic = false;
+        body.useGravity = true;
+        body.constraints = RigidbodyConstraints.None;
+        body.centerOfMass = center;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.linearDamping = 0.15f;
+        body.angularDamping = 1.8f;
+        body.maxAngularVelocity = 10f;
+        Vector3 direction = transform.position - forceOrigin;
+        direction.y = 0f;
+        if (!fromBomb || direction.sqrMagnitude < 0.001f) direction = transform.forward;
+        if (direction.sqrMagnitude < 0.001f) direction = Vector3.forward;
+        direction.Normalize();
+        body.AddForce(direction * DeathKnockbackForce + Vector3.up * (DeathKnockbackForce * 0.28f), ForceMode.Impulse);
+        Vector3 tumbleAxis = Vector3.Cross(direction, Vector3.up);
+        if (tumbleAxis.sqrMagnitude < 0.001f) tumbleAxis = transform.right;
+        body.AddTorque(tumbleAxis.normalized * DeathKnockbackForce * 0.12f, ForceMode.Impulse);
+    }
+
+    private Bounds GetVisualBounds()
+    {
+        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
+        bool hasBounds = false;
+        Bounds bounds = new(transform.position + Vector3.up * 0.5f, Vector3.one);
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null || renderer is ParticleSystemRenderer || renderer is LineRenderer || renderer is TrailRenderer)
+                continue;
+            if (!hasBounds)
+            {
+                bounds = renderer.bounds;
+                hasBounds = true;
+            }
+            else bounds.Encapsulate(renderer.bounds);
+        }
+        return bounds;
     }
 
     private static void SetLayerRecursively(GameObject target, int layer)
@@ -432,8 +587,11 @@ public abstract class EnemyController : GridController
 
     private void ApplyBombBurnMaterials()
     {
-        Shader shader = Shader.Find("Bomberman/Enemy Fire Dissolve");
-        if (shader == null) return;
+        if (FireDissolveBodyMaterial == null || FireDissolveFaceMaterial == null)
+        {
+            Debug.LogError("Assign the Dissolve Direction body and face templates to this enemy prefab.", this);
+            return;
+        }
         List<Material> created = new();
         foreach (Renderer renderer in GetComponentsInChildren<Renderer>())
         {
@@ -445,15 +603,23 @@ public abstract class EnemyController : GridController
             {
                 Material source = sourceMaterials[i];
                 if (source == null) continue;
-                Material burn = new(shader) { name = source.name + " Enemy Fire Dissolve" };
+                bool isFace = renderer.name.Contains("Face") || source.name.ToLowerInvariant().Contains("face");
+                Material template = isFace ? FireDissolveFaceMaterial : FireDissolveBodyMaterial;
+                Material burn = new(template) { name = source.name + " Fire Dissolve" };
                 Texture baseMap = GetMaterialTexture(source);
-                Color baseColor = GetMaterialColor(source);
                 if (baseMap != null)
                 {
-                    if (burn.HasProperty("_BaseMap")) burn.SetTexture("_BaseMap", baseMap);
+                    if (burn.HasProperty("_MainTex"))
+                    {
+                        burn.SetTexture("_MainTex", baseMap);
+                        if (source.HasProperty("_MainTex"))
+                        {
+                            burn.SetTextureScale("_MainTex", source.GetTextureScale("_MainTex"));
+                            burn.SetTextureOffset("_MainTex", source.GetTextureOffset("_MainTex"));
+                        }
+                    }
                 }
-                if (burn.HasProperty("_BaseColor")) burn.SetColor("_BaseColor", baseColor);
-                burn.SetFloat("_NoiseScale", 4f);
+                if (burn.HasProperty(DissolveClippingId)) burn.SetFloat(DissolveClippingId, 1f);
                 replacements[i] = burn;
                 created.Add(burn);
             }
@@ -469,13 +635,6 @@ public abstract class EnemyController : GridController
             if (material.HasProperty(property) && material.GetTexture(property) != null)
                 return material.GetTexture(property);
         return null;
-    }
-
-    private static Color GetMaterialColor(Material material)
-    {
-        if (material.HasProperty("_BaseColor")) return material.GetColor("_BaseColor");
-        if (material.HasProperty("_Color")) return material.GetColor("_Color");
-        return Color.white;
     }
 
     protected override void OnDestroy()

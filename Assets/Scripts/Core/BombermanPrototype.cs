@@ -1168,7 +1168,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         foreach (Vector2Int cell in blastCells)
         {
             StartCoroutine(ShowExplosion(cell, origin));
-            DamageActorsAt(cell);
+            DamageActorsAt(cell, origin);
         }
 
         if (exitDoor != null && !exitWasRevealed && exitDoor.IsRevealed)
@@ -1457,7 +1457,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
     }
 
-    private void DamageActorsAt(Vector2Int cell)
+    private void DamageActorsAt(Vector2Int cell, Vector2Int blastOrigin)
     {
         foreach (GridController actor in actors)
         {
@@ -1477,7 +1477,7 @@ public sealed class BombermanPrototype : MonoBehaviour
                 AddScore(GetEnemyScore(actor));
                 if (actor is EnemyController enemy)
                 {
-                    enemy.DieFromBomb(Mathf.Max(playerBurnDissolveTime, enemy.DeathSeconds * 1.5f));
+                    enemy.DieFromBomb(playerBurnDissolveTime, map.CellToWorld(blastOrigin));
                 }
                 else
                 {

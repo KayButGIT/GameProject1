@@ -704,6 +704,8 @@ MonoBehaviour:
   EscapeSeconds: 2
   ModelAnimator: {fileID: 967824263437525296}
   WalkAnimationSpeedMultiplier: 2
+  FireDissolveBodyMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
+  FireDissolveFaceMaterial: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
   DeathSeconds: 0.8
 --- !u!1 &9043699469847153141
 GameObject:

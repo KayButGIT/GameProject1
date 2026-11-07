@@ -240,49 +240,48 @@ public static class BlastEffects
         return root;
     }
 
-    public static void CreateWoodBurningDebrisChunks(GameObject parent,
-        Material sourceMaterial, int step, float dissolveDuration)
+    public static GameObject CreateWoodBurningDebrisChunks(string objectName, Vector3 position,
+        Material sourceMaterial, Material burnMaterial, int step, float groundHold, float dissolveDuration)
     {
-        if (parent == null || sourceMaterial == null) return;
-        Mesh cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
-        if (cube == null) return;
-        float delay = step * SpreadDelay;
-        int count = 20;
-        for (int i = 0; i < count; i++)
-        {
-            GameObject chunk = new($"Dissolving Wall Debris {i + 1}");
-            chunk.transform.SetParent(parent.transform, false);
-            chunk.transform.localPosition = new Vector3(
-                UnityEngine.Random.Range(-0.12f, 0.12f),
-                UnityEngine.Random.Range(0.22f, 0.58f),
-                UnityEngine.Random.Range(-0.12f, 0.12f));
-            chunk.transform.localRotation = UnityEngine.Random.rotation;
-            chunk.transform.localScale = new Vector3(
-                UnityEngine.Random.Range(0.12f, 0.26f),
-                UnityEngine.Random.Range(0.045f, 0.12f),
-                UnityEngine.Random.Range(0.08f, 0.22f));
-            chunk.AddComponent<MeshFilter>().sharedMesh = cube;
-            MeshRenderer renderer = chunk.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = sourceMaterial;
-            renderer.shadowCastingMode = ShadowCastingMode.On;
-            renderer.receiveShadows = true;
+        if (sourceMaterial == null) return null;
 
-            Vector3 direction = UnityEngine.Random.onUnitSphere;
-            direction.y = Mathf.Abs(direction.y) + 0.25f;
-            direction.Normalize();
-            Vector3 velocity = direction * UnityEngine.Random.Range(2f, 3.2f);
-            chunk.AddComponent<ExplosionParticlePiece>().Initialize(
-                velocity,
-                new Vector3(UnityEngine.Random.Range(-540f, 540f), UnityEngine.Random.Range(-540f, 540f), UnityEngine.Random.Range(-540f, 540f)),
-                Mathf.Max(0.1f, dissolveDuration),
-                delay,
-                null,
-                true,
-                true,
-                1.35f);
-            if (i % 5 == 0)
-                AddSmallBurnVfx(chunk.transform, Vector3.zero, 0.4f, delay);
-        }
+        // Reuse the same mesh-particle burst used by wall destruction so O'neal
+        // breaks into the larger textured cube chunks, dust, and sparks.
+        GameObject debris = CreateDebris(objectName, position, sourceMaterial, step,
+            particleChunksOnly: true, playChunkBurstImmediately: false);
+        Transform chunks = debris.transform.Find("Chunks");
+        if (chunks == null || !chunks.TryGetComponent(out ParticleSystem chunkSystem)) return debris;
+
+        // Configure the wall-style chunk lifetime and material before emitting.
+        chunkSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ParticleSystem.MainModule main = chunkSystem.main;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(
+            groundHold + dissolveDuration + 0.25f,
+            groundHold + dissolveDuration + 0.65f);
+        main.gravityModifier = 1.8f;
+        ParticleSystem.RotationOverLifetimeModule rotation = chunkSystem.rotationOverLifetime;
+        rotation.enabled = false;
+
+        ParticleSystem.SizeOverLifetimeModule size = chunkSystem.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(
+            new Keyframe(0f, 1.1f),
+            new Keyframe(0.82f, 1f),
+            new Keyframe(0.92f, 1f),
+            new Keyframe(1f, 0f)));
+
+        if (chunks.TryGetComponent(out ParticleSystemRenderer renderer) && burnMaterial != null)
+            WallDebrisBurn.ApplyParticleRenderer(renderer, burnMaterial, step * SpreadDelay + groundHold,
+                dissolveDuration, 1f, 0f, 0.25f, copySourceAppearance: true);
+
+        AddWoodChunkBurnVfx(debris.transform, step);
+        // Do not depend on a configured Burst firing on Play after the system
+        // has been cleared. Explicit emission guarantees the wall-style chunks.
+        ParticleSystem.EmissionModule emission = chunkSystem.emission;
+        emission.SetBursts(Array.Empty<ParticleSystem.Burst>());
+        chunkSystem.Play();
+        chunkSystem.Emit(20);
+        return debris;
     }
 
     private static void AddSmallBurnVfx(Transform parent, Vector3 localPosition, float scale, float delay)

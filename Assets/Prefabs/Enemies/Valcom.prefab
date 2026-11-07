@@ -154,6 +154,8 @@ MonoBehaviour:
   EscapeSeconds: 2
   ModelAnimator: {fileID: 4022499382873656918}
   WalkAnimationSpeedMultiplier: 3
+  FireDissolveBodyMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
+  FireDissolveFaceMaterial: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
   DeathSeconds: 0.8
 --- !u!1001 &1821944666795877825
 PrefabInstance:

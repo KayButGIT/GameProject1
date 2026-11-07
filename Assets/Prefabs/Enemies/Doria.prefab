@@ -98,6 +98,8 @@ MonoBehaviour:
   EscapeRange: 7
   EscapeSeconds: 2
   ModelAnimator: {fileID: 1048234078841864310}
+  FireDissolveBodyMaterial: {fileID: 2100000, guid: 97aa68eb9c5bdf549911e382c2adaa25, type: 2}
+  FireDissolveFaceMaterial: {fileID: 2100000, guid: e80c06b6ca7ef7545ba8b0ee0cb9e8b5, type: 2}
   WalkAnimationSpeedMultiplier: 1
   DeathSeconds: 0.8
 --- !u!1 &6999462589008937570
