@@ -342,13 +342,13 @@ MonoBehaviour:
   playerDeathAnimationTime: 1.2
   playerDeathParticleTime: 0.6
   playerBurnDissolveDelay: 0.5
-  playerBurnDissolveTime: 1.8
+  playerBurnDissolveTime: 1.7
   playerRestartDelay: 1
   playerXrayColor: {r: 1, g: 1, b: 1, a: 1}
   enemyXrayColor: {r: 1, g: 0.4, b: 0.3, a: 1}
   xrayOpacity: 0.3
   xrayOutlineWidthPixels: 2
-  xrayOutlineBrightness: 2.5
+  xrayOutlineBrightness: 2
   valcomScore: 100
   onealScore: 200
   dahlScore: 400
@@ -378,7 +378,7 @@ MonoBehaviour:
   speedUpLimit: 1
   mysteryDuration: 35
   spawnEnemies: 1
-  useOriginalStageEnemies: 0
+  useOriginalStageEnemies: 1
   onealCount: 1
   dahlCount: 1
   pontanCount: 1

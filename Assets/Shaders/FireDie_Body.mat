@@ -34,7 +34,9 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Clipping: 1
+    - _Clipping: 0.778
+    - _Edge: 0.14
+    - _Range: 0.34
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1

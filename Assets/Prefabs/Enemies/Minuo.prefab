@@ -135,6 +135,8 @@ MonoBehaviour:
   WalkAnimationSpeedMultiplier: 3.5
   DeathSeconds: 0.8
   DeathDissolveDelay: 0.15
+  DeathDissolveDuration: 3
+  DeathKnockbackForce: 7
 --- !u!1001 &1053969800773299702
 PrefabInstance:
   m_ObjectHideFlags: 0

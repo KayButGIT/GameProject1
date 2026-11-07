@@ -103,6 +103,8 @@ MonoBehaviour:
   WalkAnimationSpeedMultiplier: 3
   DeathSeconds: 0.8
   DeathDissolveDelay: 0.15
+  DeathDissolveDuration: 3
+  DeathKnockbackForce: 10
 --- !u!1 &5320946448084693448
 GameObject:
   m_ObjectHideFlags: 0
