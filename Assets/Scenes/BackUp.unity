@@ -644,7 +644,7 @@ MonoBehaviour:
   playerDeathAnimationTime: 1.2
   playerDeathParticleTime: 0.6
   playerRestartDelay: 1
-  showCheatMenuButton: 1
+  showCheatMenuButton: 0
   spawnEnemies: 1
   useOriginalStageEnemies: 1
   onealCount: 0

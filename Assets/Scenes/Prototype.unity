@@ -361,7 +361,7 @@ MonoBehaviour:
   stageClearLifeBonus: 1
   spawnPowerUps: 1
   stagePowerUps: 
-  showCheatMenuButton: 1
+  showCheatMenuButton: 0
   powerUpPrefabs:
   - {fileID: 3587204841249301346, guid: dd46b015941cb8b4097c177ca0587ec5, type: 3}
   - {fileID: 1552387361238952842, guid: 5e954adc508643f46a9eef7190437910, type: 3}

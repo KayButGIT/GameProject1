@@ -10,6 +10,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     private const float TransitionFadeSeconds = 0.5f;
     private const float StageCardHoldSeconds = 1f;
     private const float BonusStageTimeLimit = 30f;
+    private const float CheatCodeKeyTimeout = 1.5f;
+    private const string CheatMenuCode = "CHEAT";
 
     private enum PlayerDeathCause
     {
@@ -122,7 +124,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private bool spawnPowerUps = true;
     [Tooltip("Optional stage-by-stage override. Leave empty to use the original 50-stage power-up table.")]
     [SerializeField] private PowerUpType[] stagePowerUps;
-    [SerializeField] private bool showCheatMenuButton = true;
+    [SerializeField] private bool showCheatMenuButton;
     [Tooltip("Optional models, in PowerUpType order (Bomb Up, Fire Up, Speed Up, Detonator, Bomb Pass, Wall Pass, Flame Pass, Mystery). Empty slots use the built-in marker.")]
     [SerializeField] private GameObject[] powerUpPrefabs;
     [Tooltip("How close the player must be to an item to pick it up.")]
@@ -191,6 +193,8 @@ public sealed class BombermanPrototype : MonoBehaviour
     private int activeBombs;
     private bool paused;
     private bool cheatMenuOpen;
+    private int cheatCodeProgress;
+    private float cheatCodeKeyTimeRemaining;
     private bool wasPausedBeforeCheatMenu;
     private bool transitionActive;
     private bool restarting;
@@ -459,6 +463,8 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void Update()
     {
+        UpdateCheatCodeInput();
+
         if (!transitionActive && WasPressed(Key.Escape))
         {
             if (cheatMenuOpen) CloseCheatMenu();
@@ -483,6 +489,54 @@ public sealed class BombermanPrototype : MonoBehaviour
                 bonusSpawnCooldown = 0.5f;
             }
         }
+    }
+
+    private void UpdateCheatCodeInput()
+    {
+        if (cheatMenuOpen || paused || transitionActive || restarting || stageClearing || !HasLivingPlayer)
+        {
+            ResetCheatCodeInput();
+            return;
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null) return;
+
+        if (cheatCodeProgress > 0)
+        {
+            cheatCodeKeyTimeRemaining -= Time.unscaledDeltaTime;
+            if (cheatCodeKeyTimeRemaining <= 0f) ResetCheatCodeInput();
+        }
+
+        char expectedCharacter = CheatMenuCode[cheatCodeProgress];
+        if (keyboard[(Key)System.Enum.Parse(typeof(Key), expectedCharacter.ToString())].wasPressedThisFrame)
+        {
+            cheatCodeProgress++;
+            cheatCodeKeyTimeRemaining = CheatCodeKeyTimeout;
+            if (cheatCodeProgress == CheatMenuCode.Length)
+            {
+                ResetCheatCodeInput();
+                OpenCheatMenu();
+            }
+
+            return;
+        }
+
+        for (int i = 0; i < 26; i++)
+        {
+            Key key = (Key)((int)Key.A + i);
+            if (!keyboard[key].wasPressedThisFrame) continue;
+
+            cheatCodeProgress = key == Key.C ? 1 : 0;
+            cheatCodeKeyTimeRemaining = cheatCodeProgress > 0 ? CheatCodeKeyTimeout : 0f;
+            return;
+        }
+    }
+
+    private void ResetCheatCodeInput()
+    {
+        cheatCodeProgress = 0;
+        cheatCodeKeyTimeRemaining = 0f;
     }
 
     private void UpdateStageTimer()
@@ -1775,7 +1829,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     public void OpenCheatMenu()
     {
-        if (!showCheatMenuButton || cheatMenu == null || transitionActive || restarting || stageClearing) return;
+        if (cheatMenu == null || transitionActive || restarting || stageClearing) return;
         if (!cheatMenuOpen)
         {
             wasPausedBeforeCheatMenu = paused;
