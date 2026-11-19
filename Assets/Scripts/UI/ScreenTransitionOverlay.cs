@@ -97,6 +97,7 @@ public sealed class ScreenTransitionOverlay
     public void Show(string message, float alpha)
     {
         messageText.text = message;
+        SetMessageAlpha(1f);
         backgroundImage.enabled = true;
 
         if (irisImage != null)
@@ -140,6 +141,13 @@ public sealed class ScreenTransitionOverlay
     public void SetAlpha(float alpha)
     {
         canvasGroup.alpha = Mathf.Clamp01(alpha);
+    }
+
+    public void SetMessageAlpha(float alpha)
+    {
+        Color color = messageText.color;
+        color.a = Mathf.Clamp01(alpha);
+        messageText.color = color;
     }
 
     public void Hide()

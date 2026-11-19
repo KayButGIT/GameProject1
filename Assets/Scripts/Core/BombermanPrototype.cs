@@ -2195,6 +2195,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         while (soundManager != null && soundManager.IsGameOverBgmPlaying)
             yield return null;
         soundManager?.StopMusic();
+        yield return FadeEndingText();
 
         // The smoke tests build scenes without the title, so those keep playing instead.
         if (Application.CanStreamedLevelBeLoaded(titleSceneName))
@@ -2261,6 +2262,20 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
 
         transitionOverlay.SetAlpha(targetAlpha);
+    }
+
+    private IEnumerator FadeEndingText()
+    {
+        float elapsed = 0f;
+        while (elapsed < TransitionFadeSeconds)
+        {
+            elapsed = Mathf.Min(TransitionFadeSeconds, elapsed + Time.unscaledDeltaTime);
+            float amount = elapsed / TransitionFadeSeconds;
+            transitionOverlay.SetMessageAlpha(Mathf.Lerp(1f, 0f, amount));
+            yield return null;
+        }
+
+        transitionOverlay.SetMessageAlpha(0f);
     }
 
     private IEnumerator WaitForGameplaySeconds(float duration)
