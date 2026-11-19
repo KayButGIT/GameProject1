@@ -216,7 +216,6 @@ public sealed class BombermanPrototype : MonoBehaviour
     private int pendingPowerUpEnemySpawns;
     private int exitDoorHitCount;
     private bool stageClearing;
-    private bool stageWinIntroPending;
     private StageHud stageHud;
     private float timeLeft;
     private bool timeUp;
@@ -303,11 +302,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     internal void LoadStage(int stage, StageTheme theme)
     {
         StopAllCoroutines();
-        bool stageWasCleared = stageWinIntroPending;
-        stageWinIntroPending = false;
         if (IsBonusStage)
             SoundManager.Instance?.PlayBonusStageBgm();
-        else if (!stageWasCleared)
+        else
             SoundManager.Instance?.PlayStageStartIntroBgm();
         if (cheatMenuOpen)
         {
@@ -397,7 +394,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         {
             LogSpawnEvent($"Bonus stage {stageManager.BonusRoundNumber} starts with {DescribeEnemies()} for {BonusStageTimeLimit:0} seconds.");
         }
-        StartCoroutine(StageIntroSequence(stage, stageWasCleared));
+        StartCoroutine(StageIntroSequence(stage));
     }
 
     // Scenery is heavy, so it outlives the stage root and is rebuilt only when a stage asks for different scenery.
@@ -2076,7 +2073,18 @@ public sealed class BombermanPrototype : MonoBehaviour
             return;
         }
 
-        stageWinIntroPending = true;
+        StartCoroutine(AdvanceAfterStageWinMusic());
+    }
+
+    private IEnumerator AdvanceAfterStageWinMusic()
+    {
+        Time.timeScale = 0f;
+        SoundManager soundManager = SoundManager.Instance;
+        soundManager?.PlayStageWinBgm();
+        while (soundManager != null && soundManager.IsStageWinBgmPlaying)
+            yield return null;
+
+        Time.timeScale = 1f;
         stageManager.AdvanceAfterClear();
     }
 
@@ -2217,18 +2225,16 @@ public sealed class BombermanPrototype : MonoBehaviour
         stageManager.RestartStage();
     }
 
-    private IEnumerator StageIntroSequence(int stage, bool stageWasCleared)
+    private IEnumerator StageIntroSequence(int stage)
     {
         if (IsBonusStage)
             SoundManager.Instance?.PlayBonusStageBgm();
-        else if (stageWasCleared)
-            SoundManager.Instance?.PlayStageWinBgm();
 
         transitionActive = true;
         Time.timeScale = 0f;
         transitionOverlay.Show(IsBonusStage ? "BONUS STAGE" : $"STAGE {stage}", 1f);
         yield return new WaitForSecondsRealtime(StageCardHoldSeconds);
-        if (!stageWasCleared)
+        if (!IsBonusStage)
         {
             SoundManager soundManager = SoundManager.Instance;
             while (soundManager != null && soundManager.IsStageStartIntroBgmPlaying)
