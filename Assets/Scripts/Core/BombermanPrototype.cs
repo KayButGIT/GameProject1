@@ -2087,6 +2087,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         GameProgress.RequestedStage = 0;
         LogSpawnEvent($"Stage {stageManager.CurrentStage} of {stageManager.TotalStages} cleared. Returning to the title screen.");
         yield return ShowEndingCard(gameClearText, gameClearDelay);
+        yield return FadeEndingText();
 
         // The smoke tests build scenes without the title, so those keep playing instead.
         if (Application.CanStreamedLevelBeLoaded(titleSceneName))

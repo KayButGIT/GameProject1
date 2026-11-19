@@ -174,7 +174,7 @@ public sealed class SoundManager : MonoBehaviour
     public void PlayGameOverBgm() => PlayMusic(settings != null ? settings.gameOverBgm : null, settings != null ? settings.gameOverBgmVolume : 0f, false);
     public bool IsGameOverBgmPlaying => musicSource != null && settings != null && musicSource.clip == settings.gameOverBgm && musicSource.isPlaying;
     public void PlayStageWinBgm() => PlayMusic(settings != null ? settings.stageWinBgm : null, settings != null ? settings.stageWinBgmVolume : 0f);
-    public void PlayGameClearedBgm() => PlayMusic(settings != null ? settings.gameClearedBgm : null, settings != null ? settings.gameClearedBgmVolume : 0f);
+    public void PlayGameClearedBgm() => PlayMusic(settings != null ? settings.gameClearedBgm : null, settings != null ? settings.gameClearedBgmVolume : 0f, false);
 
     public void PlayMapBgm(int stagePhase)
     {

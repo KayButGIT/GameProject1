@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: BombermanSoundSettings
   m_EditorClassIdentifier: Assembly-CSharp::SoundManagerSettings
   sfxVolume: 1
-  titleScreenBgm: {fileID: 0}
-  titleScreenBgmVolume: 1
-  stageStartIntroBgm: {fileID: 0}
-  stageStartIntroBgmVolume: 1
+  titleScreenBgm: {fileID: 8300000, guid: 555c9c8af0e73d04cb32502c56bfb83e, type: 3}
+  titleScreenBgmVolume: 0.412
+  stageStartIntroBgm: {fileID: 8300000, guid: d8f0ed3d24c48e74c92f14f73ab96a0a, type: 3}
+  stageStartIntroBgmVolume: 0.427
   mapBgmPhases:
   - clip: {fileID: 0}
     volume: 0.55
@@ -25,17 +25,17 @@ MonoBehaviour:
   - clip: {fileID: 0}
     volume: 0.55
   bonusStageBgm: {fileID: 0}
-  bonusStageBgmVolume: 0.55
-  deadBgm: {fileID: 0}
-  deadBgmVolume: 0.65
-  gameOverBgm: {fileID: 0}
-  gameOverBgmVolume: 0.65
-  stageWinBgm: {fileID: 0}
-  stageWinBgmVolume: 0.65
-  gameClearedBgm: {fileID: 0}
-  gameClearedBgmVolume: 0.65
+  bonusStageBgmVolume: 0.486
+  deadBgm: {fileID: 8300000, guid: 704450dcd6fc49b419a61355737cdbd1, type: 3}
+  deadBgmVolume: 0.492
+  gameOverBgm: {fileID: 8300000, guid: 601bf24da9425ee499e12d64dd59ca8d, type: 3}
+  gameOverBgmVolume: 0.476
+  stageWinBgm: {fileID: 8300000, guid: 47e045d4ef838d143b49903bc193978f, type: 3}
+  stageWinBgmVolume: 0.476
+  gameClearedBgm: {fileID: 8300000, guid: 538fd4f344d12b348bb260175b2f07e5, type: 3}
+  gameClearedBgmVolume: 0.476
   powerUpPickup: {fileID: 8300000, guid: 7112cba4b175c354e853c261c354ffb2, type: 3}
-  powerUpPickupVolume: 1
+  powerUpPickupVolume: 0.935
   placeBomb: {fileID: 8300000, guid: c4d9f9c69f4a2894f9d44402dac71b7e, type: 3}
   placeBombVolume: 0.573
   bombExplode: {fileID: 8300000, guid: c7a7c00c6561f6a4092ea81c29c5ffb4, type: 3}

@@ -337,8 +337,8 @@ MonoBehaviour:
   playerLives: 2
   titleSceneName: Title
   gameOverDelay: 2.5
-  gameClearText: ALL STAGES CLEAR
-  gameClearDelay: 4
+  gameClearText: GAME CLEAR!
+  gameClearDelay: 11
   playerDeathAnimationTime: 1.2
   playerDeathParticleTime: 0.6
   playerBurnDissolveDelay: 0.5
