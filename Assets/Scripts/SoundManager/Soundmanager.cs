@@ -19,6 +19,7 @@ public sealed class SoundManager : MonoBehaviour
     private AudioSource sfxSource;
     private AudioSource footstepSource;
     private AudioSource musicSource;
+    private Coroutine musicFadeCoroutine;
     private bool exitOpenPlayedThisStage;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -103,6 +104,7 @@ public sealed class SoundManager : MonoBehaviour
     private void PlayMusic(AudioClip clip, float volume, bool loop = true)
     {
         if (musicSource == null) return;
+        StopMusicFade();
         musicSource.volume = Mathf.Clamp01(volume);
         musicSource.loop = loop;
         if (musicSource.clip == clip && (clip == null || musicSource.isPlaying)) return;
@@ -114,8 +116,53 @@ public sealed class SoundManager : MonoBehaviour
     public void StopMusic()
     {
         if (musicSource == null) return;
+        StopMusicFade();
         musicSource.Stop();
         musicSource.clip = null;
+    }
+
+    public void FadeOutTitleScreenBgm(float seconds)
+    {
+        if (musicSource == null || settings == null || musicSource.clip != settings.titleScreenBgm)
+        {
+            return;
+        }
+
+        StopMusicFade();
+        musicFadeCoroutine = StartCoroutine(FadeOutMusic(seconds));
+    }
+
+    private System.Collections.IEnumerator FadeOutMusic(float seconds)
+    {
+        float startingVolume = musicSource.volume;
+        if (seconds <= 0f)
+        {
+            musicSource.volume = 0f;
+            musicFadeCoroutine = null;
+            yield break;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < seconds && musicSource != null)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            musicSource.volume = Mathf.Lerp(startingVolume, 0f, elapsed / seconds);
+            yield return null;
+        }
+
+        if (musicSource != null)
+        {
+            musicSource.volume = 0f;
+        }
+
+        musicFadeCoroutine = null;
+    }
+
+    private void StopMusicFade()
+    {
+        if (musicFadeCoroutine == null) return;
+        StopCoroutine(musicFadeCoroutine);
+        musicFadeCoroutine = null;
     }
 
     public void PlayTitleScreenBgm() => PlayMusic(settings != null ? settings.titleScreenBgm : null, settings != null ? settings.titleScreenBgmVolume : 0f);

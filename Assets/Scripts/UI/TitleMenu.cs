@@ -20,6 +20,8 @@ public sealed class TitleMenu : MonoBehaviour
     [SerializeField] private string continueLabelFormat = "Continue (Stage {0})";
     [Tooltip("Seconds for the short fade-to-black before loading the game scene.")]
     [SerializeField, Min(0f)] private float preLoadFadeSeconds = 0.8f;
+    [Tooltip("Seconds for the title music to fade out after a button is pressed.")]
+    [SerializeField, Min(0f)] private float titleBgmFadeSeconds = 1.2f;
     [SerializeField] private Transform titlePlayer;
     [SerializeField] private Material burntBodyMaterial;
     [SerializeField] private Material burntFaceMaterial;
@@ -145,6 +147,7 @@ public sealed class TitleMenu : MonoBehaviour
         if (actionPending) return false;
 
         actionPending = true;
+        SoundManager.Instance?.FadeOutTitleScreenBgm(titleBgmFadeSeconds);
 
         if (titleAnimator != null)
         {
