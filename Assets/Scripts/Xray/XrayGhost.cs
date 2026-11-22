@@ -12,7 +12,7 @@ public sealed class XrayVision : MonoBehaviour
     private const int MaxOverlapBounds = 9;
     private const string ShaderResourceName = "ActorXray";
     private const string ShaderName = "Bomberman/Actor Xray";
-    private const float FadeSeconds = 0.3f;
+    private const float VisibilityStabilitySeconds = 0.08f;
     private static readonly int ColorId = Shader.PropertyToID("_XrayColor");
     private static readonly int IntensityId = Shader.PropertyToID("_Intensity");
     private static readonly int OpacityId = Shader.PropertyToID("_Opacity");
@@ -29,6 +29,8 @@ public sealed class XrayVision : MonoBehaviour
     private readonly List<GameObject> ghosts = new();
     private bool built;
     private bool ghostsVisible;
+    private bool wanted;
+    private float wantedChangeTimer;
     private float blend;
     private readonly Bounds[] overlapBounds = new Bounds[MaxOverlapBounds];
     private readonly Vector4[] overlapBoundsMin = new Vector4[MaxOverlapBounds];
@@ -57,7 +59,21 @@ public sealed class XrayVision : MonoBehaviour
         int overlapBoundsCount = !actor.IsDead && actor.CanPassDestructibleWalls
             ? game.GetNearbyDestructibleBlockBounds(actor.transform.position, overlapBounds)
             : 0;
-        bool wanted = overlapBoundsCount > 0;
+        bool rawWanted = overlapBoundsCount > 0 && game.IsInsideDestructibleBlock(actor.transform.position);
+        if (rawWanted == wanted)
+        {
+            wantedChangeTimer = 0f;
+        }
+        else
+        {
+            wantedChangeTimer += Time.unscaledDeltaTime;
+            if (wantedChangeTimer >= VisibilityStabilitySeconds)
+            {
+                wanted = rawWanted;
+                wantedChangeTimer = 0f;
+            }
+        }
+
         if (wanted && !built) Build();
         if (!built || material == null) return;
 
@@ -65,15 +81,16 @@ public sealed class XrayVision : MonoBehaviour
             SetOverlapBounds(overlapBoundsCount);
 
         material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
-        material.SetFloat(OpacityId, game.XrayOpacity);
+        material.SetFloat(OpacityId, game.GetXrayOpacity(actor.IsPlayer));
         if (outlineMaterial != null)
         {
             outlineMaterial.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
-            outlineMaterial.SetFloat(OpacityId, game.XrayOpacity);
-            outlineMaterial.SetFloat(OutlinePixelsId, game.XrayOutlineWidthPixels);
-            outlineMaterial.SetFloat(OutlineBrightnessId, game.XrayOutlineBrightness);
+            outlineMaterial.SetFloat(OpacityId, game.GetXrayOpacity(actor.IsPlayer));
+            outlineMaterial.SetFloat(OutlinePixelsId, game.GetXrayOutlineWidthPixels(actor.IsPlayer));
+            outlineMaterial.SetFloat(OutlineBrightnessId, game.GetXrayOutlineBrightness(actor.IsPlayer));
         }
-        blend = Mathf.MoveTowards(blend, wanted ? 1f : 0f, Time.unscaledDeltaTime / FadeSeconds);
+        float fadeSeconds = Mathf.Max(0.01f, game.XrayFadeSeconds);
+        blend = Mathf.MoveTowards(blend, wanted ? 1f : 0f, Time.unscaledDeltaTime / fadeSeconds);
         material.SetFloat(IntensityId, blend);
         if (outlineMaterial != null) outlineMaterial.SetFloat(IntensityId, blend);
         if (!wanted && blend <= 0.001f)
@@ -135,7 +152,7 @@ public sealed class XrayVision : MonoBehaviour
 
         material = new Material(shader) { name = "Actor Xray" };
         material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
-        material.SetFloat(OpacityId, game.XrayOpacity);
+        material.SetFloat(OpacityId, game.GetXrayOpacity(actor.IsPlayer));
         material.SetFloat(IntensityId, 0f);
 
         Shader outlineShader = Resources.Load<Shader>("ActorXrayOutline");
@@ -144,9 +161,9 @@ public sealed class XrayVision : MonoBehaviour
         {
             outlineMaterial = new Material(outlineShader) { name = "Actor Xray Outline" };
             outlineMaterial.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
-            outlineMaterial.SetFloat(OpacityId, game.XrayOpacity);
-            outlineMaterial.SetFloat(OutlinePixelsId, game.XrayOutlineWidthPixels);
-            outlineMaterial.SetFloat(OutlineBrightnessId, game.XrayOutlineBrightness);
+            outlineMaterial.SetFloat(OpacityId, game.GetXrayOpacity(actor.IsPlayer));
+            outlineMaterial.SetFloat(OutlinePixelsId, game.GetXrayOutlineWidthPixels(actor.IsPlayer));
+            outlineMaterial.SetFloat(OutlineBrightnessId, game.GetXrayOutlineBrightness(actor.IsPlayer));
             outlineMaterial.SetFloat(IntensityId, 0f);
         }
         else
@@ -221,6 +238,8 @@ public sealed class XrayVision : MonoBehaviour
     private void OnDisable()
     {
         blend = 0f;
+        wanted = false;
+        wantedChangeTimer = 0f;
         if (material != null) material.SetFloat(IntensityId, 0f);
         if (outlineMaterial != null) outlineMaterial.SetFloat(IntensityId, 0f);
         SetGhostsVisible(false);

@@ -21,6 +21,7 @@ Shader "Bomberman/Xray Occluder"
             ColorMask 0
             ZWrite Off
             ZTest LEqual
+            Offset -1, -1
             Cull Back
             Stencil
             {
