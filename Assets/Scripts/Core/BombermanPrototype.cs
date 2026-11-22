@@ -29,8 +29,12 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     public Color GetXrayColor(bool isPlayer) => isPlayer ? playerXrayColor : enemyXrayColor;
     public float XrayOpacity => xrayOpacity;
+    public float GetXrayOpacity(bool isPlayer) => isPlayer ? xrayOpacity : enemyXrayOpacity;
     public float XrayOutlineWidthPixels => xrayOutlineWidthPixels;
+    public float GetXrayOutlineWidthPixels(bool isPlayer) => isPlayer ? xrayOutlineWidthPixels : enemyXrayOutlineWidthPixels;
     public float XrayOutlineBrightness => xrayOutlineBrightness;
+    public float GetXrayOutlineBrightness(bool isPlayer) => isPlayer ? xrayOutlineBrightness : enemyXrayOutlineBrightness;
+    public float XrayFadeSeconds => xrayFadeSeconds;
 
     [Header("Map")]
     [SerializeField] private int width = 31;
@@ -99,10 +103,18 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private Color enemyXrayColor = new(1f, 0.4f, 0.3f, 1f);
     [Tooltip("Transparency of the X-ray highlight while it is fully visible.")]
     [SerializeField, Range(0f, 1f)] private float xrayOpacity = 0.22f;
+    [Tooltip("Transparency of the enemy X-ray highlight while it is fully visible.")]
+    [SerializeField, Range(0f, 1f)] private float enemyXrayOpacity = 0.22f;
     [Tooltip("Screen-space thickness of the X-ray outer outline, in pixels.")]
     [SerializeField, Range(1f, 8f)] private float xrayOutlineWidthPixels = 2f;
+    [Tooltip("Screen-space thickness of the enemy X-ray outer outline, in pixels.")]
+    [SerializeField, Range(1f, 8f)] private float enemyXrayOutlineWidthPixels = 2f;
     [Tooltip("Brightness of the X-ray outer outline, independent of the silhouette opacity.")]
     [SerializeField, Range(0f, 3f)] private float xrayOutlineBrightness = 1f;
+    [Tooltip("Brightness of the enemy X-ray outer outline, independent of its silhouette opacity.")]
+    [SerializeField, Range(0f, 3f)] private float enemyXrayOutlineBrightness = 1f;
+    [Tooltip("Seconds for the wall-pass X-ray to fade in or out.")]
+    [SerializeField, Min(0.01f)] private float xrayFadeSeconds = 0.3f;
 
     [Header("Scoring")]
     [Tooltip("Score for killing each enemy type.")]
@@ -692,6 +704,11 @@ public sealed class BombermanPrototype : MonoBehaviour
     public int GetNearbyDestructibleBlockBounds(Vector3 worldPosition, Bounds[] results)
     {
         return map != null ? map.GetNearbyDestructibleBounds(worldPosition, results) : 0;
+    }
+
+    public bool IsInsideDestructibleBlock(Vector3 worldPosition)
+    {
+        return map != null && map.IsInsideDestructibleBlock(worldPosition);
     }
 
     private void ConfigureCamera()

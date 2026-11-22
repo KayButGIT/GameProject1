@@ -383,6 +383,11 @@ public sealed class BombermanMap
         return count;
     }
 
+    public bool IsInsideDestructibleBlock(Vector3 worldPosition)
+    {
+        return GetCellKind(WorldToCell(worldPosition)) == CellKind.Destructible;
+    }
+
     private CellKind GetInitialCellKind(Vector2Int cell)
     {
         if (IsBorderCell(cell) || (cell.x % 2 == 0 && cell.y % 2 == 0))
