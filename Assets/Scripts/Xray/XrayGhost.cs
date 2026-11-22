@@ -26,9 +26,12 @@ public sealed class XrayVision : MonoBehaviour
     private BombermanPrototype game;
     private Material material;
     private Material outlineMaterial;
+    private Renderer slimeBody;
+    private MaterialPropertyBlock slimeProperties;
     private readonly List<GameObject> ghosts = new();
     private bool built;
     private bool ghostsVisible;
+    private bool slimeClippingActive;
     private bool wanted;
     private float wantedChangeTimer;
     private float blend;
@@ -59,7 +62,10 @@ public sealed class XrayVision : MonoBehaviour
         int overlapBoundsCount = !actor.IsDead && actor.CanPassDestructibleWalls
             ? game.GetNearbyDestructibleBlockBounds(actor.transform.position, overlapBounds)
             : 0;
-        bool rawWanted = overlapBoundsCount > 0 && game.IsInsideDestructibleBlock(actor.transform.position);
+        // Doria starts fading in ahead of the overlap so the silhouette is ready when its blue body is clipped.
+        bool hasSlimeBody = actor is DoriaEnemy && actor.BodyRenderer != null;
+        bool rawWanted = overlapBoundsCount > 0
+            && (hasSlimeBody || game.IsInsideDestructibleBlock(actor.transform.position));
         if (rawWanted == wanted)
         {
             wantedChangeTimer = 0f;
@@ -79,6 +85,7 @@ public sealed class XrayVision : MonoBehaviour
 
         if (overlapBoundsCount > 0)
             SetOverlapBounds(overlapBoundsCount);
+        UpdateSlimeClipping(overlapBoundsCount);
 
         material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
         material.SetFloat(OpacityId, game.GetXrayOpacity(actor.IsPlayer));
@@ -99,6 +106,22 @@ public sealed class XrayVision : MonoBehaviour
             if (outlineMaterial != null) outlineMaterial.SetFloat(OverlapBoundsCountId, 0f);
         }
         SetGhostsVisible(blend > 0.001f);
+    }
+
+    private void UpdateSlimeClipping(int count)
+    {
+        if (slimeBody == null || (count == 0 && !slimeClippingActive)) return;
+
+        slimeProperties ??= new MaterialPropertyBlock();
+        slimeBody.GetPropertyBlock(slimeProperties);
+        if (count > 0)
+        {
+            slimeProperties.SetVectorArray(OverlapBoundsMinId, overlapBoundsMin);
+            slimeProperties.SetVectorArray(OverlapBoundsMaxId, overlapBoundsMax);
+        }
+        slimeProperties.SetFloat(OverlapBoundsCountId, count);
+        slimeBody.SetPropertyBlock(slimeProperties);
+        slimeClippingActive = count > 0;
     }
 
     private void SetOverlapBounds(int count)
@@ -154,6 +177,7 @@ public sealed class XrayVision : MonoBehaviour
         material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
         material.SetFloat(OpacityId, game.GetXrayOpacity(actor.IsPlayer));
         material.SetFloat(IntensityId, 0f);
+        if (actor is DoriaEnemy) slimeBody = actor.BodyRenderer;
 
         Shader outlineShader = Resources.Load<Shader>("ActorXrayOutline");
         if (outlineShader == null) outlineShader = Shader.Find("Bomberman/Actor Xray Outline");
@@ -237,6 +261,7 @@ public sealed class XrayVision : MonoBehaviour
 
     private void OnDisable()
     {
+        UpdateSlimeClipping(0);
         blend = 0f;
         wanted = false;
         wantedChangeTimer = 0f;

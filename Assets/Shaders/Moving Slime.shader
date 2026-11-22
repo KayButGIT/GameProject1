@@ -119,6 +119,9 @@ Shader "VFX/Slime_Lit_Matcap_Triplanar_Top"
             float  _WaveSpeed;
             float  _Roundness;
             float  _RoundRadius;
+            float4 _OverlapBoundsMin[9];
+            float4 _OverlapBoundsMax[9];
+            float  _OverlapBoundsCount;
         CBUFFER_END
 
         TEXTURE2D(_BaseTex);       SAMPLER(sampler_BaseTex);
@@ -181,6 +184,24 @@ Shader "VFX/Slime_Lit_Matcap_Triplanar_Top"
         #endif
             return posOS;
         }
+
+        // Let the X-ray pass draw slime inside a breakable block, where the two meshes can intersect.
+        void ClipInsideBreakableBlocks(float3 positionWS)
+        {
+            float insideBlock = 0.0;
+            [unroll]
+            for (int i = 0; i < 9; i++)
+            {
+                if (i < _OverlapBoundsCount)
+                {
+                    float3 insideMin = step(_OverlapBoundsMin[i].xyz, positionWS);
+                    float3 insideMax = step(positionWS, _OverlapBoundsMax[i].xyz);
+                    insideBlock = max(insideBlock, insideMin.x * insideMin.y * insideMin.z
+                        * insideMax.x * insideMax.y * insideMax.z);
+                }
+            }
+            clip(0.5 - insideBlock);
+        }
         ENDHLSL
 
         // ---------- Depth prepass: slime sorts against itself ----------
@@ -198,15 +219,24 @@ Shader "VFX/Slime_Lit_Matcap_Triplanar_Top"
             #pragma shader_feature_local _VERTEX_WIGGLE
 
             struct A { float4 positionOS : POSITION; };
-            struct V { float4 positionCS : SV_POSITION; };
+            struct V
+            {
+                float4 positionCS : SV_POSITION;
+                float3 positionWS : TEXCOORD0;
+            };
 
             V vertDepth(A i)
             {
                 V o;
-                o.positionCS = TransformObjectToHClip(DisplaceOS(i.positionOS.xyz));
+                o.positionWS = TransformObjectToWorld(DisplaceOS(i.positionOS.xyz));
+                o.positionCS = TransformWorldToHClip(o.positionWS);
                 return o;
             }
-            half4 fragDepth(V i) : SV_Target { return 0; }
+            half4 fragDepth(V i) : SV_Target
+            {
+                ClipInsideBreakableBlocks(i.positionWS);
+                return 0;
+            }
             ENDHLSL
         }
 
@@ -287,6 +317,7 @@ Shader "VFX/Slime_Lit_Matcap_Triplanar_Top"
 
             half4 frag(Varyings IN) : SV_Target
             {
+                ClipInsideBreakableBlocks(IN.positionWS);
                 float3 V    = normalize(GetWorldSpaceViewDir(IN.positionWS));
                 float  os   = _ObjectSpace;
                 float  tile = _OverallTilesMultiply;

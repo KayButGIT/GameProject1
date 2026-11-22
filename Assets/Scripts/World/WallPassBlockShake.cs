@@ -1,12 +1,16 @@
 using UnityEngine;
 
+// Update after BombermanPrototype selects shaking blocks and before XrayVision samples them.
+[DefaultExecutionOrder(-50)]
 public sealed class WallPassBlockShake : MonoBehaviour
 {
     private const float Amplitude = 0.015f;
     private const float Frequency = 14f;
 
     private Transform visual;
+    private Transform xrayOccluder;
     private Vector3 originalLocalPosition;
+    private Vector3 worldOffset;
     private Bounds stableVisualBounds;
     private Material debrisMaterial;
     private bool hasStableVisualBounds;
@@ -41,6 +45,15 @@ public sealed class WallPassBlockShake : MonoBehaviour
         bounds = stableVisualBounds;
         return hasStableVisualBounds;
     }
+
+    internal bool TryGetCurrentVisualBounds(out Bounds bounds)
+    {
+        bool hasBounds = TryGetStableVisualBounds(out bounds);
+        bounds.center += worldOffset;
+        return hasBounds;
+    }
+
+    internal void SetXrayOccluder(Transform occluder) => xrayOccluder = occluder;
 
     public void SetShaking(bool shaking)
     {
@@ -95,17 +108,26 @@ public sealed class WallPassBlockShake : MonoBehaviour
     {
         if (!isShaking || visual == null) return;
         float phase = Time.time * Frequency * Mathf.PI * 2f;
-        visual.localPosition = originalLocalPosition + new Vector3(
+        ApplyOffset(new Vector3(
             Mathf.Sin(phase) * Amplitude,
             0f,
-            Mathf.Sin(phase * 1.17f + 1.2f) * Amplitude);
+            Mathf.Sin(phase * 1.17f + 1.2f) * Amplitude));
+    }
+
+    private void ApplyOffset(Vector3 localOffset)
+    {
+        if (visual == null) return;
+        visual.localPosition = originalLocalPosition + localOffset;
+        worldOffset = visual.parent.TransformVector(localOffset);
+        if (xrayOccluder != null)
+            xrayOccluder.localPosition = xrayOccluder.parent.InverseTransformVector(worldOffset);
     }
 
     private void OnDisable() => RestoreVisualPosition();
 
     private void RestoreVisualPosition()
     {
-        if (visual != null) visual.localPosition = originalLocalPosition;
+        ApplyOffset(Vector3.zero);
         isShaking = false;
     }
 }

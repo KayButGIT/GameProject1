@@ -14,6 +14,7 @@ public sealed class BombermanMap
     private System.Random layoutRandom;
     private System.Random visualRandom;
     private readonly Dictionary<Vector2Int, GameObject> blocks = new();
+    private readonly Dictionary<Vector2Int, GameObject> breakableXrayOccluders = new();
     private readonly Dictionary<Vector2Int, GameObject> floors = new();
     private readonly Dictionary<Vector2Int, CellKind> cells = new();
     private static Material xraySolidOccluderMaterial;
@@ -46,6 +47,7 @@ public sealed class BombermanMap
         mapRoot.transform.SetParent(parent, false);
         cells.Clear();
         blocks.Clear();
+        breakableXrayOccluders.Clear();
         floors.Clear();
 
         for (int x = 0; x < width; x++)
@@ -73,8 +75,7 @@ public sealed class BombermanMap
         if (Application.isPlaying) CreateXrayOccluders(mapRoot.transform);
     }
 
-    // Turns the masks over the middle pillars and the border on or off.
-    // They are on only while a Wall Pass character shows its silhouette, so they cost nothing the rest of the time.
+    // Only render the masks while a Wall Pass character shows its silhouette.
     public void SetXrayOccluders(bool active)
     {
         if (xrayOccluders != null && xrayOccluders.activeSelf != active) xrayOccluders.SetActive(active);
@@ -90,8 +91,7 @@ public sealed class BombermanMap
         }
     }
 
-    // Invisible copies of the solid blocks and the border model that only mark the stencil buffer.
-    // The Actor Xray shader skips marked pixels, so the silhouette shows through breakable blocks but never through these.
+    // Invisible copies mark which pixels belong to breakable blocks and which belong to solid walls.
     private void CreateXrayOccluders(Transform mapRoot)
     {
         if (xraySolidOccluderMaterial == null || xrayBreakableOccluderMaterial == null)
@@ -125,17 +125,24 @@ public sealed class BombermanMap
             if (block.Value == null) continue;
             CellKind kind = GetCellKind(block.Key);
             if (kind == CellKind.Solid)
-                AddXrayOccluders(block.Value.transform, xraySolidOccluderMaterial);
+                AddXrayOccluders(block.Value.transform, xrayOccluders.transform, xraySolidOccluderMaterial);
             else if (kind == CellKind.Destructible)
-                AddXrayOccluders(block.Value.transform, xrayBreakableOccluderMaterial);
+            {
+                GameObject group = new($"Xray Occluders {block.Value.name}");
+                group.transform.SetParent(xrayOccluders.transform, false);
+                AddXrayOccluders(block.Value.transform, group.transform, xrayBreakableOccluderMaterial);
+                breakableXrayOccluders.Add(block.Key, group);
+                if (block.Value.TryGetComponent(out WallPassBlockShake shake))
+                    shake.SetXrayOccluder(group.transform);
+            }
         }
 
         Transform border = mapRoot.Find("Arena Border");
-        if (border != null) AddXrayOccluders(border, xraySolidOccluderMaterial);
+        if (border != null) AddXrayOccluders(border, xrayOccluders.transform, xraySolidOccluderMaterial);
         xrayOccluders.SetActive(false);
     }
 
-    private void AddXrayOccluders(Transform source, Material maskMaterial)
+    private static void AddXrayOccluders(Transform source, Transform maskParent, Material maskMaterial)
     {
         foreach (MeshFilter filter in source.GetComponentsInChildren<MeshFilter>())
         {
@@ -143,7 +150,7 @@ public sealed class BombermanMap
             if (renderer == null || !renderer.enabled || filter.sharedMesh == null) continue;
 
             GameObject copy = new("Xray Occluder");
-            copy.transform.SetParent(xrayOccluders.transform, false);
+            copy.transform.SetParent(maskParent, false);
             copy.transform.SetPositionAndRotation(filter.transform.position, filter.transform.rotation);
             copy.transform.localScale = filter.transform.lossyScale;
             copy.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
@@ -156,6 +163,13 @@ public sealed class BombermanMap
             copyRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
             copyRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
         }
+    }
+
+    private void RemoveBreakableXrayOccluder(Vector2Int cell)
+    {
+        if (!breakableXrayOccluders.Remove(cell, out GameObject group) || group == null) return;
+        group.SetActive(false);
+        UnityEngine.Object.Destroy(group);
     }
 
     public CellKind GetCellKind(Vector2Int cell)
@@ -176,6 +190,7 @@ public sealed class BombermanMap
         }
 
         cells[cell] = CellKind.Empty;
+        RemoveBreakableXrayOccluder(cell);
         if (blocks.TryGetValue(cell, out GameObject block))
         {
             if (block != null)
@@ -198,6 +213,7 @@ public sealed class BombermanMap
         if (GetCellKind(cell) != CellKind.Destructible) return null;
 
         cells[cell] = CellKind.Empty;
+        RemoveBreakableXrayOccluder(cell);
         GameObject block = null;
         if (blocks.TryGetValue(cell, out block))
         {
@@ -356,9 +372,9 @@ public sealed class BombermanMap
                 if (blockCollider == null || !blockCollider.enabled) continue;
 
                 WallPassBlockShake shake = block.GetComponent<WallPassBlockShake>();
-                if (shake != null && shake.TryGetStableVisualBounds(out Bounds stableVisualBounds))
+                if (shake != null && shake.TryGetCurrentVisualBounds(out Bounds currentVisualBounds))
                 {
-                    results[count++] = stableVisualBounds;
+                    results[count++] = currentVisualBounds;
                     continue;
                 }
 

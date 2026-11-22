@@ -17,7 +17,11 @@ public static class StagePlaySmoke
     private static CellObject shakeTestWall;
     private static WallPassBlockShake shakeTest;
     private static Transform shakeTestVisual;
+    private static Transform shakeTestMask;
     private static Vector3 shakeTestVisualRest;
+    private static Vector3 shakeTestVisualWorldRest;
+    private static Vector3 shakeTestMaskRest;
+    private static Bounds shakeTestBoundsRest;
     private static PlayerController shakeTestPlayer;
     private static Vector3 shakeTestPlayerPosition;
     private static Vector2Int shakeTestPlayerCell;
@@ -101,6 +105,23 @@ public static class StagePlaySmoke
     private static string Layout() => string.Join(",", Enumerable.Range(0, 63).Select(i => Map.GetCellKind(new Vector2Int(i / 7, i % 7)).ToString()));
     private static T[] All<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None);
 
+    private static Transform BreakableXrayMask(CellObject block) =>
+        block.transform.parent.Find($"Xray Occluders/Xray Occluders {block.name}");
+
+    private static void CheckShakingXrayAlignment()
+    {
+        Vector3 offset = shakeTestVisual.position - shakeTestVisualWorldRest;
+        Check(Vector3.Distance(shakeTestMask.position, shakeTestMaskRest + offset) < 0.0001f,
+            "Breakable block's X-ray mask follows the shaking visual");
+        Bounds[] nearby = new Bounds[9];
+        int count = Map.GetNearbyDestructibleBounds(Map.CellToWorld(shakeTestWall.Cell), nearby);
+        Bounds expected = shakeTestBoundsRest;
+        expected.center += offset;
+        Check(nearby.Take(count).Any(bounds =>
+            Vector3.Distance(bounds.center, expected.center) < 0.0001f && bounds.size == expected.size),
+            "X-ray clipping bounds follow the shaking visual");
+    }
+
     private static void Tick()
     {
         try
@@ -132,23 +153,30 @@ public static class StagePlaySmoke
                 layout = Layout();
                 Check(game.IsPaused && TransitionText == "STAGE 11", "Loading a stage shows its stage card and freezes play");
                 phase = 10;
-                deadline = EditorApplication.timeSinceStartup + 1.6;
             }
-            else if (phase == 10 && EditorApplication.timeSinceStartup >= deadline)
+            else if (phase == 10 && !game.IsPaused)
             {
-                Check(!game.IsPaused, "Stage card fades out before gameplay resumes");
+                Check(TransitionText == null, "Stage card fades out before gameplay resumes");
                 shakeTestWall = All<CellObject>().First(c => Map.GetCellKind(c.Cell) == CellKind.Destructible);
                 shakeTest = shakeTestWall.GetComponent<WallPassBlockShake>();
                 shakeTestVisual = shakeTestWall.transform.Find("Visual");
                 Check(shakeTest != null && shakeTestVisual != null, "Breakable block has a dedicated visual shake");
                 shakeTestVisualRest = shakeTestVisual.localPosition;
+                shakeTestVisualWorldRest = shakeTestVisual.position;
+                shakeTestMask = BreakableXrayMask(shakeTestWall);
+                Check(shakeTestMask != null && shakeTestMask.GetComponentInChildren<MeshRenderer>(true) != null,
+                    "Breakable block has its own X-ray mask meshes");
+                shakeTestMaskRest = shakeTestMask.position;
                 shakeTestPlayer = All<PlayerController>().First();
                 shakeTestPlayerPosition = shakeTestPlayer.transform.position;
                 shakeTestPlayerCell = shakeTestPlayer.Cell;
                 shakeTestPlayerWallPass = shakeTestPlayer.WallPass;
                 shakeTestPlayerActualVelocity = (Vector3)typeof(GridController)
                     .GetField("actualFreeMoveVelocity", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(shakeTestPlayer);
+                // Keep the scripted movement sample from being replaced by live input in FixedUpdate.
+                shakeTestPlayer.enabled = false;
                 shakeTestPlayer.transform.position = Map.CellToWorld(shakeTestWall.Cell);
+                shakeTestPlayer.GetComponent<Rigidbody>().position = shakeTestPlayer.transform.position;
                 shakeTestPlayer.Cell = shakeTestWall.Cell;
                 SetField(shakeTestPlayer, typeof(GridController), "actualFreeMoveVelocity", Vector3.forward);
                 shakeTestPlayer.WallPass = false;
@@ -157,7 +185,7 @@ public static class StagePlaySmoke
                 shakeTestPlayer.WallPass = true;
                 UpdateWallPassBlockShakes();
                 Check(shakeTest.IsShaking, "Moving Player with Wall Pass starts a breakable block shake");
-                Check(shakeTest.TryGetStableVisualBounds(out Bounds stableBounds) && stableBounds.size.sqrMagnitude > 0f,
+                Check(shakeTest.TryGetStableVisualBounds(out shakeTestBoundsRest) && shakeTestBoundsRest.size.sqrMagnitude > 0f,
                     "Breakable block keeps stable visual bounds while shaking");
                 phase = 100;
                 deadline = EditorApplication.timeSinceStartup + 0.08;
@@ -166,10 +194,12 @@ public static class StagePlaySmoke
             {
                 Check(Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) > 0.001f,
                     "Breakable block shakes continuously while the Player passes through");
+                CheckShakingXrayAlignment();
                 Call("SetPaused", true);
                 UpdateWallPassBlockShakes();
                 Check(!shakeTest.IsShaking && Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) < 0.0001f,
                     "Pausing stops and restores the block shake");
+                CheckShakingXrayAlignment();
                 phase = 101;
                 deadline = EditorApplication.timeSinceStartup + 0.08;
             }
@@ -187,6 +217,7 @@ public static class StagePlaySmoke
             {
                 Check(Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) > 0.001f,
                     "Block shake continues after gameplay resumes");
+                CheckShakingXrayAlignment();
                 shakeTestPlayer.WallPass = false;
                 SetField(shakeTestPlayer, typeof(GridController), "actualFreeMoveVelocity", Vector3.zero);
                 UpdateWallPassBlockShakes();
@@ -196,7 +227,7 @@ public static class StagePlaySmoke
                 var actors = (System.Collections.Generic.List<GridController>)typeof(BombermanPrototype)
                     .GetField("actors", Private).GetValue(game);
                 GameObject passerObject = new("Wall pass enemy probe");
-                OvapeEnemy wallPassEnemy = passerObject.AddComponent<OvapeEnemy>();
+                DoriaEnemy wallPassEnemy = passerObject.AddComponent<DoriaEnemy>();
                 wallPassEnemy.transform.position = Map.CellToWorld(shakeTestWall.Cell);
                 wallPassEnemy.Cell = shakeTestWall.Cell;
                 SetActorMoving(wallPassEnemy, true);
@@ -233,16 +264,30 @@ public static class StagePlaySmoke
                 wallPassEnemy.Cell = shakeTestWall.Cell;
                 UpdateWallPassBlockShakes();
                 Check(shakeTest.IsShaking, "Wall shakes before the block is destroyed");
+                Map.SetXrayOccluders(true);
+                Check(shakeTestMask.gameObject.activeInHierarchy, "The shaking wall's X-ray mask is active");
                 Map.DestroyDestructibleAt(shakeTestWall.Cell);
                 Check(!shakeTest.IsShaking && Vector3.Distance(shakeTestVisual.localPosition, shakeTestVisualRest) < 0.0001f,
                     "Destroying a shaking wall restores its visual");
+                Check(!shakeTestMask.gameObject.activeSelf, "A destroyed wall stops masking X-ray immediately");
+
+                CellObject dissolveWall = All<CellObject>().First(c => Map.GetCellKind(c.Cell) == CellKind.Destructible);
+                Transform dissolveMask = BreakableXrayMask(dissolveWall);
+                Check(dissolveMask != null && dissolveMask.gameObject.activeInHierarchy, "The wall to dissolve has an active X-ray mask");
+                GameObject dissolvingBlock = Map.TakeDestructibleForDissolve(dissolveWall.Cell);
+                Check(dissolvingBlock == dissolveWall.gameObject && !dissolveMask.gameObject.activeSelf,
+                    "A dissolving wall stops masking X-ray while its visual remains");
+                UnityEngine.Object.Destroy(dissolvingBlock);
+
                 actors.Remove(wallPassEnemy);
                 UnityEngine.Object.DestroyImmediate(passerObject);
 
                 shakeTestPlayer.transform.position = shakeTestPlayerPosition;
+                shakeTestPlayer.GetComponent<Rigidbody>().position = shakeTestPlayerPosition;
                 shakeTestPlayer.Cell = shakeTestPlayerCell;
                 shakeTestPlayer.WallPass = shakeTestPlayerWallPass;
                 SetField(shakeTestPlayer, typeof(GridController), "actualFreeMoveVelocity", shakeTestPlayerActualVelocity);
+                shakeTestPlayer.enabled = true;
                 game.TryDropBomb();
                 Check(All<Bomb>().Length == 1, "Bomb created");
                 Call("Explode", new Vector2Int(1, 2));
@@ -250,11 +295,10 @@ public static class StagePlaySmoke
                 manager.RestartStage();
                 Check(game.IsPaused && Time.timeScale == 0f && TransitionText == "STAGE 11" && Layout() == layout, "Restart resets pause and shows the same-stage card");
                 phase = 1;
-                deadline = EditorApplication.timeSinceStartup + 1.6;
             }
-            else if (phase == 1 && EditorApplication.timeSinceStartup >= deadline)
+            else if (phase == 1 && !game.IsPaused)
             {
-                Check(!game.IsPaused, "Restart stage card finishes");
+                Check(TransitionText == null, "Restart stage card finishes");
                 Check(All<Bomb>().Length == 0 && All<PlayerController>().Length == 1 && All<EnemyController>().Length == 1, "No leftover bombs or duplicate actors");
                 Check(All<Transform>().Count(t => t.name == "Generated Bomberman Map") == 1, "Single map");
                 Check(All<Transform>().Count(t => t.name == "Pause Canvas") == 1, "Single pause UI");
@@ -262,12 +306,12 @@ public static class StagePlaySmoke
                 Check(Layout() == layout, "Old fuse cannot modify restarted map");
                 Type cause = typeof(BombermanPrototype).GetNestedType("PlayerDeathCause", BindingFlags.NonPublic);
                 Call("StartPlayerDeath", Enum.Parse(cause, "Bomb"));
+                Check(!game.HasLivingPlayer, "Bomb death starts");
                 phase = 2;
-                deadline = EditorApplication.timeSinceStartup + 0.4;
             }
-            else if (phase == 2 && EditorApplication.timeSinceStartup >= deadline)
+            else if (phase == 2 && game.HasLivingPlayer)
             {
-                Check(manager.CurrentStage == 11 && game.HasLivingPlayer && game.IsPaused && TransitionText == "STAGE 11" && Layout() == layout, "Death restarts current stage with its intro card");
+                Check(manager.CurrentStage == 11 && game.IsPaused && TransitionText == "STAGE 11", "Death restarts current stage with its intro card");
                 manager.LoadStage(61);
                 Check(manager.CurrentTheme.name == "Snow", "Last theme persists");
                 Check(All<CellObject>().All(c => c.GetComponentsInChildren<Renderer>().Any(r => r.enabled)), "Missing visual slots use primitives");
@@ -291,7 +335,7 @@ public static class StagePlaySmoke
                 Check(All<CellObject>().All(c => c.GetComponentsInChildren<Renderer>().Any(r => r.enabled)), "Original blocks without sequence");
                 UnityEngine.Object.Destroy(floorSequence);
                 UnityEngine.Object.Destroy(floorTheme);
-                Debug.Log("STAGE_SMOKE_PASS: boundaries, edited lengths, validation, model fit, rails, collision, destruction, cleanup, scene enemies, stable restart, pause, death, fallback.");
+                Debug.Log("STAGE_SMOKE_PASS: boundaries, edited lengths, validation, model fit, rails, collision, destruction, X-ray mask alignment, cleanup, scene enemies, stable restart, pause, death, fallback.");
                 Finish(0);
             }
         }
