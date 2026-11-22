@@ -348,7 +348,7 @@ MonoBehaviour:
   enemyXrayColor: {r: 1, g: 0.4, b: 0.3, a: 1}
   xrayOpacity: 0.3
   xrayOutlineWidthPixels: 2
-  xrayOutlineBrightness: 2
+  xrayOutlineBrightness: 1.7
   valcomScore: 100
   onealScore: 200
   dahlScore: 400
