@@ -3,13 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-// Particle effects for bomb blasts: fire, smoke, and sparks per blast cell, and debris from destroyed blocks.
-// Textures and materials are generated once, so no effect assets are required.
 public static class BlastEffects
 {
-    // Delay per cell from the bomb, so flames run outward along the blast.
     public const float SpreadDelay = 0.04f;
-    // Longest time an effect needs before it can be removed, excluding the spread delay.
     public const float Duration = 3f;
     public const float BurnAftermathDuration = 1.05f;
     public const float SettledDebrisDuration = 8f;
@@ -29,7 +25,6 @@ public static class BlastEffects
         root.transform.position = groundPosition;
         bool center = step == 0;
         float delay = step * SpreadDelay;
-        if (center) CreateShockwave(root.transform, delay);
 
         ParticleSystem fireball = CreateSystem(root.transform, "Fireball", new Vector3(0f, 0.35f, 0f), FireMaterial, delay);
         ParticleSystem.MainModule main = fireball.main;
@@ -137,8 +132,6 @@ public static class BlastEffects
 
         ParticleSystem chunks = CreateSystem(root.transform, "Chunks", new Vector3(0f, 0.4f, 0f), blockMaterial, chunkDelay);
         ParticleSystem.MainModule main = chunks.main;
-        // Keep the same visible chunk burst for wood and regular walls. The
-        // separate wood sections handle the downward collapse animation.
         main.startLifetime = new ParticleSystem.MinMaxCurve(2.3f, 2.8f);
         main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3.2f);
         main.playOnAwake = false;
@@ -151,7 +144,6 @@ public static class BlastEffects
         main.maxParticles = 80;
         SetBurst(chunks, collapseToAsh ? 0 : 20);
         SetHemisphere(chunks, 0.12f);
-        // Hold the chunk size briefly, then shrink them away over the burn interval.
         SetSize(chunks, new Keyframe(0f, 1.1f), new Keyframe(0.2f, 1f), new Keyframe(1f, 0f));
         ParticleSystem.RotationOverLifetimeModule rotation = chunks.rotationOverLifetime;
         rotation.enabled = true;
@@ -198,9 +190,6 @@ public static class BlastEffects
         if (source != null) UnityEngine.Object.Destroy(source);
         if (!collapseToAsh && !particleChunksOnly && !emittedMeshFragments && hasSourceBounds)
         {
-            // Imported wall models are often not CPU-readable. Throw visible,
-            // textured mesh chunks from their bounds instead of leaving only
-            // the dissolve behind when the source mesh cannot be split.
             EmitBoxFallbackFragments(root.transform, sourceBounds, blockMaterial, fragmentDelay, 14, collapseToAsh);
         }
         if (emittedMeshFragments && !collapseToAsh && !particleChunksOnly)
@@ -235,7 +224,6 @@ public static class BlastEffects
         SetSize(sparks, new Keyframe(0f, 1f), new Keyframe(1f, 0.25f));
 
         Activate(root.transform);
-        // Keep the original twenty-piece particle burst whether or not mesh fragments were also emitted.
         if (playChunkBurstImmediately) chunks.Play();
         return root;
     }
@@ -245,14 +233,11 @@ public static class BlastEffects
     {
         if (sourceMaterial == null) return null;
 
-        // Reuse the same mesh-particle burst used by wall destruction so O'neal
-        // breaks into the larger textured cube chunks, dust, and sparks.
         GameObject debris = CreateDebris(objectName, position, sourceMaterial, step,
             particleChunksOnly: true, playChunkBurstImmediately: false);
         Transform chunks = debris.transform.Find("Chunks");
         if (chunks == null || !chunks.TryGetComponent(out ParticleSystem chunkSystem)) return debris;
 
-        // Configure the wall-style chunk lifetime and material before emitting.
         chunkSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         ParticleSystem.MainModule main = chunkSystem.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(
@@ -275,8 +260,6 @@ public static class BlastEffects
                 dissolveDuration, 1f, 0f, 0.25f, copySourceAppearance: true);
 
         AddWoodChunkBurnVfx(debris.transform, step);
-        // Do not depend on a configured Burst firing on Play after the system
-        // has been cleared. Explicit emission guarantees the wall-style chunks.
         ParticleSystem.EmissionModule emission = chunkSystem.emission;
         emission.SetBursts(Array.Empty<ParticleSystem.Burst>());
         chunkSystem.Play();
@@ -884,81 +867,6 @@ public static class BlastEffects
         main.startSizeZ = new ParticleSystem.MinMaxCurve(0.08f, 0.22f);
     }
 
-    private static void CreateShockwave(Transform parent, float delay)
-    {
-        GameObject ring = new("Wall Shockwave");
-        ring.transform.SetParent(parent, false);
-        ring.transform.localPosition = new Vector3(0f, 0.035f, 0f);
-        MeshFilter filter = ring.AddComponent<MeshFilter>();
-        filter.sharedMesh = ShockwaveMesh;
-        MeshRenderer renderer = ring.AddComponent<MeshRenderer>();
-        renderer.sharedMaterial = ShockwaveMaterial;
-        renderer.shadowCastingMode = ShadowCastingMode.Off;
-        renderer.receiveShadows = false;
-        renderer.sortingOrder = 100;
-        ring.AddComponent<WallShockwave>().Initialize(delay);
-    }
-
-    private static Mesh shockwaveMesh;
-    private static Material shockwaveMaterial;
-
-    private static Mesh ShockwaveMesh
-    {
-        get
-        {
-            if (shockwaveMesh != null) return shockwaveMesh;
-            const int segments = 48;
-            const float inner = 0.82f;
-            const float outer = 1f;
-            Vector3[] vertices = new Vector3[segments * 2];
-            int[] triangles = new int[segments * 6];
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = i * Mathf.PI * 2f / segments;
-                Vector3 direction = new(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-                vertices[i * 2] = direction * inner;
-                vertices[i * 2 + 1] = direction * outer;
-                int next = (i + 1) % segments;
-                int t = i * 6;
-                triangles[t] = i * 2;
-                triangles[t + 1] = i * 2 + 1;
-                triangles[t + 2] = next * 2 + 1;
-                triangles[t + 3] = i * 2;
-                triangles[t + 4] = next * 2 + 1;
-                triangles[t + 5] = next * 2;
-            }
-            shockwaveMesh = new Mesh { name = "Wall Shockwave Ring", vertices = vertices, triangles = triangles };
-            shockwaveMesh.RecalculateNormals();
-            return shockwaveMesh;
-        }
-    }
-
-    private static Material ShockwaveMaterial
-    {
-        get
-        {
-            if (shockwaveMaterial != null) return shockwaveMaterial;
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-            shockwaveMaterial = new Material(shader != null ? shader : Shader.Find("Sprites/Default"))
-            {
-                name = "Wall Shockwave",
-                color = new Color(2.5f, 0.7f, 0.12f, 0.9f),
-                renderQueue = (int)RenderQueue.Transparent + 1
-            };
-            shockwaveMaterial.SetFloat("_Surface", 1f);
-            shockwaveMaterial.SetFloat("_Blend", 2f);
-            shockwaveMaterial.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            shockwaveMaterial.SetFloat("_DstBlend", (float)BlendMode.One);
-            shockwaveMaterial.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
-            shockwaveMaterial.SetFloat("_DstBlendAlpha", (float)BlendMode.One);
-            shockwaveMaterial.SetFloat("_ZWrite", 0f);
-            shockwaveMaterial.SetFloat("_AlphaClip", 0f);
-            shockwaveMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            return shockwaveMaterial;
-        }
-    }
-
-    // Built inactive, so every module is configured before the system starts playing.
     private static ParticleSystem CreateSystem(Transform parent, string systemName, Vector3 localPosition, Material material, float delay)
     {
         GameObject systemObject = new(systemName);
@@ -1001,7 +909,6 @@ public static class BlastEffects
         ParticleSystem.ShapeModule shape = system.shape;
         shape.shapeType = ParticleSystemShapeType.Hemisphere;
         shape.radius = radius;
-        // The hemisphere opens along local +Z; turn it to face up.
         shape.rotation = new Vector3(-90f, 0f, 0f);
     }
 
@@ -1033,7 +940,6 @@ public static class BlastEffects
         return new GradientColorKey(new Color(r, g, b), time);
     }
 
-    // HDR base colors let the camera's bloom make fire and sparks glow.
     private static Material FireMaterial => fireMaterial != null ? fireMaterial : fireMaterial = MakeParticleMaterial("Blast Fire", PuffTexture, new Color(2.2f, 1.5f, 0.9f), true);
     private static Material GlowMaterial => glowMaterial != null ? glowMaterial : glowMaterial = MakeParticleMaterial("Blast Glow", GlowTexture, new Color(3f, 2.2f, 1.4f), true);
     private static Material SparkMaterial => sparkMaterial != null ? sparkMaterial : sparkMaterial = MakeParticleMaterial("Blast Sparks", GlowTexture, new Color(3f, 1.8f, 0.6f), true);
@@ -1072,7 +978,6 @@ public static class BlastEffects
             mainTexture = texture,
             color = color
         };
-        // Same blend setup as the URP material inspector for Transparent Additive or Alpha surfaces.
         material.SetFloat("_Surface", 1f);
         material.SetFloat("_Blend", additive ? 2f : 0f);
         material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
@@ -1207,44 +1112,5 @@ public sealed class WoodChunkAttachedBurnVfx : MonoBehaviour
             startColor = Color.white
         };
         system.Emit(emit, 1);
-    }
-}
-
-public sealed class WallShockwave : MonoBehaviour
-{
-    private const float Duration = 0.5f;
-    private float delay;
-    private float elapsed;
-    private Material material;
-    private Color startColor;
-
-    public void Initialize(float startDelay)
-    {
-        delay = startDelay;
-        material = GetComponent<MeshRenderer>().material;
-        startColor = material.color;
-        transform.localScale = Vector3.one * 0.35f;
-    }
-
-    private void Update()
-    {
-        if (delay > 0f)
-        {
-            delay -= Time.deltaTime;
-            return;
-        }
-        elapsed += Time.deltaTime;
-        float progress = Mathf.Clamp01(elapsed / Duration);
-        float eased = 1f - Mathf.Pow(1f - progress, 3f);
-        transform.localScale = Vector3.one * Mathf.Lerp(0.22f, 1.15f, eased);
-        Color color = startColor;
-        color.a *= 1f - progress;
-        material.color = color;
-        if (progress >= 1f) Destroy(gameObject);
-    }
-
-    private void OnDestroy()
-    {
-        if (material != null) Destroy(material);
     }
 }
