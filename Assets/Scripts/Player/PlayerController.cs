@@ -176,6 +176,7 @@ public sealed class PlayerController : GridController
         IsDead = true;
         IsMoving = false;
         moveInput = Vector2.zero;
+        SetLayerRecursively(gameObject, LayerMask.NameToLayer("Default"));
         if (applyDeathMaterials) SetDeathMaterials(burnt);
         animationBridge?.SetDeath();
     }
