@@ -21,7 +21,7 @@ MonoBehaviour:
   - clip: {fileID: 8300000, guid: 8f1be3eaba2ecee48aff6e66436be88f, type: 3}
     volume: 0.2
   - clip: {fileID: 8300000, guid: f4dcc78e515372d4cb579369de1bd103, type: 3}
-    volume: 0.2
+    volume: 0.226
   - clip: {fileID: 8300000, guid: 010108aef9421e240a73adef7570d5a7, type: 3}
     volume: 0.2
   bonusStageBgm: {fileID: 8300000, guid: 64211408419a8614bbe436ee9931ca70, type: 3}
