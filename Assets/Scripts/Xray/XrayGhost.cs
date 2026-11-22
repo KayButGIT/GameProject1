@@ -62,10 +62,8 @@ public sealed class XrayVision : MonoBehaviour
         int overlapBoundsCount = !actor.IsDead && actor.CanPassDestructibleWalls
             ? game.GetNearbyDestructibleBlockBounds(actor.transform.position, overlapBounds)
             : 0;
-        // Doria starts fading in ahead of the overlap so the silhouette is ready when its blue body is clipped.
-        bool hasSlimeBody = actor is DoriaEnemy && actor.BodyRenderer != null;
         bool rawWanted = overlapBoundsCount > 0
-            && (hasSlimeBody || game.IsInsideDestructibleBlock(actor.transform.position));
+            && game.IsInsideDestructibleBlock(actor.transform.position);
         if (rawWanted == wanted)
         {
             wantedChangeTimer = 0f;
@@ -85,7 +83,7 @@ public sealed class XrayVision : MonoBehaviour
 
         if (overlapBoundsCount > 0)
             SetOverlapBounds(overlapBoundsCount);
-        UpdateSlimeClipping(overlapBoundsCount);
+        UpdateSlimeClipping(wanted ? overlapBoundsCount : 0);
 
         material.SetColor(ColorId, game.GetXrayColor(actor.IsPlayer));
         material.SetFloat(OpacityId, game.GetXrayOpacity(actor.IsPlayer));

@@ -114,7 +114,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Tooltip("Brightness of the enemy X-ray outer outline, independent of its silhouette opacity.")]
     [SerializeField, Range(0f, 3f)] private float enemyXrayOutlineBrightness = 1f;
     [Tooltip("Seconds for the wall-pass X-ray to fade in or out.")]
-    [SerializeField, Min(0.01f)] private float xrayFadeSeconds = 0.3f;
+    [SerializeField, Min(0.01f)] private float xrayFadeSeconds = 0.15f;
 
     [Header("Scoring")]
     [Tooltip("Score for killing each enemy type.")]
