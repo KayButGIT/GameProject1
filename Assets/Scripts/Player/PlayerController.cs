@@ -66,6 +66,7 @@ public sealed class PlayerController : GridController
         float burnDissolveEnd)
     {
         PlayerController player = CreateActor<PlayerController>(actorName, cell, map, normalMaterial, deadMaterial, true, scale);
+        player.gameObject.tag = "Player";
         player.map = map;
         player.BindMovementMap(map);
         player.ConfigureFreeMovementPhysics(colliderRadius, colliderHeight);
@@ -85,7 +86,21 @@ public sealed class PlayerController : GridController
             faceFireDissolveMaterial,
             burnDissolveStart,
             burnDissolveEnd);
+        int playerLayer = LayerMask.NameToLayer("Player");
+        if (playerLayer >= 0)
+        {
+            SetLayerRecursively(player.gameObject, playerLayer);
+        }
         return player;
+    }
+
+    private static void SetLayerRecursively(GameObject target, int layer)
+    {
+        target.layer = layer;
+        foreach (Transform child in target.transform)
+        {
+            SetLayerRecursively(child.gameObject, layer);
+        }
     }
 
     public void Initialize(BombermanPrototype game)
