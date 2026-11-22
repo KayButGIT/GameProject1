@@ -42,7 +42,7 @@ Material:
     m_Floats:
     - _BaseNormalIntensity: 1
     - _EmissionMultiply: 1
-    - _EmissionMultiplyBase: 0
+    - _EmissionMultiplyBase: 0.4
     - _FresnelIntensity: 1
     - _FresnelPower: 3
     - _HueShift: 0

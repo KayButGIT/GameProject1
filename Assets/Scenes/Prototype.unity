@@ -303,7 +303,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   width: 26
   height: 11
-  destructibleDensity: 0.5
+  destructibleDensity: 0.45
   randomSeed: 0
   playerMoveSpeed: 4
   playerAcceleration: 22
@@ -352,7 +352,7 @@ MonoBehaviour:
   enemyXrayOutlineWidthPixels: 2.61
   xrayOutlineBrightness: 1.5
   enemyXrayOutlineBrightness: 2.25
-  xrayFadeSeconds: 0.3
+  xrayFadeSeconds: 0.2
   valcomScore: 100
   onealScore: 200
   dahlScore: 400
