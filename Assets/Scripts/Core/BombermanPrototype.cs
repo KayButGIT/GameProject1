@@ -11,6 +11,9 @@ public sealed class BombermanPrototype : MonoBehaviour
     private const float StageCardHoldSeconds = 1f;
     private const float BonusStageTimeLimit = 30f;
     private const float CheatCodeKeyTimeout = 1.5f;
+    private const float ExitDoorHitCooldownSeconds = 1f;
+    private const int ExitDoorBaseWaveSize = 3;
+    private const int ExitDoorMaximumIncrease = 9;
     private const string CheatMenuCode = "CHEAT";
 
     private enum PlayerDeathCause
@@ -173,7 +176,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [Tooltip("How close the player must stand to the door center to enter an open exit.")]
     [SerializeField, Min(0.05f)] private float exitDoorEnterDistance = 0.4f;
     [Tooltip("Maximum enemies in an exit-door wave. Each hit increases the next wave by one, starting at three; zero disables releases.")]
-    [SerializeField, Min(0)] private int exitDoorPopulationCap = 10;
+    [SerializeField, Min(0)] private int exitDoorPopulationCap = 12;
     [SerializeField, Min(0f)] private float exitDoorSpawnDelay = 0.5f;
     [Header("Stage Timer")]
     [Tooltip("Seconds per stage (200 in the original game). When time runs out, every enemy is replaced by Pontans. Zero disables the timer.")]
@@ -227,6 +230,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private bool powerUpEnemySpawning;
     private int pendingPowerUpEnemySpawns;
     private int exitDoorHitCount;
+    private float exitDoorHitCooldownRemaining;
     private bool stageClearing;
     private StageHud stageHud;
     private float timeLeft;
@@ -335,6 +339,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         powerUpEnemySpawning = false;
         pendingPowerUpEnemySpawns = 0;
         exitDoorHitCount = 0;
+        exitDoorHitCooldownRemaining = 0f;
         timeLeft = IsBonusStage ? BonusStageTimeLimit : stageTimeLimit;
         timeUp = false;
         bonusSpawnCooldown = 0f;
@@ -488,6 +493,8 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         UpdateStageTimer();
         UpdatePowerUps();
+        if (!paused)
+            exitDoorHitCooldownRemaining = Mathf.Max(0f, exitDoorHitCooldownRemaining - Time.deltaTime);
 
         if (IsBonusStage && !IsPaused && !stageClearing && HasLivingPlayer)
         {
@@ -1268,9 +1275,16 @@ public sealed class BombermanPrototype : MonoBehaviour
 
         if (exitWasRevealed && exitDoorPopulationCap > 0 && blastCells.Contains(exitDoor.Cell))
         {
-            int requestedAmount = 3 + exitDoorHitCount;
+            if (exitDoorHitCooldownRemaining > 0f)
+            {
+                LogSpawnEvent($"Blast from {origin} hit the open exit during its cooldown. No wave queued.");
+                return;
+            }
+
+            int requestedAmount = ExitDoorBaseWaveSize + Mathf.Min(exitDoorHitCount, ExitDoorMaximumIncrease);
             int amount = Mathf.Min(requestedAmount, Mathf.Clamp(exitDoorPopulationCap, 0, OriginalStageEnemies.StageEnemyCap));
             exitDoorHitCount++;
+            exitDoorHitCooldownRemaining = ExitDoorHitCooldownSeconds;
             LogSpawnEvent($"Blast from {origin} hit the open exit at {exitDoor.Cell}. Queued {amount} enemy/enemies ({exitDoorHitCount} door hit(s)).");
             exitWaveSpawnCounts.Enqueue(amount);
             pendingExitWaves++;

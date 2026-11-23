@@ -8,7 +8,8 @@ public sealed class ScreenTransitionOverlay
     private readonly Image backgroundImage;
     private readonly Image irisImage;
     private readonly Text messageText;
-    private readonly Text scoreText;
+    private readonly Text scoreLabelsText;
+    private readonly Text scoreValuesText;
     private readonly Material irisMaterial;
 
     private ScreenTransitionOverlay(
@@ -17,7 +18,8 @@ public sealed class ScreenTransitionOverlay
         Image backgroundImage,
         Image irisImage,
         Text messageText,
-        Text scoreText,
+        Text scoreLabelsText,
+        Text scoreValuesText,
         Material irisMaterial)
     {
         this.canvasObject = canvasObject;
@@ -25,7 +27,8 @@ public sealed class ScreenTransitionOverlay
         this.backgroundImage = backgroundImage;
         this.irisImage = irisImage;
         this.messageText = messageText;
-        this.scoreText = scoreText;
+        this.scoreLabelsText = scoreLabelsText;
+        this.scoreValuesText = scoreValuesText;
         this.irisMaterial = irisMaterial;
     }
 
@@ -86,19 +89,18 @@ public sealed class ScreenTransitionOverlay
         messageText.verticalOverflow = VerticalWrapMode.Overflow;
         StretchToParent(messageText.rectTransform);
 
-        GameObject scoreObject = new("Ending Score Text");
-        scoreObject.transform.SetParent(canvasObject.transform, false);
-        Text scoreText = scoreObject.AddComponent<Text>();
-        scoreText.font = messageText.font;
-        scoreText.fontSize = 34;
-        scoreText.alignment = TextAnchor.MiddleCenter;
-        scoreText.color = Color.white;
-        scoreText.raycastTarget = false;
-        RectTransform scoreRect = scoreText.rectTransform;
-        scoreRect.anchorMin = new Vector2(0f, 0.5f);
-        scoreRect.anchorMax = new Vector2(1f, 0.5f);
-        scoreRect.sizeDelta = new Vector2(0f, 88f);
-        scoreRect.anchoredPosition = new Vector2(0f, -100f);
+        Text scoreLabelsText = CreateScoreColumn(
+            canvasObject.transform,
+            messageText.font,
+            TextAnchor.MiddleRight,
+            new Vector2(0.5f, 0.5f),
+            new Vector2(-120f, -100f));
+        Text scoreValuesText = CreateScoreColumn(
+            canvasObject.transform,
+            messageText.font,
+            TextAnchor.MiddleLeft,
+            new Vector2(0.5f, 0.5f),
+            new Vector2(120f, -100f));
 
         canvasObject.SetActive(false);
 
@@ -108,14 +110,15 @@ public sealed class ScreenTransitionOverlay
             backgroundImage,
             irisImage,
             messageText,
-            scoreText,
+            scoreLabelsText,
+            scoreValuesText,
             irisMaterial);
     }
 
     public void Show(string message, float alpha, string scoreSummary = null)
     {
         messageText.text = message;
-        scoreText.text = scoreSummary ?? string.Empty;
+        SetScoreSummary(scoreSummary);
         SetMessageAlpha(1f);
         backgroundImage.enabled = true;
 
@@ -137,7 +140,7 @@ public sealed class ScreenTransitionOverlay
 
         backgroundImage.enabled = false;
         irisImage.enabled = true;
-        scoreText.text = string.Empty;
+        SetScoreSummary(null);
         canvasGroup.alpha = 1f;
         canvasObject.SetActive(true);
 
@@ -168,7 +171,8 @@ public sealed class ScreenTransitionOverlay
         Color color = messageText.color;
         color.a = Mathf.Clamp01(alpha);
         messageText.color = color;
-        scoreText.color = color;
+        scoreLabelsText.color = color;
+        scoreValuesText.color = color;
     }
 
     public void Hide()
@@ -182,5 +186,60 @@ public sealed class ScreenTransitionOverlay
         rectTransform.anchorMax = Vector2.one;
         rectTransform.offsetMin = Vector2.zero;
         rectTransform.offsetMax = Vector2.zero;
+    }
+
+    private void SetScoreSummary(string scoreSummary)
+    {
+        if (string.IsNullOrEmpty(scoreSummary))
+        {
+            scoreLabelsText.text = string.Empty;
+            scoreValuesText.text = string.Empty;
+            return;
+        }
+
+        string[] lines = scoreSummary.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+        System.Text.StringBuilder labels = new();
+        System.Text.StringBuilder values = new();
+        foreach (string line in lines)
+        {
+            int separator = line.LastIndexOf(' ');
+            if (separator <= 0)
+            {
+                labels.AppendLine(line);
+                values.AppendLine();
+                continue;
+            }
+
+            labels.AppendLine(line.Substring(0, separator));
+            values.AppendLine(line.Substring(separator + 1));
+        }
+
+        scoreLabelsText.text = labels.ToString();
+        scoreValuesText.text = values.ToString();
+    }
+
+    private static Text CreateScoreColumn(
+        Transform parent,
+        Font font,
+        TextAnchor alignment,
+        Vector2 anchor,
+        Vector2 position)
+    {
+        GameObject scoreObject = new("Ending Score Column");
+        scoreObject.transform.SetParent(parent, false);
+        Text text = scoreObject.AddComponent<Text>();
+        text.font = font;
+        text.fontSize = 34;
+        text.alignment = alignment;
+        text.color = Color.white;
+        text.raycastTarget = false;
+
+        RectTransform rect = text.rectTransform;
+        rect.anchorMin = anchor;
+        rect.anchorMax = anchor;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(220f, 88f);
+        rect.anchoredPosition = position;
+        return text;
     }
 }
