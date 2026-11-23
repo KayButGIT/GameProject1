@@ -18,6 +18,7 @@ public sealed class TitleMenu : MonoBehaviour
     [SerializeField] private Text continueLabel;
     [Tooltip("Text of the Continue label. {0} is the saved stage number.")]
     [SerializeField] private string continueLabelFormat = "Continue (Stage {0})";
+    [SerializeField] private Text highScoreLabel;
     [Tooltip("Seconds for the short fade-to-black before loading the game scene.")]
     [SerializeField, Min(0f)] private float preLoadFadeSeconds = 0.8f;
     [Tooltip("Seconds for the title music to fade out after a button is pressed.")]
@@ -57,6 +58,11 @@ public sealed class TitleMenu : MonoBehaviour
     private void Start()
     {
         SoundManager.Instance?.PlayTitleScreenBgm();
+
+        if (highScoreLabel != null)
+        {
+            highScoreLabel.text = $"HIGH SCORE {GameProgress.HighScore}";
+        }
 
         bool hasSave = GameProgress.HasSave;
 

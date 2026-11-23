@@ -80,7 +80,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     [SerializeField] private bool godMode;
     [Tooltip("Deaths allowed before the game ends, as in the original game.")]
     [SerializeField, Min(0)] private int playerLives = 3;
-    [Tooltip("Scene loaded after GAME OVER. It must be in Build Settings.")]
+    [Tooltip("Scene loaded when leaving gameplay. It must be in Build Settings.")]
     [SerializeField] private string titleSceneName = "Title";
     [Tooltip("Seconds the GAME OVER card stays fully visible before the title screen loads.")]
     [SerializeField, Min(0f)] private float gameOverDelay = 2.5f;
@@ -293,7 +293,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         baseBlastRange = blastRange;
         materials = BombermanMaterials.Create();
         sessionSeed = randomSeed == 0 ? System.Environment.TickCount : randomSeed;
-        pauseMenu = PauseMenu.Create();
+        pauseMenu = PauseMenu.Create(ReturnToTitle, Application.CanStreamedLevelBeLoaded(titleSceneName));
         cheatMenu = CheatMenu.Create(this, showCheatMenuButton);
         transitionOverlay = ScreenTransitionOverlay.Create();
         stageHud = StageHud.Create();
@@ -474,10 +474,10 @@ public sealed class BombermanPrototype : MonoBehaviour
     {
         UpdateCheatCodeInput();
 
-        if (!transitionActive && WasPressed(Key.Escape))
+        if (!transitionActive && !stageClearing && WasPressed(Key.Escape))
         {
             if (cheatMenuOpen) CloseCheatMenu();
-            else SetPaused(!paused);
+            else if (pauseMenu?.TryCancelReturnToTitle() != true) SetPaused(!paused);
         }
 
         // Theme lighting edits in the Inspector show immediately while playing in the Editor.
@@ -1861,6 +1861,20 @@ public sealed class BombermanPrototype : MonoBehaviour
         SetPaused(wasPausedBeforeCheatMenu);
     }
 
+    public void CheatKillAllEnemies()
+    {
+        if (!HasLivingPlayer || transitionActive || restarting || stageClearing) return;
+
+        foreach (GridController actor in actors)
+        {
+            if (actor != null && !actor.IsPlayer && !actor.IsDead)
+            {
+                AddScore(GetEnemyScore(actor));
+                actor.Die();
+            }
+        }
+    }
+
     public void CheatSkipToNextStage()
     {
         if (stageManager == null || stageManager.OnLastStage || transitionActive || restarting || stageClearing) return;
@@ -1986,8 +2000,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         };
     }
 
-    // Adds to the running score and refreshes the HUD. Called for enemy kills (DamageActorsAt, per-type score),
-    // the stage-clear time bonus (ClearStage), and PowerUp pickups.
+    // Adds to the running score and refreshes the HUD for enemy kills, stage-clear time bonuses, and power-up pickups.
     public void AddScore(int amount)
     {
         if (amount == 0) return;
@@ -2108,10 +2121,11 @@ public sealed class BombermanPrototype : MonoBehaviour
     // The run is won, so the ending reads like GAME OVER without being one.
     private IEnumerator GameClearSequence()
     {
+        int highScore = GameProgress.RecordHighScore(score);
         GameProgress.Clear();
         GameProgress.RequestedStage = 0;
         LogSpawnEvent($"Stage {stageManager.CurrentStage} of {stageManager.TotalStages} cleared. Returning to the title screen.");
-        yield return ShowEndingCard(gameClearText, gameClearDelay);
+        yield return ShowEndingCard(gameClearText, gameClearDelay, $"SCORE {score}\nHIGH SCORE {highScore}");
         yield return FadeEndingText();
 
         // The smoke tests build scenes without the title, so those keep playing instead.
@@ -2265,11 +2279,11 @@ public sealed class BombermanPrototype : MonoBehaviour
             SoundManager.Instance?.PlayMapBgm(CurrentStagePhase);
     }
 
-    private IEnumerator ShowEndingCard(string message, float holdDuration)
+    private IEnumerator ShowEndingCard(string message, float holdDuration, string scoreSummary = null)
     {
         transitionActive = true;
         Time.timeScale = 0f;
-        transitionOverlay.Show(message, 0f);
+        transitionOverlay.Show(message, 0f, scoreSummary);
         yield return FadeTransition(0f, 1f);
         yield return new WaitForSecondsRealtime(holdDuration);
     }
@@ -2315,13 +2329,25 @@ public sealed class BombermanPrototype : MonoBehaviour
         }
     }
 
+    private void ReturnToTitle()
+    {
+        if (!paused || cheatMenuOpen || transitionActive || stageClearing ||
+            !Application.CanStreamedLevelBeLoaded(titleSceneName)) return;
+
+        GameProgress.RequestedStage = 0;
+        transitionActive = true;
+        pauseMenu.SetVisible(false);
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(titleSceneName);
+    }
+
     private void SetPaused(bool value)
     {
         paused = value;
         Time.timeScale = paused || transitionActive ? 0f : 1f;
         if (pauseMenu != null)
         {
-            pauseMenu.SetVisible(paused);
+            pauseMenu.SetVisible(paused && !cheatMenuOpen);
         }
     }
 }

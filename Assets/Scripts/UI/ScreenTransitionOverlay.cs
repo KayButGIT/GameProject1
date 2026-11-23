@@ -8,6 +8,7 @@ public sealed class ScreenTransitionOverlay
     private readonly Image backgroundImage;
     private readonly Image irisImage;
     private readonly Text messageText;
+    private readonly Text scoreText;
     private readonly Material irisMaterial;
 
     private ScreenTransitionOverlay(
@@ -16,6 +17,7 @@ public sealed class ScreenTransitionOverlay
         Image backgroundImage,
         Image irisImage,
         Text messageText,
+        Text scoreText,
         Material irisMaterial)
     {
         this.canvasObject = canvasObject;
@@ -23,6 +25,7 @@ public sealed class ScreenTransitionOverlay
         this.backgroundImage = backgroundImage;
         this.irisImage = irisImage;
         this.messageText = messageText;
+        this.scoreText = scoreText;
         this.irisMaterial = irisMaterial;
     }
 
@@ -83,6 +86,20 @@ public sealed class ScreenTransitionOverlay
         messageText.verticalOverflow = VerticalWrapMode.Overflow;
         StretchToParent(messageText.rectTransform);
 
+        GameObject scoreObject = new("Ending Score Text");
+        scoreObject.transform.SetParent(canvasObject.transform, false);
+        Text scoreText = scoreObject.AddComponent<Text>();
+        scoreText.font = messageText.font;
+        scoreText.fontSize = 34;
+        scoreText.alignment = TextAnchor.MiddleCenter;
+        scoreText.color = Color.white;
+        scoreText.raycastTarget = false;
+        RectTransform scoreRect = scoreText.rectTransform;
+        scoreRect.anchorMin = new Vector2(0f, 0.5f);
+        scoreRect.anchorMax = new Vector2(1f, 0.5f);
+        scoreRect.sizeDelta = new Vector2(0f, 88f);
+        scoreRect.anchoredPosition = new Vector2(0f, -100f);
+
         canvasObject.SetActive(false);
 
         return new ScreenTransitionOverlay(
@@ -91,12 +108,14 @@ public sealed class ScreenTransitionOverlay
             backgroundImage,
             irisImage,
             messageText,
+            scoreText,
             irisMaterial);
     }
 
-    public void Show(string message, float alpha)
+    public void Show(string message, float alpha, string scoreSummary = null)
     {
         messageText.text = message;
+        scoreText.text = scoreSummary ?? string.Empty;
         SetMessageAlpha(1f);
         backgroundImage.enabled = true;
 
@@ -118,6 +137,7 @@ public sealed class ScreenTransitionOverlay
 
         backgroundImage.enabled = false;
         irisImage.enabled = true;
+        scoreText.text = string.Empty;
         canvasGroup.alpha = 1f;
         canvasObject.SetActive(true);
 
@@ -148,6 +168,7 @@ public sealed class ScreenTransitionOverlay
         Color color = messageText.color;
         color.a = Mathf.Clamp01(alpha);
         messageText.color = color;
+        scoreText.color = color;
     }
 
     public void Hide()

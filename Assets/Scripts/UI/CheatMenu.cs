@@ -4,7 +4,6 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
-/// <summary>Runtime demo controls, shown from an optional HUD button.</summary>
 public sealed class CheatMenu
 {
     private readonly BombermanPrototype game;
@@ -54,9 +53,9 @@ public sealed class CheatMenu
         panelRect.anchoredPosition = Vector2.zero;
         panelRect.sizeDelta = new Vector2(700f, 700f);
         Image panelImage = panelObject.AddComponent<Image>();
-        panelImage.color = new Color(0.035f, 0.045f, 0.075f, 0.96f);
+        panelImage.color = Color.black;
 
-        CreateText(panelObject.transform, "Cheat Menu Title", "DEMO CHEATS", new Vector2(0.5f, 1f),
+        CreateText(panelObject.transform, "Cheat Menu Title", "CHEATS", new Vector2(0.5f, 1f),
             new Vector2(0f, -42f), new Vector2(620f, 60f), 42, FontStyle.Bold, TextAnchor.MiddleCenter);
         Button closeButton = CreateButton(panelObject.transform, "Close Cheat Menu", "X", new Vector2(1f, 1f),
             new Vector2(-38f, -34f), new Vector2(52f, 52f), 28);
@@ -77,6 +76,10 @@ public sealed class CheatMenu
         Button revealExitDoor = CreateButton(panelObject.transform, "Reveal Exit Door Cheat", "REVEAL EXIT DOOR", new Vector2(0.5f, 1f),
             new Vector2(-230f, -184f), new Vector2(200f, 52f), 18);
         revealExitDoor.onClick.AddListener(() => game.CheatRevealExitDoor());
+
+        Button killAllEnemies = CreateButton(panelObject.transform, "Kill All Enemies Cheat", "KILL ALL ENEMIES", new Vector2(0.5f, 1f),
+            new Vector2(0f, -184f), new Vector2(200f, 52f), 18);
+        killAllEnemies.onClick.AddListener(game.CheatKillAllEnemies);
 
         InputField stageNumber = CreateStageNumberInput(panelObject.transform);
         Button goToStage = CreateButton(panelObject.transform, "Go To Stage Cheat", "GO", new Vector2(0.5f, 1f),
@@ -145,13 +148,13 @@ public sealed class CheatMenu
         rect.sizeDelta = new Vector2(360f, 52f);
 
         Image background = inputObject.AddComponent<Image>();
-        background.color = new Color(0.09f, 0.12f, 0.18f, 1f);
+        background.color = new Color(0.10f, 0.10f, 0.10f, 1f);
         InputField input = inputObject.AddComponent<InputField>();
         Text valueText = CreateText(inputObject.transform, "Stage Number Text", string.Empty, Vector2.zero,
             Vector2.zero, Vector2.zero, 24, FontStyle.Bold, TextAnchor.MiddleCenter, stretch: true);
         Text placeholder = CreateText(inputObject.transform, "Stage Number Placeholder", "STAGE NUMBER", Vector2.zero,
             Vector2.zero, Vector2.zero, 20, FontStyle.Normal, TextAnchor.MiddleCenter, stretch: true);
-        placeholder.color = new Color(0.68f, 0.72f, 0.79f, 0.8f);
+        placeholder.color = new Color(0.74f, 0.74f, 0.74f, 0.8f);
         input.textComponent = valueText;
         input.placeholder = placeholder;
         input.contentType = InputField.ContentType.IntegerNumber;
@@ -180,7 +183,7 @@ public sealed class CheatMenu
         rect.anchoredPosition = anchoredPosition;
         rect.sizeDelta = size;
         Image image = buttonObject.AddComponent<Image>();
-        image.color = new Color(0.16f, 0.27f, 0.43f, 1f);
+        image.color = new Color(0.20f, 0.20f, 0.20f, 1f);
         Button button = buttonObject.AddComponent<Button>();
         button.targetGraphic = image;
         CreateText(buttonObject.transform, objectName + " Label", label, Vector2.zero, Vector2.zero,

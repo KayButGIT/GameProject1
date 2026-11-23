@@ -51,6 +51,7 @@ public static class TitleSceneBuilder
         CreateEventSystem();
         CreateTitleText(canvas.transform);
         CreateHintText(canvas.transform);
+        Text highScoreLabel = CreateHighScoreText(canvas.transform);
 
         RectTransform buttons = CreateButtonColumn(canvas.transform);
         Button startButton = CreateButton(buttons, "Start Button", "Start");
@@ -62,6 +63,7 @@ public static class TitleSceneBuilder
         settings.FindProperty("gameSceneName").stringValue = Path.GetFileNameWithoutExtension(GameScenePath);
         settings.FindProperty("continueButton").objectReferenceValue = continueButton;
         settings.FindProperty("continueLabel").objectReferenceValue = continueButton.GetComponentInChildren<Text>();
+        settings.FindProperty("highScoreLabel").objectReferenceValue = highScoreLabel;
         settings.ApplyModifiedPropertiesWithoutUndo();
 
         UnityEventTools.AddPersistentListener(startButton.onClick, menu.StartNewGame);
@@ -159,6 +161,18 @@ public static class TitleSceneBuilder
         rect.pivot = new Vector2(0.5f, 0f);
         rect.offsetMin = new Vector2(50f, 35f);
         rect.offsetMax = new Vector2(-50f, 115f);
+    }
+
+    private static Text CreateHighScoreText(Transform parent)
+    {
+        Text text = CreateText(parent, "High Score Text", "HIGH SCORE 0", 34, TextAnchor.MiddleRight, Color.white);
+        text.fontStyle = FontStyle.Bold;
+        text.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(2f, -2f);
+        RectTransform rect = text.rectTransform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 0f);
+        rect.anchoredPosition = new Vector2(-36f, 20f);
+        rect.sizeDelta = new Vector2(480f, 42f);
+        return text;
     }
 
     // Menu sits on the left half, so the title model stays visible on the right.

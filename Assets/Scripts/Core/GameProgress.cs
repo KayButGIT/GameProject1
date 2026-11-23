@@ -7,6 +7,7 @@ public static class GameProgress
 {
     private const string StageKey = "Bomberman.SavedStage";
     private const string RunKey = "Bomberman.SavedRun";
+    private const string HighScoreKey = "Bomberman.HighScore";
 
     /// <summary>Score, lives, and power-ups at the start of a stage.</summary>
     [Serializable]
@@ -24,6 +25,18 @@ public static class GameProgress
     public static bool HasSave => PlayerPrefs.GetInt(StageKey, 0) >= 1;
 
     public static int SavedStage => Mathf.Max(1, PlayerPrefs.GetInt(StageKey, 1));
+
+    public static int HighScore => PlayerPrefs.GetInt(HighScoreKey, 0);
+
+    public static int RecordHighScore(int score)
+    {
+        int highScore = HighScore;
+        if (score <= highScore) return highScore;
+
+        PlayerPrefs.SetInt(HighScoreKey, score);
+        PlayerPrefs.Save();
+        return score;
+    }
 
     public static void Save(int stage)
     {
