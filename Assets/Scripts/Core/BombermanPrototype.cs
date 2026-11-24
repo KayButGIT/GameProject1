@@ -1791,8 +1791,7 @@ public sealed class BombermanPrototype : MonoBehaviour
 
     private void ResetTemporaryPowerUpsOnDeath()
     {
-        int cheatSpeedUps = Mathf.Clamp(powerUpState.cheatSpeedUps, 0, powerUpState.speedUps);
-        powerUpState.speedUps -= cheatSpeedUps;
+        powerUpState.speedUps = 0;
         powerUpState.cheatSpeedUps = 0;
         powerUpState.detonator = false;
         powerUpState.bombPass = false;

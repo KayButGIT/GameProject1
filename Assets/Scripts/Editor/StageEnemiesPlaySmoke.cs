@@ -290,8 +290,10 @@ public static class StageEnemiesPlaySmoke
         state.detonator = state.bombPass = state.wallPass = state.flamePass = true;
         SetField("mysteryTimeLeft", 10f);
         Invoke("ResetTemporaryPowerUpsOnDeath");
-        Check(state.bombUps == 2 && state.fireUps == 3 && state.speedUps == 1,
-            "Death keeps permanent Bomb, Fire, and Speed upgrades");
+        Check(state.bombUps == 2 && state.fireUps == 3 && state.speedUps == 0,
+            "Death keeps Bomb and Fire upgrades but loses Speed Up");
+        Check(Mathf.Approximately(game.PlayerSpeedMultiplier, 1f),
+            "Losing Speed Up restores the base movement multiplier for respawn");
         Check(!state.detonator && !state.bombPass && !state.wallPass && !state.flamePass
             && (float)Field("mysteryTimeLeft") == 0f, "Death clears temporary abilities and Mystery");
         state.bombUps = 3;
@@ -314,7 +316,7 @@ public static class StageEnemiesPlaySmoke
             && (int)Field("maxBombs") == (int)Field("baseMaxBombs") + 3
             && (int)Field("blastRange") == (int)Field("baseBlastRange") + 3
             && state.cheatBombUps == 1 && state.cheatFireUps == 2 && state.cheatSpeedUps == 0,
-            "Death preserves Bomb Up and Fire Up even when granted by cheats");
+            "Death preserves Bomb Up and Fire Up even when granted by cheats, and loses Speed Up");
         manager.LoadStage(1);
         SetField("powerUpState", new PowerUpState());
         SetField("maxBombs", Field("baseMaxBombs"));
