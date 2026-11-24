@@ -14,6 +14,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private const float ExitDoorHitCooldownSeconds = 1f;
     private const int ExitDoorBaseWaveSize = 3;
     private const int ExitDoorMaximumIncrease = 9;
+    private const float BurningWallBarrierSeconds = 0.15f;
     private const string CheatMenuCode = "CHEAT";
 
     private enum PlayerDeathCause
@@ -1473,8 +1474,16 @@ public sealed class BombermanPrototype : MonoBehaviour
         int step = Mathf.Abs(cell.x - origin.x) + Mathf.Abs(cell.y - origin.y);
         GameObject blast = BlastEffects.CreateFire($"Explosion {cell.x},{cell.y}", map.CellToWorld(cell), step);
         blast.transform.SetParent(stageRoot.transform, true);
-        yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
-        if (openedWall) burningWallCells.Remove(cell);
+        if (openedWall)
+        {
+            yield return WaitForGameplaySeconds(BurningWallBarrierSeconds + step * BlastEffects.SpreadDelay);
+            burningWallCells.Remove(cell);
+            yield return WaitForGameplaySeconds(Mathf.Max(0f, BlastEffects.Duration - BurningWallBarrierSeconds));
+        }
+        else
+        {
+            yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
+        }
         Destroy(blast);
     }
 
