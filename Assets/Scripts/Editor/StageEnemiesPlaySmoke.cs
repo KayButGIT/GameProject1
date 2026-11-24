@@ -18,6 +18,8 @@ public static class StageEnemiesPlaySmoke
     private static double lastExitSpawnTime;
     private static int lastExitEnemyCount;
     private static int staggeredExitSpawnCount;
+    private static Vector2Int powerUpBlastOrigin;
+    private static GameObject uncoveringFlame;
     private static bool failed;
 
     public static void Run()
@@ -125,12 +127,13 @@ public static class StageEnemiesPlaySmoke
     private static void CheckPowerUpAndCheatRules()
     {
         Check(GameObject.Find("Open Cheat Menu") != null, "Optional HUD cheat button is created when enabled");
+        game.OpenCheatMenu();
         RectTransform panelRect = GameObject.Find("Cheat Panel").GetComponent<RectTransform>();
         RectTransform titleRect = GameObject.Find("Cheat Menu Title").GetComponent<RectTransform>();
-        Check(panelRect.sizeDelta == new Vector2(700f, 700f), "Cheat panel fits the stage selector and power-up controls");
+        Check(panelRect.rect.Contains(panelRect.InverseTransformPoint(GameObject.Find("Cheat MYSTERY").transform.position)),
+            "Cheat panel fits its last row of power-ups");
         Check(Mathf.Approximately(titleRect.anchorMin.x, 0.5f) && Mathf.Approximately(titleRect.anchorMax.x, 0.5f),
             "Cheat title is centered within the panel");
-        game.OpenCheatMenu();
         Check(game.IsPaused && GameObject.Find("Cheat Panel").activeSelf, "Cheat button opens a pausing panel");
         InputField stageInput = GameObject.Find("Stage Number Input").GetComponent<InputField>();
         Check(stageInput.contentType == InputField.ContentType.IntegerNumber && GameObject.Find("Go To Stage Cheat") != null,
@@ -138,7 +141,7 @@ public static class StageEnemiesPlaySmoke
         Check(GameObject.Find("Reveal Power Up Location Cheat") != null, "Cheat panel provides the reveal-location action");
         Check(GameObject.Find("Reveal Exit Door Cheat") != null, "Cheat panel provides the reveal-exit action");
         game.CloseCheatMenu();
-        Check(!game.IsPaused && !GameObject.Find("Cheat Panel").activeSelf, "Closing cheat panel restores gameplay");
+        Check(!game.IsPaused && !panelRect.gameObject.activeSelf, "Closing cheat panel restores gameplay");
         Check(!game.CheatGoToStage(0, out _) && manager.CurrentStage == 1, "Stage selector rejects stage zero");
         Check(game.CheatGoToStage(2, out _) && manager.CurrentStage == 2, "Stage selector loads the requested stage");
         manager.LoadStage(1);
@@ -366,8 +369,19 @@ public static class StageEnemiesPlaySmoke
                 Check(powerUpVisual.Find("Outline Shell") == null
                     && powerUpVisual.Cast<Transform>().Count(child => child.name == "Square Outline Edge") == 4,
                     "Power-up highlight is a flat four-edge square");
-                int survivingEnemiesBeforeWave = Living.Length;
                 Invoke("Explode", blastOrigin);
+                Check(((List<PowerUp>)Field("powerUps")).Count == 1 && (int)Field("pendingPowerUpEnemySpawns") == 0,
+                    "An overlapping blast leaves the newly revealed power-up intact");
+                uncoveringFlame = GameObject.Find($"Explosion {itemCell.x},{itemCell.y}");
+                Check(uncoveringFlame != null, "Uncovering flame is visible on the power-up cell");
+                powerUpBlastOrigin = blastOrigin;
+                phase = 8;
+            }
+            else if (phase == 8 && uncoveringFlame == null)
+            {
+                Vector2Int itemCell = ((List<PowerUp>)Field("powerUps")).Single().Cell;
+                int survivingEnemiesBeforeWave = Living.Length;
+                Invoke("Explode", powerUpBlastOrigin);
                 Check(((List<PowerUp>)Field("powerUps")).Count == 0, "Later blast destroys the revealed power-up");
                 Check(GrassVisibleAt(itemCell), "Grass is restored when a revealed power-up is destroyed by a blast");
                 Check(Living.Length == survivingEnemiesBeforeWave && (int)Field("pendingPowerUpEnemySpawns") == 1,
@@ -375,7 +389,7 @@ public static class StageEnemiesPlaySmoke
                 phase = 1;
                 deadline = EditorApplication.timeSinceStartup + 3.0;
             }
-            else if (phase == 1)
+            else if (phase == 1 && EditorApplication.timeSinceStartup >= deadline)
             {
                 Check(Living.Length == 7 && Living.Count(e => e.name.Contains("(Power-up)")) == 1
                     && (int)Field("pendingPowerUpEnemySpawns") == 0,

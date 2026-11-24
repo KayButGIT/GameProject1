@@ -9,6 +9,7 @@ using UnityEngine;
 public static class ExitDoorPlaySmoke
 {
     private const string Running = "Bomberman.ExitDoorSmoke";
+    private const string StackedBombsOnly = "Bomberman.StackedBombsOnly";
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static BombermanPrototype game;
     private static StageManager manager;
@@ -17,6 +18,12 @@ public static class ExitDoorPlaySmoke
     private static int scoreBeforeTransition, livesBeforeTransition;
     private static double deadline, watchdog;
     private static bool failed;
+
+    public static void RunStackedBombsAndCheats()
+    {
+        SessionState.SetBool(StackedBombsOnly, true);
+        Run();
+    }
 
     public static void Run()
     {
@@ -123,6 +130,27 @@ public static class ExitDoorPlaySmoke
         player.transform.position = position;
     }
 
+    private static void CheckStackedBombsAtPowerUp()
+    {
+        int row = Map.ExitDoor.Cell.y == 1 ? 5 : 1;
+        Vector2Int farBomb = new(2, row), nearBomb = new(3, row);
+        Vector2Int firstWall = new(4, row), behind = new(5, row);
+        var cells = (Dictionary<Vector2Int, CellKind>)typeof(BombermanMap).GetField("cells", Private).GetValue(Map);
+        cells[nearBomb] = CellKind.Empty;
+        cells[firstWall] = cells[behind] = CellKind.Destructible;
+        typeof(BombermanPrototype).GetField("hasHiddenPowerUp", Private).SetValue(game, true);
+        typeof(BombermanPrototype).GetField("hiddenPowerUpCell", Private).SetValue(game, firstWall);
+        EnemyController enemy = All<EnemyController>().First(e => !e.IsDead);
+        enemy.Cell = behind;
+        Call("Explode", farBomb);
+        Call("Explode", nearBomb);
+        var items = (List<PowerUp>)typeof(BombermanPrototype).GetField("powerUps", Private).GetValue(game);
+        Check(Map.GetCellKind(firstWall) == CellKind.Empty && items.Any(p => p.Cell == firstWall), "Stacked bombs uncover and preserve the power-up");
+        Check(Map.GetCellKind(behind) == CellKind.Destructible && !enemy.IsDead, "The second bomb cannot hit the next wall or enemy");
+        Check((int)typeof(BombermanPrototype).GetField("pendingPowerUpEnemySpawns", Private).GetValue(game) == 0,
+            "Overlapping blasts do not queue a power-up enemy");
+    }
+
     private static void Tick()
     {
         try
@@ -139,6 +167,7 @@ public static class ExitDoorPlaySmoke
                 doorCell = Map.ExitDoor.Cell;
                 Check(Map.GetCellKind(doorCell) == CellKind.Destructible && !Map.ExitDoor.IsRevealed && !Map.ExitDoor.gameObject.activeSelf, "Exit hidden under a breakable block");
                 Check(!ExitHighlightVisible, "Hidden exit highlight starts inactive");
+                CheckStackedBombsAtPowerUp();
                 manager.RestartStage();
                 Check(Map.ExitDoor.Cell == doorCell && !Map.ExitDoor.IsRevealed, "Restart keeps the exit cell");
                 Check(!ExitOpenPlayed, "Loading a stage resets the exit-open one-shot guard");
@@ -156,18 +185,20 @@ public static class ExitDoorPlaySmoke
                 Check(Map.ExitDoor.IsRevealed && Map.ExitDoor.gameObject.activeSelf && Map.IsWalkable(doorCell), "Blast uncovers the exit");
                 Check(!ExitHighlightVisible, "Revealed but locked exit has no highlight");
                 Check(PendingWaves == 0, "Uncovering blast releases no enemies");
+                Call("Explode", neighbor);
+                Check(PendingWaves == 0, "A simultaneous blast cannot hit the newly uncovered exit");
                 Teleport(doorCell);
                 phase = 10;
-                // Let the uncovering blast's flames expire before checking where the next blast reaches.
-                deadline = EditorApplication.timeSinceStartup + 1.6;
             }
-            else if (phase == 10 && EditorApplication.timeSinceStartup >= deadline)
+            else if (phase == 10 && !game.IsPaused)
             {
-                Check(!game.IsPaused && !GameObject.Find("Transition Canvas").activeSelf, "Stage card fades away after its hold");
+                Check(GameObject.Find("Transition Canvas") == null, "Stage card fades away after its hold");
+                Call("Explode", neighbor);
+                Check(PendingWaves == 0, "A later blast is still blocked while the first flame is visible");
+                CheckStatCheats();
                 phase = 1;
-                deadline = EditorApplication.timeSinceStartup + 0.1;
             }
-            else if (phase == 1 && EditorApplication.timeSinceStartup >= deadline)
+            else if (phase == 1 && GameObject.Find($"Explosion {doorCell.x},{doorCell.y}") == null)
             {
                 Check(!Map.ExitDoor.IsOpen && !game.IsStageClearing && game.HasLivingPlayer, "Locked exit ignores the player");
                 Vector2Int[] corners = { new(1, 1), new(7, 5) };
@@ -178,6 +209,12 @@ public static class ExitDoorPlaySmoke
                 Call("Explode", neighbor);
                 Check(PendingWaves == 1, "Blast on the revealed exit starts a wave");
                 Check(GameObject.Find($"Explosion {doorCell.x},{doorCell.y}") != null && GameObject.Find($"Explosion {beyond.x},{beyond.y}") == null, "Flames stop at the revealed exit");
+                Debug.Log("STACKED_BOMB_AND_STAT_CHEATS_PASS");
+                if (SessionState.GetBool(StackedBombsOnly, false))
+                {
+                    Finish(0);
+                    return;
+                }
                 phase = 2;
             }
             else if (phase == 2 && PendingWaves == 0)
@@ -243,7 +280,7 @@ public static class ExitDoorPlaySmoke
                 manager.LoadStage(1);
                 Check(Map.ExitDoor.Cell == new Vector2Int(7, 5) && Map.ExitDoor.IsRevealed, "Open layout shows the exit in the far corner");
                 Check(Map.ExitDoor.gameObject.activeSelf && !ExitHighlightVisible, "Visible-from-start exit stays unhighlighted while locked");
-                typeof(BombermanPrototype).GetField("livesLeft", Private).SetValue(game, 1);
+                game.CheatSetLives(0);
                 phase = 11;
                 deadline = EditorApplication.timeSinceStartup + 1.6;
             }
@@ -263,7 +300,7 @@ public static class ExitDoorPlaySmoke
                     return;
                 }
 
-                Check((int)typeof(BombermanPrototype).GetField("livesLeft", Private).GetValue(game) == 0, "Game Over appears when lives reach zero");
+                Check(game.LivesLeft < 0, "Death with LEFT 0 triggers Game Over");
                 phase = 13;
                 deadline = EditorApplication.timeSinceStartup + 0.6;
             }
@@ -326,6 +363,38 @@ public static class ExitDoorPlaySmoke
         catch (Exception exception) { Debug.LogException(exception); Finish(1); }
     }
 
+    private static void CheckStatCheats()
+    {
+        int initialScore = game.Score;
+        int initialLives = game.LivesLeft;
+        game.OpenCheatMenu();
+        var score = GameObject.Find("Score Input").GetComponent<UnityEngine.UI.InputField>();
+        var lives = GameObject.Find("Left Input").GetComponent<UnityEngine.UI.InputField>();
+        var setScore = GameObject.Find("Set Score Cheat").GetComponent<UnityEngine.UI.Button>();
+        var setLives = GameObject.Find("Set Left Cheat").GetComponent<UnityEngine.UI.Button>();
+        score.text = "1234";
+        setScore.onClick.Invoke();
+        lives.text = "0";
+        setLives.onClick.Invoke();
+        Check(game.Score == 1234 && game.LivesLeft == 0 && game.HasLivingPlayer, "Set Score and Set Left update the run");
+        Check(GameObject.Find("Stage HUD Canvas/Score Text").GetComponent<UnityEngine.UI.Text>().text == "SCORE 1234" &&
+            GameObject.Find("Stage HUD Canvas/Lives Text").GetComponent<UnityEngine.UI.Text>().text == "LEFT 0", "Both values update on HUD");
+        foreach (string invalid in new[] { "", "-1", "2147483648" })
+        {
+            score.text = invalid;
+            setScore.onClick.Invoke();
+            Check(game.Score == 1234 && GameObject.Find("Stage Number Feedback").GetComponent<UnityEngine.UI.Text>().text.Length > 0,
+                "Invalid score keeps the previous value and displays feedback");
+        }
+        game.CloseCheatMenu();
+        game.AddScore(5);
+        game.OpenCheatMenu();
+        Check(score.text == "1239" && lives.text == "0", "Reopening the menu reads current gameplay values");
+        game.CheatSetScore(initialScore);
+        game.CheatSetLives(initialLives);
+        game.CloseCheatMenu();
+    }
+
     private static bool TransitionCard(string text)
     {
         GameObject canvas = GameObject.Find("Transition Canvas");
@@ -343,6 +412,7 @@ public static class ExitDoorPlaySmoke
     private static void Finish(int code)
     {
         SessionState.SetBool(Running, false);
+        SessionState.EraseBool(StackedBombsOnly);
         EditorApplication.update -= Tick;
         Application.logMessageReceived -= Log;
         Time.timeScale = 1f;

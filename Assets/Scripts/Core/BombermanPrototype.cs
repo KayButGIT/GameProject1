@@ -242,6 +242,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     private int score;
     private PowerUpState powerUpState = new();
     private readonly List<PowerUp> powerUps = new();
+    private readonly HashSet<Vector2Int> burningWallCells = new();
     private int baseMaxBombs;
     private int baseBlastRange;
     private int bombSequence;
@@ -262,6 +263,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     public bool GodModeEnabled => godMode;
     public Vector2Int PlayerCell => player != null ? player.Cell : Vector2Int.zero;
     public int Score => score;
+    public int LivesLeft => livesLeft;
     public PowerUpState PowerUps => powerUpState;
     public bool IsInvincible => godMode || mysteryTimeLeft > 0f;
     public int CurrentStageNumber => stageManager != null ? stageManager.CurrentStage : 1;
@@ -365,6 +367,7 @@ public sealed class BombermanPrototype : MonoBehaviour
             Destroy(stageRoot);
         }
         bombs.Clear();
+        burningWallCells.Clear();
         actors.Clear();
         activeBombs = 0;
         player = null;
@@ -981,7 +984,7 @@ public sealed class BombermanPrototype : MonoBehaviour
                 {
                     Vector2Int cell = bomb.Cell + direction * step;
                     CellKind kind = map.GetCellKind(cell);
-                    if (kind == CellKind.None || kind == CellKind.Solid) break;
+                    if (kind == CellKind.None || kind == CellKind.Solid || burningWallCells.Contains(cell)) break;
                     if (cell == target) return true;
                     if (kind == CellKind.Destructible || IsRevealedExit(cell)) break;
                 }
@@ -1216,14 +1219,16 @@ public sealed class BombermanPrototype : MonoBehaviour
         HashSet<PowerUp> powerUpsPresentBeforeBlast = new(powerUps);
         // Only an exit that was already visible reacts; the blast that uncovers it does not.
         bool exitWasRevealed = exitDoor != null && exitDoor.IsRevealed;
-        List<Vector2Int> blastCells = new() { origin };
+        List<Vector2Int> blastCells = new();
+        if (!burningWallCells.Contains(origin)) blastCells.Add(origin);
+        HashSet<Vector2Int> wallsOpenedByBlast = new();
         foreach (Vector2Int direction in Directions)
         {
             for (int step = 1; step <= blastRange; step++)
             {
                 Vector2Int cell = origin + direction * step;
                 CellKind kind = map.GetCellKind(cell);
-                if (kind == CellKind.None || kind == CellKind.Solid)
+                if (kind == CellKind.None || kind == CellKind.Solid || burningWallCells.Contains(cell))
                 {
                     break;
                 }
@@ -1234,6 +1239,8 @@ public sealed class BombermanPrototype : MonoBehaviour
                 }
                 if (kind == CellKind.Destructible)
                 {
+                    burningWallCells.Add(cell);
+                    wallsOpenedByBlast.Add(cell);
                     Material debrisMaterial = map.GetBlockMaterial(cell);
                     if (debrisMaterial == null)
                     {
@@ -1264,7 +1271,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         SoundManager.Instance?.PlayBombExplode();
         foreach (Vector2Int cell in blastCells)
         {
-            StartCoroutine(ShowExplosion(cell, origin));
+            StartCoroutine(ShowExplosion(cell, origin, wallsOpenedByBlast.Contains(cell)));
             DamageActorsAt(cell, origin);
         }
 
@@ -1461,12 +1468,13 @@ public sealed class BombermanPrototype : MonoBehaviour
         return true;
     }
 
-    private IEnumerator ShowExplosion(Vector2Int cell, Vector2Int origin)
+    private IEnumerator ShowExplosion(Vector2Int cell, Vector2Int origin, bool openedWall)
     {
         int step = Mathf.Abs(cell.x - origin.x) + Mathf.Abs(cell.y - origin.y);
         GameObject blast = BlastEffects.CreateFire($"Explosion {cell.x},{cell.y}", map.CellToWorld(cell), step);
         blast.transform.SetParent(stageRoot.transform, true);
         yield return WaitForGameplaySeconds(BlastEffects.Duration + step * BlastEffects.SpreadDelay);
+        if (openedWall) burningWallCells.Remove(cell);
         Destroy(blast);
     }
 
@@ -1996,6 +2004,20 @@ public sealed class BombermanPrototype : MonoBehaviour
         return exitDoor.IsRevealed;
     }
 
+    public void CheatSetScore(int value)
+    {
+        if (value < 0) return;
+        score = value;
+        stageHud.SetScore(score);
+    }
+
+    public void CheatSetLives(int value)
+    {
+        if (value < 0) return;
+        livesLeft = value;
+        stageHud.SetLives(livesLeft);
+    }
+
     // Score for one kill, by enemy type. Unknown types give 0.
     private int GetEnemyScore(GridController actor)
     {
@@ -2017,7 +2039,7 @@ public sealed class BombermanPrototype : MonoBehaviour
     public void AddScore(int amount)
     {
         if (amount == 0) return;
-        score += amount;
+        score = (int)System.Math.Min(int.MaxValue, (long)score + amount);
         stageHud.SetScore(score);
     }
 
@@ -2104,7 +2126,7 @@ public sealed class BombermanPrototype : MonoBehaviour
         // Clearing a stage grants an extra life, the "Left" system's reward for finishing a stage.
         if (stageClearLifeBonus > 0)
         {
-            livesLeft += stageClearLifeBonus;
+            livesLeft = (int)System.Math.Min(int.MaxValue, (long)livesLeft + stageClearLifeBonus);
             stageHud.SetLives(livesLeft);
         }
 

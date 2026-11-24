@@ -11,16 +11,20 @@ public sealed class CheatMenu
     private readonly Button nextStageButton;
     private readonly Button godModeButton;
     private readonly InputField stageNumberInput;
+    private readonly InputField scoreInput;
+    private readonly InputField livesInput;
     private readonly Text stageFeedback;
 
     private CheatMenu(BombermanPrototype game, GameObject panel, Button nextStageButton, Button godModeButton,
-        InputField stageNumberInput, Text stageFeedback)
+        InputField stageNumberInput, InputField scoreInput, InputField livesInput, Text stageFeedback)
     {
         this.game = game;
         this.panel = panel;
         this.nextStageButton = nextStageButton;
         this.godModeButton = godModeButton;
         this.stageNumberInput = stageNumberInput;
+        this.scoreInput = scoreInput;
+        this.livesInput = livesInput;
         this.stageFeedback = stageFeedback;
     }
 
@@ -51,7 +55,7 @@ public sealed class CheatMenu
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
         panelRect.anchoredPosition = Vector2.zero;
-        panelRect.sizeDelta = new Vector2(700f, 700f);
+        panelRect.sizeDelta = new Vector2(700f, 780f);
         Image panelImage = panelObject.AddComponent<Image>();
         panelImage.color = Color.black;
 
@@ -81,11 +85,12 @@ public sealed class CheatMenu
             new Vector2(0f, -184f), new Vector2(200f, 52f), 18);
         killAllEnemies.onClick.AddListener(game.CheatKillAllEnemies);
 
-        InputField stageNumber = CreateStageNumberInput(panelObject.transform);
+        InputField stageNumber = CreateNumberInput(panelObject.transform, "Stage Number", -252f);
+        stageNumber.characterLimit = 8;
         Button goToStage = CreateButton(panelObject.transform, "Go To Stage Cheat", "GO", new Vector2(0.5f, 1f),
             new Vector2(192f, -252f), new Vector2(150f, 52f), 24);
         Text stageFeedback = CreateText(panelObject.transform, "Stage Number Feedback", string.Empty, new Vector2(0.5f, 1f),
-            new Vector2(0f, -290f), new Vector2(570f, 26f), 16, FontStyle.Normal, TextAnchor.MiddleCenter);
+            new Vector2(0f, -418f), new Vector2(570f, 26f), 16, FontStyle.Normal, TextAnchor.MiddleCenter);
         stageFeedback.color = new Color(1f, 0.62f, 0.62f);
         goToStage.onClick.AddListener(() =>
         {
@@ -101,8 +106,10 @@ public sealed class CheatMenu
             }
         });
 
+        InputField score = CreateStatRow(panelObject.transform, "Score", -316f, game.CheatSetScore, stageFeedback);
+        InputField lives = CreateStatRow(panelObject.transform, "Left", -380f, game.CheatSetLives, stageFeedback);
         Button godMode = CreateButton(panelObject.transform, "God Mode Cheat", "GOD MODE: OFF", new Vector2(0.5f, 1f),
-            new Vector2(0f, -332f), new Vector2(620f, 54f), 24);
+            new Vector2(0f, -464f), new Vector2(620f, 54f), 24);
         godMode.onClick.AddListener(() =>
         {
             game.ToggleGodMode();
@@ -116,14 +123,14 @@ public sealed class CheatMenu
             int row = i / 2;
             string label = LabelFor(types[i]);
             Button powerUpButton = CreateButton(panelObject.transform, $"Cheat {label}", label,
-                new Vector2(0.5f, 1f), new Vector2(column == 0 ? -158f : 158f, -406f - row * 68f),
+                new Vector2(0.5f, 1f), new Vector2(column == 0 ? -158f : 158f, -536f - row * 68f),
                 new Vector2(300f, 54f), 23);
             PowerUpType type = types[i];
             powerUpButton.onClick.AddListener(() => game.CheatGrantPowerUp(type));
         }
 
         panelObject.SetActive(false);
-        return new CheatMenu(game, panelObject, nextStage, godMode, stageNumber, stageFeedback);
+        return new CheatMenu(game, panelObject, nextStage, godMode, stageNumber, score, lives, stageFeedback);
     }
 
     public void SetVisible(bool visible)
@@ -134,32 +141,53 @@ public sealed class CheatMenu
         nextStageButton.interactable = !game.IsLastStage;
         godModeButton.GetComponentInChildren<Text>().text = game.GodModeEnabled ? "GOD MODE: ON" : "GOD MODE: OFF";
         stageNumberInput.text = game.CurrentStageNumber.ToString();
+        scoreInput.text = game.Score.ToString();
+        livesInput.text = game.LivesLeft.ToString();
         stageFeedback.text = string.Empty;
     }
 
-    private static InputField CreateStageNumberInput(Transform parent)
+    private static InputField CreateStatRow(Transform parent, string name, float y, Action<int> apply, Text feedback)
     {
-        GameObject inputObject = new("Stage Number Input", typeof(RectTransform), typeof(CanvasRenderer));
+        InputField input = CreateNumberInput(parent, name, y);
+        string label = name.ToUpperInvariant();
+        Button button = CreateButton(parent, $"Set {name} Cheat", $"SET {label}", new Vector2(0.5f, 1f),
+            new Vector2(192f, y), new Vector2(150f, 52f), 21);
+        button.onClick.AddListener(() =>
+        {
+            if (!int.TryParse(input.text, out int value) || value < 0)
+            {
+                feedback.text = $"{label} MUST BE A WHOLE NUMBER FROM 0 TO {int.MaxValue}";
+                return;
+            }
+            apply(value);
+            input.text = value.ToString();
+            feedback.text = string.Empty;
+        });
+        return input;
+    }
+
+    private static InputField CreateNumberInput(Transform parent, string name, float y)
+    {
+        GameObject inputObject = new(name + " Input", typeof(RectTransform), typeof(CanvasRenderer));
         inputObject.transform.SetParent(parent, false);
         RectTransform rect = inputObject.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-80f, -252f);
+        rect.anchoredPosition = new Vector2(-80f, y);
         rect.sizeDelta = new Vector2(360f, 52f);
 
         Image background = inputObject.AddComponent<Image>();
         background.color = new Color(0.10f, 0.10f, 0.10f, 1f);
         InputField input = inputObject.AddComponent<InputField>();
-        Text valueText = CreateText(inputObject.transform, "Stage Number Text", string.Empty, Vector2.zero,
+        Text valueText = CreateText(inputObject.transform, name + " Text", string.Empty, Vector2.zero,
             Vector2.zero, Vector2.zero, 24, FontStyle.Bold, TextAnchor.MiddleCenter, stretch: true);
-        Text placeholder = CreateText(inputObject.transform, "Stage Number Placeholder", "STAGE NUMBER", Vector2.zero,
+        Text placeholder = CreateText(inputObject.transform, name + " Placeholder", name.ToUpperInvariant(), Vector2.zero,
             Vector2.zero, Vector2.zero, 20, FontStyle.Normal, TextAnchor.MiddleCenter, stretch: true);
         placeholder.color = new Color(0.74f, 0.74f, 0.74f, 0.8f);
         input.textComponent = valueText;
         input.placeholder = placeholder;
         input.contentType = InputField.ContentType.IntegerNumber;
         input.lineType = InputField.LineType.SingleLine;
-        input.characterLimit = 8;
         input.targetGraphic = background;
         return input;
     }
